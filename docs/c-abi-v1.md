@@ -22,6 +22,9 @@ operation + config[] + input[] -> output[]
 - `operation`、`config` 和 `input` 均使用以 NUL 结尾的 UTF-8 文本。
 - `config_count` 或 `input_count` 为 `0` 时，可将对应数组指针传为 `NULL`。
 - 数量非零时，对应数组及每一项字符串指针均不得为 `NULL`。
+- 两个数组是相互独立的参数通道。具体参数从哪个通道取值由节点的宏标注决定：未标注的
+  `InitDevice` 参数默认取 `config`，其他方法参数默认取 `input`；`#[miresidian::config]` 和
+  `#[miresidian::input]` 可以逐参数覆盖默认来源。因此不得仅依据操作名推断另一个数组必定为空。
 - 调用方必须把 `MiresidianOutputV1` 零初始化。
 - 返回 `MIRESIDIAN_STATUS_OK` 后，调用方读取 `output.values[0..output.count]`，并且必须调用 `miresidian_free_output_v1`。
 - 失败时不需要释放输出；读取 `miresidian_last_error_v1` 获取诊断文本。该文本由 DLL 管理，在当前线程的下一次 ABI 调用后可能失效，应立即复制。

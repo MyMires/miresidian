@@ -258,3 +258,75 @@ fn decode_flow_control(value: u8) -> DriverResult<FlowControl> {
 pub(super) fn failure(message: impl Into<String>) -> DriverError {
     DriverError::Failure(message.into())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{net::TcpListener, thread};
+
+    use super::*;
+
+    fn settings() -> SerialSettings {
+        SerialSettings {
+            port_name: "COM7".to_owned(),
+            baud_rate: 115_200,
+            data_bits: DataBits::Eight,
+            parity: Parity::None,
+            stop_bits: StopBits::One,
+            flow_control: FlowControl::None,
+            timeout_ms: 800,
+        }
+    }
+
+    #[test]
+    fn 通信设置可无损往返编码() {
+        let original = settings();
+        assert_eq!(
+            decode_settings(&encode_settings(&original)).unwrap(),
+            original
+        );
+    }
+
+    #[test]
+    fn 截断的租约协议报错而不恐慌() {
+        assert!(decode_settings(&[0, 0, 0]).is_err());
+        assert!(decode_lease(&[0; 15]).is_err());
+        assert!(decode_query(&[0; 16]).is_err());
+    }
+
+    #[test]
+    fn 回环代理响应可被客户端正确解析() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (_, payload) = read_frame(&mut stream).unwrap();
+            assert_eq!(payload, "请求".as_bytes());
+            write_response(&mut stream, Ok("响应".as_bytes().to_vec())).unwrap();
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        assert_eq!(
+            request(&mut client, ACQUIRE, "请求".as_bytes()).unwrap(),
+            "响应".as_bytes()
+        );
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn 代理失败文本会转换为驱动错误() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = read_frame(&mut stream).unwrap();
+            write_response(&mut stream, Err(failure("租约不匹配"))).unwrap();
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        assert!(
+            request(&mut client, ACQUIRE, &[])
+                .unwrap_err()
+                .to_string()
+                .contains("租约不匹配")
+        );
+        server.join().unwrap();
+    }
+}

@@ -10,13 +10,27 @@ pub trait DeviceNode: Default + Send + 'static {
     /// 返回此节点类型的编译期元数据。
     fn descriptor() -> &'static NodeDescriptor;
 
-    /// 使用初始化配置建立设备连接。
-    fn init_device(&mut self, config: &[String]) -> DriverResult<InvocationOutput>;
+    /// 使用初始化调用建立设备连接。
+    ///
+    /// `config` 与 `input` 保留外部调用的两个独立参数通道。通常初始化参数来自
+    /// `config`；驱动方法将参数标注为 `#[miresidian::input]` 时，该参数改从
+    /// `input` 读取。两个切片的下标分别按各自通道中的参数顺序计算。
+    fn init_device(
+        &mut self,
+        config: &[String],
+        input: &[String],
+    ) -> DriverResult<InvocationOutput>;
 
     /// 释放节点持有的全部资源。
-    fn close_device(&mut self, input: &[String]) -> DriverResult<()>;
+    ///
+    /// 默认情况下关闭参数来自 `input`。节点作者可通过参数上的 `config` 或
+    /// `input` 标注指定实际通道，因此运行时必须原样传入两组参数。
+    fn close_device(&mut self, config: &[String], input: &[String]) -> DriverResult<()>;
 
     /// 在成功初始化后运行节点自定义操作。
+    ///
+    /// 未标注的操作参数默认来自 `input`。参数上的 `#[miresidian::config]` 可使
+    /// 该单个参数从 `config` 读取，二者可在同一操作中混用。
     fn invoke(
         &mut self,
         operation: &str,
@@ -26,8 +40,14 @@ pub trait DeviceNode: Default + Send + 'static {
 
     /// 使用临时节点实例探测端口。
     ///
+    /// 未标注参数默认来自 `input`，也可以通过方法参数标注改从 `config` 读取。
+    ///
     /// 返回 `Ok(None)` 表示旧版 `GetPortNO` 结果 `["0", ""]`。
-    fn get_port_no(&mut self, _input: &[String]) -> DriverResult<Option<String>> {
+    fn get_port_no(
+        &mut self,
+        _config: &[String],
+        _input: &[String],
+    ) -> DriverResult<Option<String>> {
         Ok(None)
     }
 }

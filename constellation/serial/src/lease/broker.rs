@@ -46,6 +46,8 @@ fn pin_broker_module() -> DriverResult<()> {
 
     const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 0x0000_0004;
     let mut module = core::ptr::null_mut();
+    // SAFETY: `FROM_ADDRESS` 模式要求第二个参数是当前模块内有效函数地址；
+    // `pin_broker_module` 满足该条件，`module` 是可写的局部输出指针。
     let succeeded = unsafe {
         GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
@@ -302,4 +304,30 @@ fn next_lease() -> [u8; 16] {
     id[..8].copy_from_slice(&timestamp.to_be_bytes());
     id[8..].copy_from_slice(&counter.to_be_bytes());
     id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn 未知租约无法访问代理状态() {
+        let registry = BrokerRegistry::default();
+        assert!(registry.write([0; 16], Vec::new()).is_err());
+        assert!(registry.read([0; 16], 1).is_err());
+        registry.release([0; 16]);
+    }
+
+    #[test]
+    fn 未知协议操作不会触碰物理串口() {
+        let registry = BrokerRegistry::default();
+        let mut leases = Vec::new();
+        assert!(handle_request(&registry, 255, &[], &mut leases).is_err());
+        assert!(leases.is_empty());
+    }
+
+    #[test]
+    fn 本地租约标识在连续分配时不同() {
+        assert_ne!(next_lease(), next_lease());
+    }
 }

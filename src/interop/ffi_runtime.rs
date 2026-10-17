@@ -33,6 +33,8 @@ pub unsafe fn invoke_v1<N: DeviceNode>(
     input_count: usize,
     output: *mut MiresidianOutputV1,
 ) -> MiresidianStatus {
+    // SAFETY: 此公开函数的调用方已承诺所有 ABI 指针、数组长度和 UTF-8 文本满足 v1
+    // 契约；`invoke` 在读取每个指针前仍执行空指针与文本校验。
     match catch_unwind(AssertUnwindSafe(|| unsafe {
         invoke(
             runtime,
@@ -64,16 +66,20 @@ pub unsafe fn invoke_v1<N: DeviceNode>(
 ///
 /// # Safety
 ///
-/// `output` 必须来自同一 DLL 的成功调用，且不得重复释放。
+/// `output` 必须来自同一 DLL 的成功调用。函数会在释放后将其重置为默认值，因此零初始化或已
+/// 重置的输出可安全再次传入；不得传入任意伪造的非空指针。
 pub unsafe fn free_output_v1(output: *mut MiresidianOutputV1) {
     if output.is_null() {
         return;
     }
+    // SAFETY: 非空指针的有效性是 `free_output_v1` 的调用前置条件，且只在本块中借用。
     let output = unsafe { &mut *output };
     if !output.values.is_null() {
+        // SAFETY: 成功调用仅以此精确长度和容量分配 `values`，释放后会立刻重置输出结构。
         let values = unsafe { Vec::from_raw_parts(output.values, output.count, output.count) };
         for value in values {
             if !value.is_null() {
+                // SAFETY: 数组中的非空元素均由 `CString::into_raw` 生成，所有权在此收回。
                 drop(unsafe { CString::from_raw(value) });
             }
         }
@@ -102,9 +108,13 @@ unsafe fn invoke<N: DeviceNode>(
     if output.is_null() {
         return Err("输出参数 output 不能为空".to_owned());
     }
+    // SAFETY: 已在函数开头拒绝空输出指针；调用方保证其指向可写的 ABI 结构。
     unsafe { *output = MiresidianOutputV1::default() };
+    // SAFETY: 各辅助函数根据 C ABI 契约读取 NUL 结尾字符串和数组，并在内部验证空指针。
     let operation = unsafe { copy_string(operation, "operation") }?;
+    // SAFETY: 同上；数量为零时允许空数组指针。
     let config = unsafe { copy_array(config, config_count, "config") }?;
+    // SAFETY: 同上；数量为零时允许空数组指针。
     let input = unsafe { copy_array(input, input_count, "input") }?;
     let result = runtime
         .get_or_init(|| Mutex::new(NodeRuntime::new()))
@@ -121,6 +131,8 @@ unsafe fn invoke<N: DeviceNode>(
         .into_iter()
         .map(CString::into_raw)
         .collect::<Vec<_>>();
+    // SAFETY: `values` 来自本函数的 Rust 分配，指针与长度将作为 ABI 输出移交并由
+    // `miresidian_free_output_v1` 使用完全相同的长度和容量回收。
     unsafe {
         *output = MiresidianOutputV1 {
             values: values.as_mut_ptr(),
@@ -136,6 +148,7 @@ unsafe fn copy_string(value: *const c_char, field: &str) -> Result<String, Strin
     if value.is_null() {
         return Err(format!("参数 {field} 不能为空"));
     }
+    // SAFETY: 调用方保证非空指针指向 NUL 结尾 C 字符串；随后立即复制为 Rust 字符串。
     unsafe { CStr::from_ptr(value) }
         .to_str()
         .map(str::to_owned)
@@ -154,7 +167,11 @@ unsafe fn copy_array(
         return Err(format!("参数 {field} 在数量非零时不能为空"));
     }
     (0..count)
-        .map(|index| unsafe { copy_string(*values.add(index), field) })
+        .map(|index| {
+            // SAFETY: 调用方保证 `values` 指向至少 `count` 个指针；每个元素的字符串
+            // 有效性继续由 `copy_string` 验证。
+            unsafe { copy_string(*values.add(index), field) }
+        })
         .collect()
 }
 

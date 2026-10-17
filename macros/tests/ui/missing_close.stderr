@@ -1,0 +1,7 @@
+error: 缺少 close_device 方法
+ --> tests/ui/missing_close.rs:6:1
+  |
+6 | / impl MissingClose {
+7 | |     fn init_device(&mut self) {}
+8 | | }
+  | |_^

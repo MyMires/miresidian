@@ -41,7 +41,11 @@ impl DeviceNode for MemoryNode {
         &DESCRIPTOR
     }
 
-    fn init_device(&mut self, config: &[String]) -> DriverResult<InvocationOutput> {
+    fn init_device(
+        &mut self,
+        config: &[String],
+        _input: &[String],
+    ) -> DriverResult<InvocationOutput> {
         if config.len() != 1 {
             return Err(DriverError::InvalidArgument {
                 field: "地址".to_owned(),
@@ -51,7 +55,7 @@ impl DeviceNode for MemoryNode {
         Ok(InvocationOutput::new(vec!["已连接".to_owned()]))
     }
 
-    fn close_device(&mut self, _input: &[String]) -> DriverResult<()> {
+    fn close_device(&mut self, _config: &[String], _input: &[String]) -> DriverResult<()> {
         Ok(())
     }
 
@@ -71,7 +75,11 @@ impl DeviceNode for MemoryNode {
         }
     }
 
-    fn get_port_no(&mut self, _input: &[String]) -> DriverResult<Option<String>> {
+    fn get_port_no(
+        &mut self,
+        _config: &[String],
+        _input: &[String],
+    ) -> DriverResult<Option<String>> {
         Ok(Some("COM7".to_owned()))
     }
 }

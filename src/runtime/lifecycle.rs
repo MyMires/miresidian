@@ -26,9 +26,9 @@ impl<N: DeviceNode> NodeRuntime<N> {
             GET_INIT_CONFIG_OPERATION => Ok(InvocationOutput::new(
                 N::descriptor().init_config_definitions(),
             )),
-            GET_PORT_NO_OPERATION => self.get_port_no(&invocation.input),
-            INIT_DEVICE_OPERATION => self.init_device(&invocation.config),
-            CLOSE_DEVICE_OPERATION => self.close_device(&invocation.input),
+            GET_PORT_NO_OPERATION => self.get_port_no(&invocation.config, &invocation.input),
+            INIT_DEVICE_OPERATION => self.init_device(&invocation.config, &invocation.input),
+            CLOSE_DEVICE_OPERATION => self.close_device(&invocation.config, &invocation.input),
             operation => self.invoke_node(operation, &invocation.config, &invocation.input),
         }
     }
@@ -38,33 +38,45 @@ impl<N: DeviceNode> NodeRuntime<N> {
         self.current.is_some()
     }
 
-    fn init_device(&mut self, config: &[String]) -> DriverResult<InvocationOutput> {
-        self.close_device(&[])?;
+    fn init_device(
+        &mut self,
+        config: &[String],
+        input: &[String],
+    ) -> DriverResult<InvocationOutput> {
+        self.close_device(&[], &[])?;
 
         let mut candidate = N::default();
-        match candidate.init_device(config) {
+        match candidate.init_device(config, input) {
             Ok(output) => {
                 self.current = Some(candidate);
                 Ok(output)
             }
             Err(error) => {
-                let _ = candidate.close_device(&[]);
+                let _ = candidate.close_device(&[], &[]);
                 Err(error)
             }
         }
     }
 
-    fn close_device(&mut self, input: &[String]) -> DriverResult<InvocationOutput> {
+    fn close_device(
+        &mut self,
+        config: &[String],
+        input: &[String],
+    ) -> DriverResult<InvocationOutput> {
         if let Some(mut current) = self.current.take() {
-            current.close_device(input)?;
+            current.close_device(config, input)?;
         }
         Ok(InvocationOutput::empty())
     }
 
-    fn get_port_no(&mut self, input: &[String]) -> DriverResult<InvocationOutput> {
+    fn get_port_no(
+        &mut self,
+        config: &[String],
+        input: &[String],
+    ) -> DriverResult<InvocationOutput> {
         let mut probe = N::default();
-        let port = probe.get_port_no(input);
-        let _ = probe.close_device(&[]);
+        let port = probe.get_port_no(config, input);
+        let _ = probe.close_device(&[], &[]);
 
         match port? {
             Some(port) => Ok(InvocationOutput::new(vec!["1".to_owned(), port])),

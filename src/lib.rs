@@ -1,6 +1,37 @@
 //! Miresidian 是供测试平台加载设备节点的运行时框架。
 //!
 //! 当前基础层定义稳定的调用契约与生命周期行为；属性宏和 C ABI 将在此基础上实现。
+//!
+//! # 节点声明示例
+//!
+//! 下例是一个最小可发布节点。驱动作者只声明状态与方法标注；函数列表、类型转换、生命周期
+//! 调度和 DLL 的 C ABI 导出均由宏生成。
+//!
+//! ```no_run
+//! use miresidian::DriverResult;
+//!
+//! #[miresidian::node("示例节点")]
+//! #[derive(Default)]
+//! struct ExampleNode;
+//!
+//! #[miresidian::node_impl]
+//! impl ExampleNode {
+//!     #[miresidian::output("状态")]
+//!     fn init_device(&mut self) -> DriverResult<String> {
+//!         Ok("已连接".to_owned())
+//!     }
+//!
+//!     fn close_device(&mut self) -> DriverResult<()> {
+//!         Ok(())
+//!     }
+//!
+//!     #[miresidian::operation("回显")]
+//!     #[miresidian::output("接收文本")]
+//!     fn echo(&mut self, #[miresidian::input("发送文本")] text: String) -> DriverResult<String> {
+//!         Ok(text)
+//!     }
+//! }
+//! ```
 
 mod foundation;
 pub mod interop;

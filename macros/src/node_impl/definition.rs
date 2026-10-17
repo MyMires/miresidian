@@ -21,6 +21,16 @@ pub(super) struct Parameter {
     pub(super) ty: Type,
     pub(super) name: LitStr,
     pub(super) default: Option<LitStr>,
+    pub(super) source: ParameterSource,
+}
+
+/// 参数应从外部 `invoke` 的哪个数组读取。
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ParameterSource {
+    /// 从 `config` 数组读取。
+    Config,
+    /// 从 `input` 数组读取。
+    Input,
 }
 /// 固定的初始化方法；其参数在平台侧属于 Config。
 pub(super) struct InitMethod {
@@ -43,6 +53,18 @@ pub(super) struct FixedMethod {
 
 /// 从 `impl` 块提取各类节点方法，并移除仅供编译期使用的属性。
 pub(super) fn parse(item_impl: &mut ItemImpl) -> Result<NodeDefinition> {
+    if item_impl.trait_.is_some() {
+        return Err(Error::new_spanned(
+            &*item_impl,
+            "#[node_impl] 只能标注在节点结构体的固有 impl 块上，不能标注 trait impl",
+        ));
+    }
+    if !item_impl.generics.params.is_empty() {
+        return Err(Error::new_spanned(
+            &item_impl.generics,
+            "#[node_impl] 暂不支持带泛型参数的 impl；请为每个具体节点类型声明独立 impl",
+        ));
+    }
     let mut init_method = None;
     let mut close_method = None;
     let mut port_probe_method = None;
@@ -89,7 +111,7 @@ fn parse_init(method: &mut ImplItemFn) -> Result<InitMethod> {
     require_mut_receiver(method)?;
     Ok(InitMethod {
         method: method.sig.ident.clone(),
-        parameters: parse_parameters(method, "config")?,
+        parameters: parse_parameters(method, ParameterSource::Config)?,
         outputs: take_output(&mut method.attrs, &method.sig.output)?,
     })
 }
@@ -98,7 +120,7 @@ fn parse_operation(method: &mut ImplItemFn, name: LitStr) -> Result<OperationMet
     Ok(OperationMethod {
         method: method.sig.ident.clone(),
         name,
-        parameters: parse_parameters(method, "input")?,
+        parameters: parse_parameters(method, ParameterSource::Input)?,
         outputs: take_output(&mut method.attrs, &method.sig.output)?,
     })
 }
@@ -106,7 +128,7 @@ fn parse_fixed(method: &mut ImplItemFn) -> Result<FixedMethod> {
     require_mut_receiver(method)?;
     Ok(FixedMethod {
         method: method.sig.ident.clone(),
-        parameters: parse_parameters(method, "input")?,
+        parameters: parse_parameters(method, ParameterSource::Input)?,
     })
 }
 fn require_mut_receiver(method: &ImplItemFn) -> Result<()> {
@@ -121,7 +143,11 @@ fn require_mut_receiver(method: &ImplItemFn) -> Result<()> {
     }
     Ok(())
 }
-fn parse_parameters(method: &mut ImplItemFn, attribute_name: &str) -> Result<Vec<Parameter>> {
+/// 解析方法参数。未标注参数采用方法类别的默认来源；`config` 与 `input` 可逐参数覆盖。
+fn parse_parameters(
+    method: &mut ImplItemFn,
+    default_source: ParameterSource,
+) -> Result<Vec<Parameter>> {
     method
         .sig
         .inputs
@@ -131,50 +157,95 @@ fn parse_parameters(method: &mut ImplItemFn, attribute_name: &str) -> Result<Vec
             let FnArg::Typed(argument) = argument else {
                 return Err(Error::new_spanned(argument, "只允许一个 self 接收者"));
             };
-            let (name, default) = match take_attribute(&mut argument.attrs, attribute_name) {
-                Some(attribute) => split_definition(&one_name(&attribute, attribute_name)?),
-                None => (parameter_name(argument)?, None),
+            let config = take_attribute(&mut argument.attrs, "config");
+            let input = take_attribute(&mut argument.attrs, "input");
+            if config.is_some() && input.is_some() {
+                return Err(Error::new_spanned(
+                    argument,
+                    "同一参数不能同时标注 #[config] 和 #[input]",
+                ));
+            }
+            let (source, name, default) = match (config, input) {
+                (Some(attribute), None) => {
+                    let (name, default) = split_definition(&one_name(&attribute, "config")?);
+                    (ParameterSource::Config, name, default)
+                }
+                (None, Some(attribute)) => {
+                    let (name, default) = split_definition(&one_name(&attribute, "input")?);
+                    (ParameterSource::Input, name, default)
+                }
+                (None, None) => {
+                    let (name, default) = (parameter_name(argument)?, None);
+                    (default_source, name, default)
+                }
+                (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
             Ok(Parameter {
                 ty: (*argument.ty).clone(),
                 name,
                 default,
+                source,
             })
         })
         .collect()
 }
 fn take_output(attributes: &mut Vec<Attribute>, return_type: &ReturnType) -> Result<Vec<LitStr>> {
+    let expected_count = output_count(return_type);
     match take_attribute(attributes, "output") {
-        Some(attribute) => names(&attribute, "output"),
-        None if return_has_value(return_type) => {
-            Ok(vec![LitStr::new("返回值", proc_macro2::Span::call_site())])
+        Some(attribute) => {
+            let outputs = names(&attribute, "output")?;
+            if outputs.len() != expected_count {
+                return Err(Error::new_spanned(
+                    attribute,
+                    format!(
+                        "#[output] 声明了 {} 个输出名称，但该返回类型需要 {expected_count} 个输出名称",
+                        outputs.len()
+                    ),
+                ));
+            }
+            Ok(outputs)
         }
-        None => Ok(Vec::new()),
+        None => Ok(default_output_names(expected_count)),
     }
 }
-fn return_has_value(return_type: &ReturnType) -> bool {
+/// 返回类型会映射成多少个平台输出。
+///
+/// 标量、字符串与数组占一个输出；元组的每个元素分别占一个输出；`()` 不产生输出。
+fn output_count(return_type: &ReturnType) -> usize {
+    output_value_type(return_type).map_or(0, |ty| match ty {
+        Type::Tuple(tuple) => tuple.elems.len(),
+        _ => 1,
+    })
+}
+
+fn output_value_type(return_type: &ReturnType) -> Option<&Type> {
     let ReturnType::Type(_, ty) = return_type else {
-        return false;
+        return None;
     };
     let Type::Path(path) = ty.as_ref() else {
-        return !is_unit_type(ty);
+        return Some(ty);
     };
-    let Some(segment) = path.path.segments.last() else {
-        return true;
-    };
+    let segment = path.path.segments.last()?;
     if segment.ident != "DriverResult" && segment.ident != "Result" {
-        return !is_unit_type(ty);
+        return Some(ty);
     }
     let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
-        return true;
+        return Some(ty);
     };
-    let Some(GenericArgument::Type(inner)) = arguments.args.first() else {
-        return true;
-    };
-    !is_unit_type(inner)
+    arguments.args.iter().find_map(|argument| match argument {
+        GenericArgument::Type(inner) => Some(inner),
+        _ => None,
+    })
 }
-fn is_unit_type(ty: &Type) -> bool {
-    matches!(ty, Type::Tuple(tuple) if tuple.elems.is_empty())
+
+fn default_output_names(count: usize) -> Vec<LitStr> {
+    match count {
+        0 => Vec::new(),
+        1 => vec![LitStr::new("返回值", proc_macro2::Span::call_site())],
+        count => (1..=count)
+            .map(|index| LitStr::new(&format!("返回值{index}"), proc_macro2::Span::call_site()))
+            .collect(),
+    }
 }
 fn take_attribute(attributes: &mut Vec<Attribute>, name: &str) -> Option<Attribute> {
     attributes
