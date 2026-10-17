@@ -4,8 +4,7 @@
 //! 使用说明放入项目根目录的 `dist/serial/<平台>/`，使其可以直接交付给测试平台。
 
 use std::{
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process::{Command, ExitCode},
 };
@@ -50,7 +49,10 @@ fn package() -> Result<(), String> {
 
     println!(
         "已生成可交付的串口通信驱动：{}",
-        root.join("dist").join(&node_name).join(target.package_name).display()
+        root.join("dist")
+            .join(&node_name)
+            .join(target.package_name)
+            .display()
     );
     Ok(())
 }
@@ -112,8 +114,7 @@ fn copy_release_files(root: &Path, target: WindowsTarget, node_name: &str) -> Re
         return Err(format!("未找到预期 DLL：{}", source_dll.display()));
     }
 
-    fs::create_dir_all(&destination)
-        .map_err(|error| format!("无法创建发布目录：{error}"))?;
+    fs::create_dir_all(&destination).map_err(|error| format!("无法创建发布目录：{error}"))?;
     copy_file(&source_dll, &destination.join("miresidian_serial.dll"))?;
     copy_file(
         &root.join("api/miresidian.h"),

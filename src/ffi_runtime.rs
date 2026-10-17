@@ -2,17 +2,17 @@
 
 use std::{
     cell::RefCell,
-    ffi::{c_char, CStr, CString},
+    ffi::{CStr, CString, c_char},
     mem,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     ptr,
     sync::{Mutex, OnceLock},
 };
 
 use crate::{
-    DeviceNode, Invocation, MiresidianOutputV1, MiresidianStatus, NodeRuntime,
-    MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED,
+    DeviceNode, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
+    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianOutputV1, MiresidianStatus,
+    NodeRuntime,
 };
 
 thread_local! {
@@ -34,7 +34,15 @@ pub unsafe fn invoke_v1<N: DeviceNode>(
     output: *mut MiresidianOutputV1,
 ) -> MiresidianStatus {
     match catch_unwind(AssertUnwindSafe(|| unsafe {
-        invoke(runtime, operation, config, config_count, input, input_count, output)
+        invoke(
+            runtime,
+            operation,
+            config,
+            config_count,
+            input,
+            input_count,
+            output,
+        )
     })) {
         Ok(Ok(())) => MIRESIDIAN_STATUS_OK,
         Ok(Err(message)) => {
@@ -75,7 +83,11 @@ pub unsafe fn free_output_v1(output: *mut MiresidianOutputV1) {
 
 /// 返回当前线程最近一次由宏入口产生的错误。
 pub fn last_error_v1() -> *const c_char {
-    LAST_ERROR.with(|slot| slot.borrow().as_ref().map_or(ptr::null(), |value| value.as_ptr()))
+    LAST_ERROR.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .map_or(ptr::null(), |value| value.as_ptr())
+    })
 }
 
 unsafe fn invoke<N: DeviceNode>(
@@ -105,7 +117,10 @@ unsafe fn invoke<N: DeviceNode>(
         .into_iter()
         .map(|value| CString::new(value).map_err(|_| "输出文本不能包含 NUL 字符".to_owned()))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut values = strings.into_iter().map(CString::into_raw).collect::<Vec<_>>();
+    let mut values = strings
+        .into_iter()
+        .map(CString::into_raw)
+        .collect::<Vec<_>>();
     unsafe {
         *output = MiresidianOutputV1 {
             values: values.as_mut_ptr(),

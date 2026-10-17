@@ -51,6 +51,8 @@ pub struct NodeDescriptor {
     pub init_config: &'static [ParameterDescriptor],
     /// `InitDevice` 的有序输出。
     pub init_outputs: &'static [ParameterDescriptor],
+    /// `GetPortNO` 的有序输入；为空表示该驱动不需要探测输入。
+    pub port_probe_inputs: &'static [ParameterDescriptor],
     /// 节点自定义的平台操作。
     pub operations: &'static [OperationDescriptor],
 }
@@ -60,8 +62,14 @@ impl NodeDescriptor {
     pub fn function_signatures(&self) -> Vec<String> {
         let mut signatures = Vec::with_capacity(self.operations.len() + 5);
         signatures.push(format!("GetFunctions()({})", "函数列表"));
-        signatures.push(format!("GetInitConfig()({})", definitions(self.init_config)));
-        signatures.push("GetPortNO()(搜索结果,端口号)".to_owned());
+        signatures.push(format!(
+            "GetInitConfig()({})",
+            definitions(self.init_config)
+        ));
+        signatures.push(format!(
+            "GetPortNO({})(搜索结果,端口号)",
+            definitions(self.port_probe_inputs)
+        ));
         signatures.push(format!(
             "InitDevice({})({})",
             definitions(self.init_config),

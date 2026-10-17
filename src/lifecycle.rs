@@ -1,9 +1,9 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 
 use crate::{
-    DeviceNode, DriverError, DriverResult, Invocation, InvocationOutput, CLOSE_DEVICE_OPERATION,
-    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
-    INIT_DEVICE_OPERATION,
+    CLOSE_DEVICE_OPERATION, DeviceNode, DriverError, DriverResult, GET_FUNCTIONS_OPERATION,
+    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation,
+    InvocationOutput,
 };
 
 /// 持有当前已初始化节点，并执行平台生命周期规则。
@@ -20,15 +20,15 @@ impl<N: DeviceNode> NodeRuntime<N> {
     /// 处理固定操作或节点自定义操作的调用。
     pub fn invoke(&mut self, invocation: &Invocation) -> DriverResult<InvocationOutput> {
         match invocation.operation.as_str() {
-            GET_FUNCTIONS_OPERATION => Ok(InvocationOutput::new(
-                N::descriptor().function_signatures(),
-            )),
+            GET_FUNCTIONS_OPERATION => {
+                Ok(InvocationOutput::new(N::descriptor().function_signatures()))
+            }
             GET_INIT_CONFIG_OPERATION => Ok(InvocationOutput::new(
                 N::descriptor().init_config_definitions(),
             )),
-            GET_PORT_NO_OPERATION => self.get_port_no(),
+            GET_PORT_NO_OPERATION => self.get_port_no(&invocation.input),
             INIT_DEVICE_OPERATION => self.init_device(&invocation.config),
-            CLOSE_DEVICE_OPERATION => self.close_device(),
+            CLOSE_DEVICE_OPERATION => self.close_device(&invocation.input),
             operation => self.invoke_node(operation, &invocation.config, &invocation.input),
         }
     }
@@ -39,7 +39,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
     }
 
     fn init_device(&mut self, config: &[String]) -> DriverResult<InvocationOutput> {
-        self.close_device()?;
+        self.close_device(&[])?;
 
         let mut candidate = N::default();
         match candidate.init_device(config) {
@@ -48,23 +48,23 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 Ok(output)
             }
             Err(error) => {
-                let _ = candidate.close_device();
+                let _ = candidate.close_device(&[]);
                 Err(error)
             }
         }
     }
 
-    fn close_device(&mut self) -> DriverResult<InvocationOutput> {
+    fn close_device(&mut self, input: &[String]) -> DriverResult<InvocationOutput> {
         if let Some(mut current) = self.current.take() {
-            current.close_device()?;
+            current.close_device(input)?;
         }
         Ok(InvocationOutput::empty())
     }
 
-    fn get_port_no(&mut self) -> DriverResult<InvocationOutput> {
+    fn get_port_no(&mut self, input: &[String]) -> DriverResult<InvocationOutput> {
         let mut probe = N::default();
-        let port = probe.get_port_no();
-        let _ = probe.close_device();
+        let port = probe.get_port_no(input);
+        let _ = probe.close_device(&[]);
 
         match port? {
             Some(port) => Ok(InvocationOutput::new(vec!["1".to_owned(), port])),

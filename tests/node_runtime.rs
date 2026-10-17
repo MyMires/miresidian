@@ -1,8 +1,7 @@
 use miresidian::{
-    DeviceNode, DriverError, DriverResult, Invocation, InvocationOutput, NodeDescriptor,
-    NodeRuntime, OperationDescriptor, ParameterDescriptor, CLOSE_DEVICE_OPERATION,
-    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
-    INIT_DEVICE_OPERATION,
+    CLOSE_DEVICE_OPERATION, DeviceNode, DriverError, DriverResult, GET_FUNCTIONS_OPERATION,
+    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation,
+    InvocationOutput, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -30,6 +29,7 @@ const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     name: "MemoryNode",
     init_config: &INIT_CONFIG,
     init_outputs: &INIT_OUTPUTS,
+    port_probe_inputs: &[],
     operations: &OPERATIONS,
 };
 
@@ -51,7 +51,7 @@ impl DeviceNode for MemoryNode {
         Ok(InvocationOutput::new(vec!["已连接".to_owned()]))
     }
 
-    fn close_device(&mut self) -> DriverResult<()> {
+    fn close_device(&mut self, _input: &[String]) -> DriverResult<()> {
         Ok(())
     }
 
@@ -71,7 +71,7 @@ impl DeviceNode for MemoryNode {
         }
     }
 
-    fn get_port_no(&mut self) -> DriverResult<Option<String>> {
+    fn get_port_no(&mut self, _input: &[String]) -> DriverResult<Option<String>> {
         Ok(Some("COM7".to_owned()))
     }
 }
@@ -79,8 +79,14 @@ impl DeviceNode for MemoryNode {
 fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
     Invocation::new(
         operation,
-        config.iter().map(|value| (*value).to_owned()).collect::<Vec<_>>(),
-        input.iter().map(|value| (*value).to_owned()).collect::<Vec<_>>(),
+        config
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect::<Vec<_>>(),
+        input
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect::<Vec<_>>(),
     )
 }
 
@@ -91,12 +97,16 @@ fn fixed_operations_publish_compatible_metadata() {
     let functions = runtime
         .invoke(&request(GET_FUNCTIONS_OPERATION, &[], &[]))
         .unwrap();
-    assert!(functions
-        .as_slice()
-        .contains(&"InitDevice(地址:127.0.0.1)(状态)".to_owned()));
-    assert!(functions
-        .as_slice()
-        .contains(&"Query(发送数据)(接收数据)".to_owned()));
+    assert!(
+        functions
+            .as_slice()
+            .contains(&"InitDevice(地址:127.0.0.1)(状态)".to_owned())
+    );
+    assert!(
+        functions
+            .as_slice()
+            .contains(&"Query(发送数据)(接收数据)".to_owned())
+    );
 
     let config = runtime
         .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
@@ -119,9 +129,7 @@ fn node_operations_require_lifecycle_and_round_trip_values() {
     assert_eq!(init.as_slice(), ["已连接"]);
     assert!(runtime.is_initialized());
 
-    let query = runtime
-        .invoke(&request("Query", &[], &["ping"]))
-        .unwrap();
+    let query = runtime.invoke(&request("Query", &[], &["ping"])).unwrap();
     assert_eq!(query.as_slice(), ["ping"]);
 
     runtime

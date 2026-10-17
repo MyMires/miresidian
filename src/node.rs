@@ -2,10 +2,10 @@
 
 use crate::{DriverResult, InvocationOutput, NodeDescriptor};
 
-/// 通过 Miresidian 运行时暴露的具体设备适配器。
+/// 由 `#[miresidian::node_impl]` 为具体驱动生成的运行时适配器。
 ///
-/// 实现接收平台传来的兼容文本值。后续 `#[miresidian::operation]` 宏将为普通驱动
-/// 生成强类型解析和描述元数据。
+/// 驱动作者不应手写此 trait。宏会从 `operation`、`config`、`input` 与 `output`
+/// 标注生成实现、强类型转换和描述元数据。
 pub trait DeviceNode: Default + Send + 'static {
     /// 返回此节点类型的编译期元数据。
     fn descriptor() -> &'static NodeDescriptor;
@@ -14,7 +14,7 @@ pub trait DeviceNode: Default + Send + 'static {
     fn init_device(&mut self, config: &[String]) -> DriverResult<InvocationOutput>;
 
     /// 释放节点持有的全部资源。
-    fn close_device(&mut self) -> DriverResult<()>;
+    fn close_device(&mut self, input: &[String]) -> DriverResult<()>;
 
     /// 在成功初始化后运行节点自定义操作。
     fn invoke(
@@ -27,7 +27,7 @@ pub trait DeviceNode: Default + Send + 'static {
     /// 使用临时节点实例探测端口。
     ///
     /// 返回 `Ok(None)` 表示旧版 `GetPortNO` 结果 `["0", ""]`。
-    fn get_port_no(&mut self) -> DriverResult<Option<String>> {
+    fn get_port_no(&mut self, _input: &[String]) -> DriverResult<Option<String>> {
         Ok(None)
     }
 }
