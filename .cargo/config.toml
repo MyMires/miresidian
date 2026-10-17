@@ -3,9 +3,11 @@
 [alias]
 # 构建默认的串口通信动态库（本机开发目标）。
 driver = "build --package miresidian-serial"
-# 生成 Windows DLL，并把可交付文件整理到根目录 dist/serial/。
-dll = "run --quiet --package miresidian --bin package_driver -- x64"
-dll32 = "run --quiet --package miresidian --bin package_driver -- x86"
+# 同时生成 Windows x86 与 x64 DLL，并整理到根目录 dist/。
+# 名称参数会转发给发布工具，例如：`cargo dll 串口通信`。
+dll = "run --quiet --package miresidian --bin package_node --"
+dll32 = "run --quiet --package miresidian --bin package_node -- x86"
+dll64 = "run --quiet --package miresidian --bin package_node -- x64"
 # 工作区完整校验、测试与静态检查。
 check-all = "check --workspace"
 test-all = "test --workspace"

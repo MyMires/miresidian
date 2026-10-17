@@ -16,7 +16,7 @@ use crate::{
 };
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<CString>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
 }
 
 /// 由宏生成的 `miresidian_invoke_v1` 调用。

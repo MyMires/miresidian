@@ -5,10 +5,9 @@
 
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
-mod lease;
-use lease::SerialLease;
+use crate::lease::SerialLease;
 
-use crate::{DriverError, DriverResult};
+use miresidian::{DriverError, DriverResult};
 
 /// 可被具体设备驱动组合使用的串口会话。
 #[derive(Default)]

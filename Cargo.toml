@@ -15,5 +15,5 @@ resolver = "3"
 
 [dependencies]
 miresidian-macros = { path = "macros" }
-serialport = { version = "4.10.1", default-features = false }
 syn = { version = "2.0.117", features = ["full"] }
+cargo_metadata = "0.19"
