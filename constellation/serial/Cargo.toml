@@ -6,7 +6,8 @@ description = "Miresidian 串口通信节点。"
 license = "MIT OR Apache-2.0"
 
 [lib]
-crate-type = ["cdylib"]
+# `cdylib` 是发布给测试平台的 DLL；`rlib` 仅供集成测试链接节点公开接口。
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 miresidian = { path = "../.." }

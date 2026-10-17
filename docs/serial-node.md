@@ -9,18 +9,25 @@
 ```text
 constellation/serial/src/
 ├── lib.rs              # crate 入口与 SerialNode 导出
-├── node.rs             # 节点状态、宏标注、平台契约测试
+├── node.rs             # 节点状态、宏标注与平台方法
 ├── transport.rs        # 串口会话、参数校验和 UTF-8 收发
 ├── lease.rs            # 跨 DLL 租约子系统入口
 └── lease/
     ├── client.rs       # 每个 DLL 中的租约客户端
     ├── protocol.rs     # 本地回环帧协议与无硬件协议测试
     └── broker.rs       # 唯一持有物理串口的代理与状态测试
+
+constellation/serial/tests/
+└── node.rs             # 通过公开 API 验证 SerialNode 平台契约
 ```
 
 平台方法必须声明在 `node.rs` 的 `SerialNode` 固有 `impl` 中，并由
 `#[miresidian::node_impl]` 生成 `DeviceNode` 适配、函数列表、参数元数据和 DLL C ABI。
 `transport.rs` 与 `lease/` 不得直接声明平台 Operation。
+
+`tests/node.rs` 仅依赖 `miresidian_serial::SerialNode` 的公开接口，用集成测试确认属性宏
+生成的函数列表与固定操作契约。为使该测试能以外部调用方的方式链接，串口 crate 同时声明
+`cdylib`（发布 DLL）和 `rlib`（仅供 Rust 测试链接）产物；发布目录仍只交付 DLL 及其说明文件。
 
 ## 扩展边界
 

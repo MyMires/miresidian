@@ -1,7 +1,7 @@
 //! 串口通信节点及其面向测试平台的操作契约。
 //!
-//! 节点状态和平台操作共同构成一个完整的设备节点，故保持在同一模块；属性宏据此生成
-//! 生命周期调度、操作描述和 C ABI 入口。
+//! 节点状态和平台操作共同构成一个完整的设备节点，属性宏据此生成生命周期调度、操作描述
+//! 和 C ABI 入口。
 
 use miresidian::DriverResult;
 
@@ -82,34 +82,5 @@ impl SerialNode {
         #[miresidian::input("最大接收字节数:1024")] maximum_bytes: usize,
     ) -> DriverResult<String> {
         self.transport.query_text(text, maximum_bytes)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use miresidian::{DeviceNode, Invocation, NodeRuntime};
-
-    use super::SerialNode;
-
-    #[test]
-    fn 方法标注会生成中文平台契约() {
-        let signatures = SerialNode::descriptor().function_signatures();
-
-        assert!(signatures.contains(&"写入文本(发送文本)(写入字节数)".to_owned()));
-        assert!(signatures.contains(&"读取文本(最大接收字节数:1024)(接收文本)".to_owned()));
-        assert!(
-            signatures.contains(&"查询文本(发送文本,最大接收字节数:1024)(接收文本)".to_owned())
-        );
-    }
-
-    #[test]
-    fn 固定操作由宏生成且无需初始化() {
-        let mut runtime = NodeRuntime::<SerialNode>::new();
-        let output = runtime
-            .invoke(&Invocation::new("GetInitConfig", Vec::new(), Vec::new()))
-            .expect("GetInitConfig 应由宏生成");
-
-        assert_eq!(output.as_slice()[0], "端口名称:COM1");
-        assert_eq!(output.as_slice()[1], "波特率:9600");
     }
 }

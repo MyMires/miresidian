@@ -50,13 +50,16 @@ src/
 ```text
 constellation/serial/src/
 ├── lib.rs                  # 模块入口与 SerialNode 公开导出
-├── node.rs                 # 节点状态、平台方法与契约测试
+├── node.rs                 # 节点状态与平台方法
 ├── transport.rs            # 串口会话、参数校验与文本收发
 ├── lease.rs                # 跨 DLL 租约模块入口
 └── lease/
     ├── client.rs           # 每个 DLL 内的租约客户端
     ├── protocol.rs         # 客户端与代理共用的回环协议
     └── broker.rs           # 持有物理串口的本地代理和端口池
+
+constellation/serial/tests/
+└── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
 ```
 
 因此新增 TCP、USB、CAN 等节点时，只需在对应 `constellation/<节点>/` crate 中引入通信库；
