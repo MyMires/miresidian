@@ -442,10 +442,7 @@ fn parameter_name(argument: &syn::PatType) -> Result<LitStr> {
             "自动生成参数名称时，参数必须使用普通标识符",
         ));
     };
-    Ok(LitStr::new(
-        &identifier.ident.to_string(),
-        identifier.ident.span(),
-    ))
+    Ok(platform_identifier_name(&identifier.ident))
 }
 
 fn operation_name(attribute: &Attribute, method: &syn::Ident) -> Result<LitStr> {
@@ -456,36 +453,28 @@ fn operation_name(attribute: &Attribute, method: &syn::Ident) -> Result<LitStr> 
 }
 
 fn platform_method_name(method: &syn::Ident) -> LitStr {
-    let converted = method
+    platform_identifier_name(method)
+}
+
+/// 将普通 Rust 标识符转换为平台使用的 PascalCase。
+///
+/// 固定入口的特殊拼写（例如 `GetPortNO`）由运行时契约处理，不在这里把任意缩写
+/// 强制转换为全大写，因而 `port_no` 会稳定得到 `PortNo`。
+fn platform_identifier_name(identifier: &syn::Ident) -> LitStr {
+    let converted = identifier
         .to_string()
         .split('_')
         .filter(|part| !part.is_empty())
-        .map(platform_word)
+        .map(pascal_word)
         .collect::<String>();
-    LitStr::new(&converted, method.span())
+    LitStr::new(&converted, identifier.span())
 }
 
-fn platform_word(word: &str) -> String {
-    match word.to_ascii_lowercase().as_str() {
-        "api" => "API".to_owned(),
-        "com" => "COM".to_owned(),
-        "dll" => "DLL".to_owned(),
-        "dut" => "DUT".to_owned(),
-        "id" => "ID".to_owned(),
-        "io" => "IO".to_owned(),
-        "ip" => "IP".to_owned(),
-        "no" => "NO".to_owned(),
-        "tcp" => "TCP".to_owned(),
-        "udp" => "UDP".to_owned(),
-        "usb" => "USB".to_owned(),
-        "utf8" => "UTF8".to_owned(),
-        _ => {
-            let mut characters = word.chars();
-            match characters.next() {
-                Some(first) => first.to_uppercase().chain(characters).collect(),
-                None => String::new(),
-            }
-        }
+fn pascal_word(word: &str) -> String {
+    let mut characters = word.chars();
+    match characters.next() {
+        Some(first) => first.to_uppercase().chain(characters).collect(),
+        None => String::new(),
     }
 }
 
@@ -595,15 +584,15 @@ mod tests {
 
     #[test]
     fn 自动方法名转换为平台形式() {
-        assert_eq!(platform_word("port"), "Port");
-        assert_eq!(platform_word("no"), "NO");
-        assert_eq!(platform_word("tcp"), "TCP");
+        assert_eq!(pascal_word("port"), "Port");
+        assert_eq!(pascal_word("no"), "No");
+        assert_eq!(pascal_word("tcp"), "Tcp");
 
         let init = format_ident!("init_device");
-        let port = format_ident!("get_port_no");
+        let parameter = format_ident!("port_no");
         let read = format_ident!("read_text");
         assert_eq!(platform_method_name(&init).value(), "InitDevice");
-        assert_eq!(platform_method_name(&port).value(), "GetPortNO");
         assert_eq!(platform_method_name(&read).value(), "ReadText");
+        assert_eq!(platform_identifier_name(&parameter).value(), "PortNo");
     }
 }

@@ -107,6 +107,11 @@ fn fixed_operations_publish_compatible_metadata() {
             .as_slice()
             .contains(&"Query(发送数据)(接收数据)".to_owned())
     );
+    assert!(
+        functions
+            .as_slice()
+            .contains(&"GetPortNO()(搜索结果,端口号)".to_owned())
+    );
 
     let config = runtime
         .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
