@@ -1,0 +1,37 @@
+//! Miresidian 节点统一返回的错误类型。
+
+use std::fmt::{Display, Formatter};
+
+/// 节点实现和运行时使用的结果类型。
+pub type DriverResult<T> = Result<T, DriverError>;
+
+/// 可在跨语言边界表达的错误。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DriverError {
+    /// 请求的操作不在节点契约中。
+    InvalidOperation(String),
+    /// 输入或配置值无法满足已声明的契约。
+    InvalidArgument { field: String, message: String },
+    /// 在成功初始化前请求了节点自定义操作。
+    NotInitialized,
+    /// 节点未实现某项可选能力。
+    NotSupported(String),
+    /// 驱动特有的运行失败。
+    Failure(String),
+}
+
+impl Display for DriverError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidOperation(operation) => write!(formatter, "未知操作: {operation}"),
+            Self::InvalidArgument { field, message } => {
+                write!(formatter, "参数 {field} 无效: {message}")
+            }
+            Self::NotInitialized => formatter.write_str("设备尚未初始化"),
+            Self::NotSupported(capability) => write!(formatter, "不支持的能力: {capability}"),
+            Self::Failure(message) => formatter.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for DriverError {}

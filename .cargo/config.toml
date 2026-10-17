@@ -1,0 +1,19 @@
+# 构建入口统一由 Cargo 管理：开发时保持本机可运行，发布时用 `cargo dll`。
+
+[alias]
+# 构建默认的串口通信动态库（本机开发目标）。
+driver = "build --package miresidian-serial"
+# 生成 Windows DLL，并把可交付文件整理到根目录 dist/serial/。
+dll = "run --quiet --package miresidian --bin package_driver -- x64"
+dll32 = "run --quiet --package miresidian --bin package_driver -- x86"
+# 工作区完整校验、测试与静态检查。
+check-all = "check --workspace"
+test-all = "test --workspace"
+lint = "clippy --workspace -- -D warnings"
+
+# 让交叉编译不再需要在命令前手写 CARGO_TARGET_*_LINKER 环境变量。
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+
+[target.i686-pc-windows-gnu]
+linker = "i686-w64-mingw32-gcc"

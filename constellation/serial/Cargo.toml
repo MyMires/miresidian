@@ -1,0 +1,13 @@
+[package]
+name = "miresidian-serial"
+version = "0.1.0"
+edition = "2024"
+description = "Miresidian 串口通信节点。"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+miresidian = { path = "../.." }
+serialport = { version = "4.10.1", default-features = false }

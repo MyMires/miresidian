@@ -1,0 +1,19 @@
+[package]
+name = "miresidian"
+version = "0.1.0"
+edition = "2024"
+description = "A Rust runtime for cross-language test-device nodes."
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[workspace]
+members = ["macros", "constellation/serial"]
+default-members = ["constellation/serial"]
+resolver = "3"
+
+[dependencies]
+miresidian-macros = { path = "macros" }
+serialport = { version = "4.10.1", default-features = false }
+syn = { version = "2.0.117", features = ["full"] }
