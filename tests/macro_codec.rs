@@ -1,6 +1,6 @@
 //! 属性宏生成代码复用根框架数据编解码 API 的集成测试。
 
-use miresidian::{ByteTextFormat, DriverResult, Invocation, NodeRuntime, encode_bytes_to_text};
+use miresidian::{ByteTextFormat, Invocation, MiresidianResult, NodeRuntime, encode_bytes_to_text};
 
 #[miresidian::node("编解码宏测试节点")]
 #[derive(Default)]
@@ -12,11 +12,11 @@ impl CodecMacroNode {
     fn init_device(
         &mut self,
         #[miresidian::config("初始化格式:GBK")] format: ByteTextFormat,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         Ok(format.to_string())
     }
 
-    fn close_device(&mut self) -> DriverResult<()> {
+    fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }
 
@@ -26,7 +26,7 @@ impl CodecMacroNode {
         &mut self,
         #[miresidian::input("数据")] data: Vec<u8>,
         #[miresidian::input("数据格式")] format: ByteTextFormat,
-    ) -> DriverResult<(String, String)> {
+    ) -> MiresidianResult<(String, String)> {
         Ok((format.to_string(), encode_bytes_to_text(&data, format)?))
     }
 }

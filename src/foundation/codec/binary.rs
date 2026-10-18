@@ -2,12 +2,12 @@
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
-use crate::DriverResult;
+use crate::MiresidianResult;
 
 use super::invalid;
 
 /// 解析紧凑 HEX，或以空白分隔的 `0x01 FF` 形式。
-pub(super) fn decode_hex(value: &str) -> DriverResult<Vec<u8>> {
+pub(super) fn decode_hex(value: &str) -> MiresidianResult<Vec<u8>> {
     let value = value.trim();
     let value = value
         .strip_prefix("hex:")
@@ -59,7 +59,7 @@ pub(super) fn encode_hex(value: &[u8]) -> String {
 }
 
 /// 解析标准 Base64；允许可选的 `base64:` 前缀。
-pub(super) fn decode_base64(value: &str) -> DriverResult<Vec<u8>> {
+pub(super) fn decode_base64(value: &str) -> MiresidianResult<Vec<u8>> {
     let value = value.trim();
     let value = value
         .strip_prefix("base64:")

@@ -8,7 +8,7 @@
 //! 调度和 DLL 的 C ABI 导出均由宏生成。
 //!
 //! ```no_run
-//! use miresidian::DriverResult;
+//! use miresidian::MiresidianResult;
 //!
 //! #[miresidian::node("示例节点")]
 //! #[derive(Default)]
@@ -17,17 +17,17 @@
 //! #[miresidian::node_impl]
 //! impl ExampleNode {
 //!     #[miresidian::output("状态")]
-//!     fn init_device(&mut self) -> DriverResult<String> {
+//!     fn init_device(&mut self) -> MiresidianResult<String> {
 //!         Ok("已连接".to_owned())
 //!     }
 //!
-//!     fn close_device(&mut self) -> DriverResult<()> {
+//!     fn close_device(&mut self) -> MiresidianResult<()> {
 //!         Ok(())
 //!     }
 //!
 //!     #[miresidian::operation("回显")]
 //!     #[miresidian::output("接收文本")]
-//!     fn echo(&mut self, #[miresidian::input("发送文本")] text: String) -> DriverResult<String> {
+//!     fn echo(&mut self, #[miresidian::input("发送文本")] text: String) -> MiresidianResult<String> {
 //!         Ok(text)
 //!     }
 //! }
@@ -54,7 +54,7 @@ pub use ffi::{
 };
 pub use foundation::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
-    DriverError, DriverResult, decode_text_to_bytes, decode_value, encode_bytes_to_text,
+    MiresidianError, MiresidianResult, decode_text_to_bytes, decode_value, encode_bytes_to_text,
     encode_value, parse_byte_text_format, transcode_text,
 };
 pub use interop::{ffi, ffi_runtime};

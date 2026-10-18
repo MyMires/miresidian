@@ -33,7 +33,7 @@ let hex = transcode_text("测试", ByteTextFormat::Gbk, ByteTextFormat::Hex)?;
 assert_eq!(hex, "B2 E2 CA D4");
 ```
 
-任何无法无损表示的转换都会返回 `DriverError::InvalidArgument`，不会以替换字符或 `?` 静默继续。
+任何无法无损表示的转换都会返回 `MiresidianError::InvalidArgument`，不会以替换字符或 `?` 静默继续。
 因此 GBK 可以读取和表达 ASCII，GBK 转 ASCII 遇到中文必定失败。
 
 ## 强类型参数

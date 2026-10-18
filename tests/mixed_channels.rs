@@ -1,6 +1,6 @@
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
-use miresidian::{DriverResult, Invocation, NodeRuntime};
+use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 
 #[miresidian::node("双通道测试节点")]
 #[derive(Default)]
@@ -12,11 +12,11 @@ impl MixedChannelNode {
         &mut self,
         #[miresidian::config("设备地址")] address: String,
         #[miresidian::input("初始化令牌")] token: String,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         Ok(format!("{address}:{token}"))
     }
 
-    fn close_device(&mut self) -> DriverResult<()> {
+    fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }
 
@@ -25,7 +25,7 @@ impl MixedChannelNode {
         &mut self,
         #[miresidian::input("命令")] command: String,
         #[miresidian::config("超时毫秒")] timeout_ms: u64,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         Ok(format!("{command}:{timeout_ms}"))
     }
 }

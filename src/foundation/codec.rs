@@ -11,7 +11,7 @@ mod text;
 
 use std::{fmt, str::FromStr};
 
-use crate::{DriverError, DriverResult, InvocationOutput};
+use crate::{InvocationOutput, MiresidianError, MiresidianResult};
 
 /// 原始字节与平台文本之间使用的明确数据格式。
 ///
@@ -47,7 +47,7 @@ impl fmt::Display for ByteTextFormat {
 }
 
 impl FromStr for ByteTextFormat {
-    type Err = DriverError;
+    type Err = MiresidianError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let normalized = value.trim();
@@ -86,12 +86,12 @@ impl FromStr for ByteTextFormat {
 }
 
 /// 解析平台传入的数据格式名称。
-pub fn parse_byte_text_format(value: &str) -> DriverResult<ByteTextFormat> {
+pub fn parse_byte_text_format(value: &str) -> MiresidianResult<ByteTextFormat> {
     value.parse()
 }
 
 /// 将某种数据格式的文本解码为原始字节。
-pub fn decode_text_to_bytes(value: &str, format: ByteTextFormat) -> DriverResult<Vec<u8>> {
+pub fn decode_text_to_bytes(value: &str, format: ByteTextFormat) -> MiresidianResult<Vec<u8>> {
     match format {
         ByteTextFormat::Hex => binary::decode_hex(value),
         ByteTextFormat::Base64 => binary::decode_base64(value),
@@ -100,7 +100,7 @@ pub fn decode_text_to_bytes(value: &str, format: ByteTextFormat) -> DriverResult
 }
 
 /// 将原始字节编码为指定数据格式的文本。
-pub fn encode_bytes_to_text(value: &[u8], format: ByteTextFormat) -> DriverResult<String> {
+pub fn encode_bytes_to_text(value: &[u8], format: ByteTextFormat) -> MiresidianResult<String> {
     match format {
         ByteTextFormat::Hex => Ok(binary::encode_hex(value)),
         ByteTextFormat::Base64 => Ok(binary::encode_base64(value)),
@@ -113,20 +113,20 @@ pub fn transcode_text(
     value: &str,
     source: ByteTextFormat,
     target: ByteTextFormat,
-) -> DriverResult<String> {
+) -> MiresidianResult<String> {
     encode_bytes_to_text(&decode_text_to_bytes(value, source)?, target)
 }
 
 /// 可由测试平台参数文本构造的输入或配置类型。
 pub trait DeviceInput: Sized {
     /// 从单个已完成名称与默认值处理的文本值构造目标类型。
-    fn parse_device_text(value: &str, field: &str) -> DriverResult<Self>;
+    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self>;
 }
 
 /// 可安全返回给测试平台的驱动方法结果类型。
 pub trait DeviceOutput {
     /// 转换为有序的平台输出文本。
-    fn into_device_output(self) -> DriverResult<InvocationOutput>;
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput>;
 }
 
 /// 可作为一维平台数组元素的类型。
@@ -135,10 +135,10 @@ pub trait DeviceOutput {
 /// 以明确其数组文本的解析和格式化规则。
 pub trait DeviceCollectionElement: Sized {
     /// 将整个数组文本转换为有序元素。
-    fn parse_device_collection(value: &str, field: &str) -> DriverResult<Vec<Self>>;
+    fn parse_device_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>>;
 
     /// 将有序元素转换为可无损回传的平台数组文本。
-    fn format_device_collection(values: &[Self]) -> DriverResult<String>;
+    fn format_device_collection(values: &[Self]) -> MiresidianResult<String>;
 }
 
 /// 从一个平台参数通道解码强类型值；空白值优先回退到属性声明的默认值。
@@ -150,23 +150,23 @@ pub fn decode_value<T: DeviceInput>(
     index: usize,
     field: &str,
     default: Option<&str>,
-) -> DriverResult<T> {
+) -> MiresidianResult<T> {
     T::parse_device_text(&definition::value_at(values, index, field, default)?, field)
 }
 
 /// 将驱动方法的强类型返回值编码为平台 ABI 输出。
-pub fn encode_value<T: DeviceOutput>(value: T) -> DriverResult<InvocationOutput> {
+pub fn encode_value<T: DeviceOutput>(value: T) -> MiresidianResult<InvocationOutput> {
     value.into_device_output()
 }
 
 impl<T: DeviceCollectionElement> DeviceInput for Vec<T> {
-    fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
         T::parse_device_collection(value, field)
     }
 }
 
 impl<T: DeviceCollectionElement> DeviceOutput for Vec<T> {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![T::format_device_collection(
             &self,
         )?]))
@@ -174,7 +174,7 @@ impl<T: DeviceCollectionElement> DeviceOutput for Vec<T> {
 }
 
 impl<T: DeviceInput> DeviceInput for Option<T> {
-    fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
         if value.trim().is_empty() {
             Ok(None)
         } else {
@@ -184,7 +184,7 @@ impl<T: DeviceInput> DeviceInput for Option<T> {
 }
 
 impl<T: DeviceOutput> DeviceOutput for Option<T> {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         match self {
             Some(value) => value.into_device_output(),
             None => Ok(InvocationOutput::new(vec![String::new()])),
@@ -193,7 +193,7 @@ impl<T: DeviceOutput> DeviceOutput for Option<T> {
 }
 
 impl<A: DeviceOutput, B: DeviceOutput> DeviceOutput for (A, B) {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         let mut values = self.0.into_device_output()?.into_values();
         values.extend(self.1.into_device_output()?.into_values());
         Ok(InvocationOutput::new(values))
@@ -201,7 +201,7 @@ impl<A: DeviceOutput, B: DeviceOutput> DeviceOutput for (A, B) {
 }
 
 impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput> DeviceOutput for (A, B, C) {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         let mut values = self.0.into_device_output()?.into_values();
         values.extend(self.1.into_device_output()?.into_values());
         values.extend(self.2.into_device_output()?.into_values());
@@ -212,7 +212,7 @@ impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput> DeviceOutput for (A, B, 
 impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput, D: DeviceOutput> DeviceOutput
     for (A, B, C, D)
 {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         let mut values = self.0.into_device_output()?.into_values();
         values.extend(self.1.into_device_output()?.into_values());
         values.extend(self.2.into_device_output()?.into_values());
@@ -221,8 +221,8 @@ impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput, D: DeviceOutput> DeviceO
     }
 }
 
-pub(crate) fn invalid(field: &str, message: impl Into<String>) -> DriverError {
-    DriverError::InvalidArgument {
+pub(crate) fn invalid(field: &str, message: impl Into<String>) -> MiresidianError {
+    MiresidianError::InvalidArgument {
         field: field.to_owned(),
         message: message.into(),
     }

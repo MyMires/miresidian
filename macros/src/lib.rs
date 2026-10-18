@@ -60,7 +60,7 @@ pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
 
 /// 标记节点方法输出；由 `node_impl` 消费。
 ///
-/// 此标注写在方法上，参数为一个或多个输出名称。未标注且返回值不是 `DriverResult<()>` 时，
+/// 此标注写在方法上，参数为一个或多个输出名称。未标注且返回值不是 `MiresidianResult<()>` 时，
 /// 自动生成名为“返回值”的单个输出。
 #[proc_macro_attribute]
 pub fn output(_attribute: TokenStream, item: TokenStream) -> TokenStream {

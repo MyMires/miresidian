@@ -1,9 +1,9 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 
 use crate::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, DriverError, DriverResult, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput,
+    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MiresidianError,
+    MiresidianResult,
 };
 
 /// 持有当前已初始化节点，并执行平台生命周期规则。
@@ -18,7 +18,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
     }
 
     /// 处理固定操作或节点自定义操作的调用。
-    pub fn invoke(&mut self, invocation: &Invocation) -> DriverResult<InvocationOutput> {
+    pub fn invoke(&mut self, invocation: &Invocation) -> MiresidianResult<InvocationOutput> {
         match invocation.operation.as_str() {
             GET_FUNCTIONS_OPERATION => {
                 Ok(InvocationOutput::new(N::descriptor().function_signatures()))
@@ -42,7 +42,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         self.close_device(&[], &[])?;
 
         let mut candidate = N::default();
@@ -62,7 +62,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         if let Some(mut current) = self.current.take() {
             current.close_device(config, input)?;
         }
@@ -73,7 +73,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         let mut probe = N::default();
         let port = probe.get_port_no(config, input);
         let _ = probe.close_device(&[], &[]);
@@ -89,8 +89,11 @@ impl<N: DeviceNode> NodeRuntime<N> {
         operation: &str,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput> {
-        let current = self.current.as_mut().ok_or(DriverError::NotInitialized)?;
+    ) -> MiresidianResult<InvocationOutput> {
+        let current = self
+            .current
+            .as_mut()
+            .ok_or(MiresidianError::NotInitialized)?;
         current.invoke(operation, config, input)
     }
 }

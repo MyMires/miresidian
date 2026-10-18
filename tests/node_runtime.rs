@@ -1,7 +1,7 @@
 use miresidian::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, DriverError, DriverResult, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MiresidianError,
+    MiresidianResult, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -45,9 +45,9 @@ impl DeviceNode for MemoryNode {
         &mut self,
         config: &[String],
         _input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         if config.len() != 1 {
-            return Err(DriverError::InvalidArgument {
+            return Err(MiresidianError::InvalidArgument {
                 field: "地址".to_owned(),
                 message: "需要一个配置值".to_owned(),
             });
@@ -55,7 +55,7 @@ impl DeviceNode for MemoryNode {
         Ok(InvocationOutput::new(vec!["已连接".to_owned()]))
     }
 
-    fn close_device(&mut self, _config: &[String], _input: &[String]) -> DriverResult<()> {
+    fn close_device(&mut self, _config: &[String], _input: &[String]) -> MiresidianResult<()> {
         Ok(())
     }
 
@@ -64,14 +64,14 @@ impl DeviceNode for MemoryNode {
         operation: &str,
         _config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         match operation {
             "Query" if input.len() == 1 => Ok(InvocationOutput::new(vec![input[0].clone()])),
-            "Query" => Err(DriverError::InvalidArgument {
+            "Query" => Err(MiresidianError::InvalidArgument {
                 field: "发送数据".to_owned(),
                 message: "需要一个输入值".to_owned(),
             }),
-            other => Err(DriverError::InvalidOperation(other.to_owned())),
+            other => Err(MiresidianError::InvalidOperation(other.to_owned())),
         }
     }
 
@@ -79,7 +79,7 @@ impl DeviceNode for MemoryNode {
         &mut self,
         _config: &[String],
         _input: &[String],
-    ) -> DriverResult<Option<String>> {
+    ) -> MiresidianResult<Option<String>> {
         Ok(Some("COM7".to_owned()))
     }
 }
@@ -133,7 +133,7 @@ fn node_operations_require_lifecycle_and_round_trip_values() {
 
     assert_eq!(
         runtime.invoke(&request("Query", &[], &["ping"])),
-        Err(DriverError::NotInitialized)
+        Err(MiresidianError::NotInitialized)
     );
 
     let init = runtime

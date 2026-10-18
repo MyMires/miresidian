@@ -7,9 +7,9 @@ use std::{
 };
 
 use miresidian::{
-    DeviceNode, DriverError, DriverResult, InvocationOutput, MIRESIDIAN_STATUS_INTERNAL_ERROR,
-    MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MiresidianOutputV1, NodeDescriptor,
-    NodeRuntime,
+    DeviceNode, InvocationOutput, MIRESIDIAN_STATUS_INTERNAL_ERROR,
+    MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MiresidianError, MiresidianOutputV1,
+    MiresidianResult, NodeDescriptor, NodeRuntime,
 };
 
 static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
@@ -32,11 +32,11 @@ impl DeviceNode for TestNode {
         &mut self,
         _config: &[String],
         _input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::empty())
     }
 
-    fn close_device(&mut self, _config: &[String], _input: &[String]) -> DriverResult<()> {
+    fn close_device(&mut self, _config: &[String], _input: &[String]) -> MiresidianResult<()> {
         Ok(())
     }
 
@@ -45,10 +45,10 @@ impl DeviceNode for TestNode {
         operation: &str,
         _config: &[String],
         _input: &[String],
-    ) -> DriverResult<InvocationOutput> {
+    ) -> MiresidianResult<InvocationOutput> {
         match operation {
             "Panic" => panic!("用于验证 ABI 防护"),
-            _ => Err(DriverError::InvalidOperation(operation.to_owned())),
+            _ => Err(MiresidianError::InvalidOperation(operation.to_owned())),
         }
     }
 }

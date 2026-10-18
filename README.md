@@ -27,7 +27,7 @@ src/
 ├── foundation/
 │   ├── codec.rs           # 编解码公共 API、类型转换与格式定义
 │   ├── codec/             # 标量、数组、字节、文本与参数定义规则
-│   ├── error.rs           # DriverError 与 DriverResult
+│   ├── error.rs           # MiresidianError 与 MiresidianResult
 │   └── value.rs           # 跨语言值模型
 ├── runtime.rs             # 节点运行时入口
 ├── runtime/

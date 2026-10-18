@@ -226,7 +226,7 @@ fn output_value_type(return_type: &ReturnType) -> Option<&Type> {
         return Some(ty);
     };
     let segment = path.path.segments.last()?;
-    if segment.ident != "DriverResult" && segment.ident != "Result" {
+    if segment.ident != "MiresidianResult" && segment.ident != "Result" {
         return Some(ty);
     }
     let PathArguments::AngleBracketed(arguments) = &segment.arguments else {

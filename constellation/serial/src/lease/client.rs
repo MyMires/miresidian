@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use miresidian::DriverResult;
+use miresidian::MiresidianResult;
 
 use super::{
     broker,
@@ -27,7 +27,7 @@ pub(crate) struct SerialLease {
 
 impl SerialLease {
     /// 取得与指定串口设置对应的独立调用方租约。
-    pub(crate) fn acquire(settings: &SerialSettings) -> DriverResult<Self> {
+    pub(crate) fn acquire(settings: &SerialSettings) -> MiresidianResult<Self> {
         let mut stream = connect_broker()?;
         let response =
             protocol::request(&mut stream, ACQUIRE, &protocol::encode_settings(settings))?;
@@ -39,19 +39,19 @@ impl SerialLease {
     }
 
     /// 在当前租约对应的串口上写入并刷新数据。
-    pub(crate) fn write(&mut self, bytes: &[u8]) -> DriverResult<()> {
+    pub(crate) fn write(&mut self, bytes: &[u8]) -> MiresidianResult<()> {
         let mut payload = self.id.to_vec();
         protocol::push_bytes(&mut payload, bytes)?;
         protocol::request(&mut self.stream, WRITE, &payload).map(|_| ())
     }
 
     /// 从当前租约对应的串口读取数据，直到本次读取超时。
-    pub(crate) fn read(&mut self) -> DriverResult<Vec<u8>> {
+    pub(crate) fn read(&mut self) -> MiresidianResult<Vec<u8>> {
         protocol::request(&mut self.stream, READ, &self.id)
     }
 
     /// 在同一串口锁中完成写入、刷新和读取。
-    pub(crate) fn query(&mut self, bytes: &[u8]) -> DriverResult<Vec<u8>> {
+    pub(crate) fn query(&mut self, bytes: &[u8]) -> MiresidianResult<Vec<u8>> {
         let mut payload = self.id.to_vec();
         protocol::push_bytes(&mut payload, bytes)?;
         protocol::request(&mut self.stream, QUERY, &payload)
@@ -69,7 +69,7 @@ impl Drop for SerialLease {
 }
 
 /// 连接已有代理；端点尚不存在时，当前 DLL 成为代理宿主。
-fn connect_broker() -> DriverResult<TcpStream> {
+fn connect_broker() -> MiresidianResult<TcpStream> {
     if let Ok(stream) = TcpStream::connect(BROKER_ADDRESS) {
         return Ok(stream);
     }

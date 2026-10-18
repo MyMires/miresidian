@@ -2,12 +2,12 @@
 
 use encoding_rs::GBK;
 
-use crate::DriverResult;
+use crate::MiresidianResult;
 
 use super::{ByteTextFormat, invalid};
 
 /// 将 Rust UTF-8 字符串编码为指定文本格式的原始字节。
-pub(super) fn encode_text(value: &str, format: ByteTextFormat) -> DriverResult<Vec<u8>> {
+pub(super) fn encode_text(value: &str, format: ByteTextFormat) -> MiresidianResult<Vec<u8>> {
     match format {
         ByteTextFormat::Ascii => {
             if !value.is_ascii() {
@@ -34,7 +34,7 @@ pub(super) fn encode_text(value: &str, format: ByteTextFormat) -> DriverResult<V
 }
 
 /// 将指定文本格式的原始字节解码为 Rust UTF-8 字符串。
-pub(super) fn decode_text(value: &[u8], format: ByteTextFormat) -> DriverResult<String> {
+pub(super) fn decode_text(value: &[u8], format: ByteTextFormat) -> MiresidianResult<String> {
     match format {
         ByteTextFormat::Ascii => {
             if value.iter().any(|byte| !byte.is_ascii()) {
@@ -59,7 +59,7 @@ pub(super) fn decode_text(value: &[u8], format: ByteTextFormat) -> DriverResult<
     }
 }
 
-fn decode_utf16_le(value: &[u8]) -> DriverResult<String> {
+fn decode_utf16_le(value: &[u8]) -> MiresidianResult<String> {
     if !value.len().is_multiple_of(2) {
         return Err(invalid("数据", "Unicode（UTF-16LE）字节数必须为偶数"));
     }

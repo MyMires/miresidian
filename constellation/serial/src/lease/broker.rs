@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 
-use miresidian::DriverResult;
+use miresidian::MiresidianResult;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use super::protocol::{self, ACQUIRE, QUERY, READ, RELEASE, WRITE};
@@ -21,7 +21,7 @@ static LOCAL_SERVER: OnceLock<()> = OnceLock::new();
 static NEXT_LEASE: AtomicU64 = AtomicU64::new(1);
 
 /// 启动当前 DLL 承载的代理线程。多次调用不会重复启动。
-pub(super) fn start(listener: TcpListener) -> DriverResult<()> {
+pub(super) fn start(listener: TcpListener) -> MiresidianResult<()> {
     pin_broker_module()?;
     LOCAL_SERVER.get_or_init(|| {
         let registry = Arc::new(BrokerRegistry::default());
@@ -35,7 +35,7 @@ pub(super) fn start(listener: TcpListener) -> DriverResult<()> {
 
 /// 代理线程的代码位于首个驱动 DLL 中；Windows 上增加模块引用，避免宿主过早卸载该 DLL。
 #[cfg(windows)]
-fn pin_broker_module() -> DriverResult<()> {
+fn pin_broker_module() -> MiresidianResult<()> {
     unsafe extern "system" {
         fn GetModuleHandleExW(
             flags: u32,
@@ -63,7 +63,7 @@ fn pin_broker_module() -> DriverResult<()> {
 
 /// 非 Windows 平台上的动态库生命周期由宿主负责；实现保持本地测试可用。
 #[cfg(not(windows))]
-fn pin_broker_module() -> DriverResult<()> {
+fn pin_broker_module() -> MiresidianResult<()> {
     Ok(())
 }
 
@@ -94,7 +94,7 @@ fn handle_request(
     operation: u8,
     payload: &[u8],
     owned_leases: &mut Vec<[u8; 16]>,
-) -> DriverResult<Vec<u8>> {
+) -> MiresidianResult<Vec<u8>> {
     match operation {
         ACQUIRE => {
             let lease = registry.acquire(protocol::decode_settings(payload)?)?;
@@ -156,7 +156,7 @@ struct PhysicalSettings {
 }
 
 impl BrokerRegistry {
-    fn acquire(&self, settings: SerialSettings) -> DriverResult<[u8; 16]> {
+    fn acquire(&self, settings: SerialSettings) -> MiresidianResult<[u8; 16]> {
         let key = settings.port_name.trim().to_uppercase();
         let physical = PhysicalSettings::from(&settings);
         let mut state = self
@@ -198,7 +198,7 @@ impl BrokerRegistry {
         Ok(lease)
     }
 
-    fn write(&self, lease: [u8; 16], bytes: Vec<u8>) -> DriverResult<()> {
+    fn write(&self, lease: [u8; 16], bytes: Vec<u8>) -> MiresidianResult<()> {
         self.with_port(lease, |port| {
             port.write_all(&bytes)
                 .map_err(|error| io_failure("写入", error))?;
@@ -206,11 +206,11 @@ impl BrokerRegistry {
         })
     }
 
-    fn read(&self, lease: [u8; 16]) -> DriverResult<Vec<u8>> {
+    fn read(&self, lease: [u8; 16]) -> MiresidianResult<Vec<u8>> {
         self.with_port(lease, read_until_timeout)
     }
 
-    fn query(&self, lease: [u8; 16], bytes: Vec<u8>) -> DriverResult<Vec<u8>> {
+    fn query(&self, lease: [u8; 16], bytes: Vec<u8>) -> MiresidianResult<Vec<u8>> {
         self.with_port(lease, |port| {
             port.write_all(&bytes)
                 .map_err(|error| io_failure("写入", error))?;
@@ -222,8 +222,8 @@ impl BrokerRegistry {
     fn with_port<T>(
         &self,
         lease: [u8; 16],
-        action: impl FnOnce(&mut dyn SerialPort) -> DriverResult<T>,
-    ) -> DriverResult<T> {
+        action: impl FnOnce(&mut dyn SerialPort) -> MiresidianResult<T>,
+    ) -> MiresidianResult<T> {
         let (entry, timeout_ms) = self.entry_for(lease)?;
         let mut port = entry
             .port
@@ -234,7 +234,7 @@ impl BrokerRegistry {
         action(port.as_mut())
     }
 
-    fn entry_for(&self, lease: [u8; 16]) -> DriverResult<(Arc<PortEntry>, u64)> {
+    fn entry_for(&self, lease: [u8; 16]) -> MiresidianResult<(Arc<PortEntry>, u64)> {
         let state = self
             .state
             .lock()
@@ -280,7 +280,7 @@ impl From<&SerialSettings> for PhysicalSettings {
     }
 }
 
-fn read_until_timeout(port: &mut dyn SerialPort) -> DriverResult<Vec<u8>> {
+fn read_until_timeout(port: &mut dyn SerialPort) -> MiresidianResult<Vec<u8>> {
     let mut received = Vec::new();
     let mut buffer = [0_u8; 4096];
     loop {

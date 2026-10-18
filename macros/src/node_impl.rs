@@ -59,10 +59,10 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         };
         impl ::miresidian::DeviceNode for #self_type {
             fn descriptor() -> &'static ::miresidian::NodeDescriptor { &#descriptor }
-            fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::DriverResult<::miresidian::InvocationOutput> { #init_call }
-            fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::DriverResult<()> { #close_call }
-            fn invoke(&mut self, operation: &str, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::DriverResult<::miresidian::InvocationOutput> {
-                match operation { #(#operation_calls)* other => Err(::miresidian::DriverError::InvalidOperation(other.to_owned())), }
+            fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
+            fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> { #close_call }
+            fn invoke(&mut self, operation: &str, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> {
+                match operation { #(#operation_calls)* other => Err(::miresidian::MiresidianError::InvalidOperation(other.to_owned())), }
             }
             #port_probe
         }

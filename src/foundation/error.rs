@@ -3,11 +3,11 @@
 use std::fmt::{Display, Formatter};
 
 /// 节点实现和运行时使用的结果类型。
-pub type DriverResult<T> = Result<T, DriverError>;
+pub type MiresidianResult<T> = Result<T, MiresidianError>;
 
 /// 可在跨语言边界表达的错误。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DriverError {
+pub enum MiresidianError {
     /// 请求的操作不在节点契约中。
     InvalidOperation(String),
     /// 输入或配置值无法满足已声明的契约。
@@ -20,7 +20,7 @@ pub enum DriverError {
     Failure(String),
 }
 
-impl Display for DriverError {
+impl Display for MiresidianError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidOperation(operation) => write!(formatter, "未知操作: {operation}"),
@@ -34,4 +34,4 @@ impl Display for DriverError {
     }
 }
 
-impl std::error::Error for DriverError {}
+impl std::error::Error for MiresidianError {}

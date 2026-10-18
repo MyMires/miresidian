@@ -33,7 +33,7 @@ pub(super) fn operation(self_type: &Type, operation: &OperationMethod) -> proc_m
 /// 生成可选 `get_port_no` 的双通道临时节点调用实现。
 pub(super) fn port_probe(self_type: &Type, method: &FixedMethod) -> proc_macro2::TokenStream {
     let call = with_input(self_type, method);
-    quote! { fn get_port_no(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::DriverResult<::core::option::Option<::std::string::String>> { #call } }
+    quote! { fn get_port_no(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::std::string::String>> { #call } }
 }
 
 /// 保持 Rust 方法参数顺序，同时分别维护 `config` 与 `input` 的位置索引。

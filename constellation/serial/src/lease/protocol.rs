@@ -5,7 +5,7 @@ use std::{
     net::TcpStream,
 };
 
-use miresidian::{DriverError, DriverResult};
+use miresidian::{MiresidianError, MiresidianResult};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::transport::SerialSettings;
@@ -22,7 +22,7 @@ pub(super) fn request(
     stream: &mut TcpStream,
     operation: u8,
     payload: &[u8],
-) -> DriverResult<Vec<u8>> {
+) -> MiresidianResult<Vec<u8>> {
     write_frame(stream, operation, payload)
         .map_err(|error| failure(format!("发送串口代理请求失败：{error}")))?;
     let (status, payload) =
@@ -37,7 +37,7 @@ pub(super) fn request(
 /// 写入代理端的成功或失败响应。
 pub(super) fn write_response(
     stream: &mut TcpStream,
-    response: DriverResult<Vec<u8>>,
+    response: MiresidianResult<Vec<u8>>,
 ) -> std::io::Result<()> {
     match response {
         Ok(payload) => write_frame(stream, 0, &payload),
@@ -59,7 +59,7 @@ pub(super) fn encode_settings(settings: &SerialSettings) -> Vec<u8> {
 }
 
 /// 解码客户端提交的通信设置。
-pub(super) fn decode_settings(payload: &[u8]) -> DriverResult<SerialSettings> {
+pub(super) fn decode_settings(payload: &[u8]) -> MiresidianResult<SerialSettings> {
     let mut offset = 0;
     let port_name = String::from_utf8(read_bytes_field(payload, &mut offset)?.to_vec())
         .map_err(|_| failure("端口名称必须为 UTF-8"))?;
@@ -83,19 +83,19 @@ pub(super) fn decode_settings(payload: &[u8]) -> DriverResult<SerialSettings> {
     })
 }
 
-pub(super) fn decode_lease(payload: &[u8]) -> DriverResult<[u8; 16]> {
+pub(super) fn decode_lease(payload: &[u8]) -> MiresidianResult<[u8; 16]> {
     payload
         .try_into()
         .map_err(|_| failure("串口代理租约标识无效"))
 }
 
-pub(super) fn decode_lease_bytes(payload: &[u8]) -> DriverResult<([u8; 16], Vec<u8>)> {
+pub(super) fn decode_lease_bytes(payload: &[u8]) -> MiresidianResult<([u8; 16], Vec<u8>)> {
     let lease = decode_lease_prefix(payload)?;
     let mut offset = 16;
     Ok((lease, read_bytes_field(payload, &mut offset)?.to_vec()))
 }
 
-pub(super) fn decode_query(payload: &[u8]) -> DriverResult<([u8; 16], Vec<u8>)> {
+pub(super) fn decode_query(payload: &[u8]) -> MiresidianResult<([u8; 16], Vec<u8>)> {
     let lease = decode_lease_prefix(payload)?;
     let mut offset = 16;
     let bytes = read_bytes_field(payload, &mut offset)?.to_vec();
@@ -105,7 +105,7 @@ pub(super) fn decode_query(payload: &[u8]) -> DriverResult<([u8; 16], Vec<u8>)> 
     Ok((lease, bytes))
 }
 
-pub(super) fn push_bytes(target: &mut Vec<u8>, bytes: &[u8]) -> DriverResult<()> {
+pub(super) fn push_bytes(target: &mut Vec<u8>, bytes: &[u8]) -> MiresidianResult<()> {
     let length = u32::try_from(bytes.len()).map_err(|_| failure("代理消息过长"))?;
     target.extend_from_slice(&length.to_be_bytes());
     target.extend_from_slice(bytes);
@@ -134,7 +134,7 @@ fn write_frame(stream: &mut TcpStream, operation: u8, payload: &[u8]) -> std::io
     stream.flush()
 }
 
-fn decode_lease_prefix(payload: &[u8]) -> DriverResult<[u8; 16]> {
+fn decode_lease_prefix(payload: &[u8]) -> MiresidianResult<[u8; 16]> {
     payload
         .get(..16)
         .ok_or_else(|| failure("串口代理请求缺少租约"))?
@@ -142,7 +142,7 @@ fn decode_lease_prefix(payload: &[u8]) -> DriverResult<[u8; 16]> {
         .map_err(|_| failure("串口代理租约无效"))
 }
 
-fn read_bytes_field<'a>(payload: &'a [u8], offset: &mut usize) -> DriverResult<&'a [u8]> {
+fn read_bytes_field<'a>(payload: &'a [u8], offset: &mut usize) -> MiresidianResult<&'a [u8]> {
     let length = read_u32(payload, offset)? as usize;
     let end = offset
         .checked_add(length)
@@ -154,7 +154,7 @@ fn read_bytes_field<'a>(payload: &'a [u8], offset: &mut usize) -> DriverResult<&
     Ok(value)
 }
 
-fn read_u8(payload: &[u8], offset: &mut usize) -> DriverResult<u8> {
+fn read_u8(payload: &[u8], offset: &mut usize) -> MiresidianResult<u8> {
     let value = *payload
         .get(*offset)
         .ok_or_else(|| failure("代理消息长度不足"))?;
@@ -162,7 +162,7 @@ fn read_u8(payload: &[u8], offset: &mut usize) -> DriverResult<u8> {
     Ok(value)
 }
 
-fn read_u32(payload: &[u8], offset: &mut usize) -> DriverResult<u32> {
+fn read_u32(payload: &[u8], offset: &mut usize) -> MiresidianResult<u32> {
     let end = offset
         .checked_add(4)
         .ok_or_else(|| failure("代理消息长度溢出"))?;
@@ -176,7 +176,7 @@ fn read_u32(payload: &[u8], offset: &mut usize) -> DriverResult<u32> {
     Ok(value)
 }
 
-fn read_u64(payload: &[u8], offset: &mut usize) -> DriverResult<u64> {
+fn read_u64(payload: &[u8], offset: &mut usize) -> MiresidianResult<u64> {
     let end = offset
         .checked_add(8)
         .ok_or_else(|| failure("代理消息长度溢出"))?;
@@ -201,7 +201,7 @@ fn data_bits_code(value: DataBits) -> u8 {
 /// 将租约协议中的数据位字段还原为串口库枚举。
 ///
 /// 这是串口代理内部协议字段的解码，不属于框架 `codec` 的文本—字节转换能力。
-fn decode_serial_data_bits(value: u8) -> DriverResult<DataBits> {
+fn decode_serial_data_bits(value: u8) -> MiresidianResult<DataBits> {
     match value {
         5 => Ok(DataBits::Five),
         6 => Ok(DataBits::Six),
@@ -217,7 +217,7 @@ fn parity_code(value: Parity) -> u8 {
         Parity::Even => 2,
     }
 }
-fn decode_parity(value: u8) -> DriverResult<Parity> {
+fn decode_parity(value: u8) -> MiresidianResult<Parity> {
     match value {
         0 => Ok(Parity::None),
         1 => Ok(Parity::Odd),
@@ -231,7 +231,7 @@ fn stop_bits_code(value: StopBits) -> u8 {
         StopBits::Two => 2,
     }
 }
-fn decode_stop_bits(value: u8) -> DriverResult<StopBits> {
+fn decode_stop_bits(value: u8) -> MiresidianResult<StopBits> {
     match value {
         1 => Ok(StopBits::One),
         2 => Ok(StopBits::Two),
@@ -245,7 +245,7 @@ fn flow_control_code(value: FlowControl) -> u8 {
         FlowControl::Hardware => 2,
     }
 }
-fn decode_flow_control(value: u8) -> DriverResult<FlowControl> {
+fn decode_flow_control(value: u8) -> MiresidianResult<FlowControl> {
     match value {
         0 => Ok(FlowControl::None),
         1 => Ok(FlowControl::Software),
@@ -255,8 +255,8 @@ fn decode_flow_control(value: u8) -> DriverResult<FlowControl> {
 }
 
 /// 构造可透传到调用方的协议或代理错误。
-pub(super) fn failure(message: impl Into<String>) -> DriverError {
-    DriverError::Failure(message.into())
+pub(super) fn failure(message: impl Into<String>) -> MiresidianError {
+    MiresidianError::Failure(message.into())
 }
 
 #[cfg(test)]

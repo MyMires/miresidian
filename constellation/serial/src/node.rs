@@ -3,7 +3,7 @@
 //! 节点状态和平台操作共同构成一个完整的设备节点，属性宏据此生成生命周期调度、操作描述
 //! 和 C ABI 入口。
 
-use miresidian::{ByteTextFormat, DriverResult, decode_text_to_bytes, encode_bytes_to_text};
+use miresidian::{ByteTextFormat, MiresidianResult, decode_text_to_bytes, encode_bytes_to_text};
 
 use crate::transport::SerialTransport;
 
@@ -30,7 +30,7 @@ impl SerialNode {
         #[miresidian::config("停止位:1")] stop_bits: u8,
         #[miresidian::config("流控:None")] flow_control: String,
         #[miresidian::config("超时毫秒:1000")] timeout_ms: u64,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         let port_name = self.transport.open(
             port_name,
             baud_rate,
@@ -44,13 +44,13 @@ impl SerialNode {
     }
 
     /// 释放当前调用方的串口租约。
-    fn close_device(&mut self) -> DriverResult<()> {
+    fn close_device(&mut self) -> MiresidianResult<()> {
         self.transport.close();
         Ok(())
     }
 
     /// 返回系统当前可枚举到的第一个串口。
-    fn get_port_no(&mut self) -> DriverResult<Option<String>> {
+    fn get_port_no(&mut self) -> MiresidianResult<Option<String>> {
         SerialTransport::first_port()
     }
 
@@ -60,7 +60,7 @@ impl SerialNode {
         &mut self,
         #[miresidian::input("发送数据")] data: String,
         #[miresidian::input("数据格式:UTF-8/Unicode/HEX/Base64")] format: ByteTextFormat,
-    ) -> DriverResult<()> {
+    ) -> MiresidianResult<()> {
         let bytes = decode_text_to_bytes(&data, format)?;
         self.transport.write_bytes(&bytes)
     }
@@ -71,7 +71,7 @@ impl SerialNode {
     fn read_data(
         &mut self,
         #[miresidian::input("数据格式:UTF-8/Unicode/HEX/Base64")] format: ByteTextFormat,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         encode_bytes_to_text(&self.transport.read_bytes()?, format)
     }
 
@@ -84,7 +84,7 @@ impl SerialNode {
         #[miresidian::input("发送数据格式:UTF-8/Unicode/HEX/Base64")] send_format: ByteTextFormat,
         #[miresidian::input("接收数据格式:UTF-8/Unicode/HEX/Base64")]
         receive_format: ByteTextFormat,
-    ) -> DriverResult<String> {
+    ) -> MiresidianResult<String> {
         let request = decode_text_to_bytes(&data, send_format)?;
         encode_bytes_to_text(&self.transport.query_bytes(&request)?, receive_format)
     }

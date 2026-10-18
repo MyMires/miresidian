@@ -1,6 +1,6 @@
 //! 具体设备节点实现的扩展点。
 
-use crate::{DriverResult, InvocationOutput, NodeDescriptor};
+use crate::{InvocationOutput, MiresidianResult, NodeDescriptor};
 
 /// 由 `#[miresidian::node_impl]` 为具体驱动生成的运行时适配器。
 ///
@@ -19,13 +19,13 @@ pub trait DeviceNode: Default + Send + 'static {
         &mut self,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput>;
+    ) -> MiresidianResult<InvocationOutput>;
 
     /// 释放节点持有的全部资源。
     ///
     /// 默认情况下关闭参数来自 `input`。节点作者可通过参数上的 `config` 或
     /// `input` 标注指定实际通道，因此运行时必须原样传入两组参数。
-    fn close_device(&mut self, config: &[String], input: &[String]) -> DriverResult<()>;
+    fn close_device(&mut self, config: &[String], input: &[String]) -> MiresidianResult<()>;
 
     /// 在成功初始化后运行节点自定义操作。
     ///
@@ -36,7 +36,7 @@ pub trait DeviceNode: Default + Send + 'static {
         operation: &str,
         config: &[String],
         input: &[String],
-    ) -> DriverResult<InvocationOutput>;
+    ) -> MiresidianResult<InvocationOutput>;
 
     /// 使用临时节点实例探测端口。
     ///
@@ -47,7 +47,7 @@ pub trait DeviceNode: Default + Send + 'static {
         &mut self,
         _config: &[String],
         _input: &[String],
-    ) -> DriverResult<Option<String>> {
+    ) -> MiresidianResult<Option<String>> {
         Ok(None)
     }
 }

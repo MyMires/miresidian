@@ -1,6 +1,6 @@
 //! 平台参数名称、默认值与实际值的统一提取规则。
 
-use crate::DriverResult;
+use crate::MiresidianResult;
 
 use super::invalid;
 
@@ -13,7 +13,7 @@ pub(super) fn value_at(
     index: usize,
     field: &str,
     default: Option<&str>,
-) -> DriverResult<String> {
+) -> MiresidianResult<String> {
     let Some(raw) = values.get(index) else {
         return default
             .map(str::to_owned)

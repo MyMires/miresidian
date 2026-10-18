@@ -1,29 +1,29 @@
 //! 基础标量与标准集合元素的强类型转换。
 
-use crate::{DriverResult, InvocationOutput};
+use crate::{InvocationOutput, MiresidianResult};
 
 use super::{ByteTextFormat, DeviceInput, DeviceOutput, invalid};
 
 impl DeviceOutput for () {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::empty())
     }
 }
 
 impl DeviceInput for String {
-    fn parse_device_text(value: &str, _field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, _field: &str) -> MiresidianResult<Self> {
         Ok(value.to_owned())
     }
 }
 
 impl DeviceOutput for String {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self]))
     }
 }
 
 impl DeviceInput for bool {
-    fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "true" | "1" | "是" | "真" => Ok(true),
             "false" | "0" | "否" | "假" => Ok(false),
@@ -33,13 +33,13 @@ impl DeviceInput for bool {
 }
 
 impl DeviceOutput for bool {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }
 
 impl DeviceInput for char {
-    fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
         let mut characters = value.chars();
         let Some(character) = characters.next() else {
             return Err(invalid(field, "必须是单个字符"));
@@ -52,12 +52,12 @@ impl DeviceInput for char {
 }
 
 impl DeviceOutput for char {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }
 
-fn parse_radix(value: &str, field: &str) -> DriverResult<Option<u128>> {
+fn parse_radix(value: &str, field: &str) -> MiresidianResult<Option<u128>> {
     let value = value.trim();
     let (radix, digits) = if let Some(value) = value
         .strip_prefix("0x")
@@ -83,7 +83,7 @@ fn parse_radix(value: &str, field: &str) -> DriverResult<Option<u128>> {
 macro_rules! integer {
     ($($type:ty),+ $(,)?) => {$(
         impl DeviceInput for $type {
-            fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+            fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
                 if let Some(value) = parse_radix(value, field)? {
                     return <$type>::try_from(value).map_err(|_| invalid(field, "数值超出类型范围"));
                 }
@@ -92,7 +92,7 @@ macro_rules! integer {
         }
 
         impl DeviceOutput for $type {
-            fn into_device_output(self) -> DriverResult<InvocationOutput> {
+            fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
                 Ok(InvocationOutput::new(vec![self.to_string()]))
             }
         }
@@ -106,7 +106,7 @@ integer!(
 macro_rules! float {
     ($($type:ty),+ $(,)?) => {$(
         impl DeviceInput for $type {
-            fn parse_device_text(value: &str, field: &str) -> DriverResult<Self> {
+            fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
                 let value = match parse_radix(value, field)? {
                     Some(value) => value as $type,
                     None => value.trim().parse::<$type>().map_err(|_| invalid(field, "数值格式错误"))?,
@@ -119,7 +119,7 @@ macro_rules! float {
         }
 
         impl DeviceOutput for $type {
-            fn into_device_output(self) -> DriverResult<InvocationOutput> {
+            fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
                 if !self.is_finite() {
                     return Err(invalid("输出", "浮点数必须是有限值"));
                 }
@@ -132,13 +132,13 @@ macro_rules! float {
 float!(f32, f64);
 
 impl DeviceInput for ByteTextFormat {
-    fn parse_device_text(value: &str, _field: &str) -> DriverResult<Self> {
+    fn parse_device_text(value: &str, _field: &str) -> MiresidianResult<Self> {
         value.parse()
     }
 }
 
 impl DeviceOutput for ByteTextFormat {
-    fn into_device_output(self) -> DriverResult<InvocationOutput> {
+    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }
