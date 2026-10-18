@@ -45,22 +45,15 @@ impl SerialLease {
         protocol::request(&mut self.stream, WRITE, &payload).map(|_| ())
     }
 
-    /// 从当前租约对应的串口读取限定长度的数据。
-    pub(crate) fn read(&mut self, maximum_bytes: usize) -> DriverResult<Vec<u8>> {
-        let maximum_bytes = u32::try_from(maximum_bytes)
-            .map_err(|_| protocol::failure("最大接收字节数超出代理支持范围"))?;
-        let mut payload = self.id.to_vec();
-        payload.extend_from_slice(&maximum_bytes.to_be_bytes());
-        protocol::request(&mut self.stream, READ, &payload)
+    /// 从当前租约对应的串口读取数据，直到本次读取超时。
+    pub(crate) fn read(&mut self) -> DriverResult<Vec<u8>> {
+        protocol::request(&mut self.stream, READ, &self.id)
     }
 
     /// 在同一串口锁中完成写入、刷新和读取。
-    pub(crate) fn query(&mut self, bytes: &[u8], maximum_bytes: usize) -> DriverResult<Vec<u8>> {
-        let maximum_bytes = u32::try_from(maximum_bytes)
-            .map_err(|_| protocol::failure("最大接收字节数超出代理支持范围"))?;
+    pub(crate) fn query(&mut self, bytes: &[u8]) -> DriverResult<Vec<u8>> {
         let mut payload = self.id.to_vec();
         protocol::push_bytes(&mut payload, bytes)?;
-        payload.extend_from_slice(&maximum_bytes.to_be_bytes());
         protocol::request(&mut self.stream, QUERY, &payload)
     }
 

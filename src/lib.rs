@@ -37,13 +37,25 @@ mod foundation;
 pub mod interop;
 mod runtime;
 
+/// 框架级数据编解码 API。
+///
+/// 属性宏生成的节点调度代码直接调用此模块，因此全部节点共用同一套类型、数组、字节和字符
+/// 编码规则。根 crate 同时保留同名重导出，以兼容已有 Rust 调用代码。
+pub mod codec {
+    pub use crate::foundation::{
+        ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
+        decode_value, encode_bytes_to_text, encode_value, parse_byte_text_format, transcode_text,
+    };
+}
+
 pub use ffi::{
     MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
     MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianOutputV1, MiresidianStatus,
 };
 pub use foundation::{
-    DeviceInput, DeviceOutput, DeviceScalar, DeviceValue, DriverError, DriverResult,
-    into_invocation_output, parse_config, parse_input,
+    ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
+    DriverError, DriverResult, decode_text_to_bytes, decode_value, encode_bytes_to_text,
+    encode_value, parse_byte_text_format, transcode_text,
 };
 pub use interop::{ffi, ffi_runtime};
 /// 供具体节点使用的属性宏。

@@ -4,6 +4,8 @@ Miresidian 的原生 DLL 以 `extern "C"` 导出，调用约定为 C 默认调�
 
 对应 C 头文件为 [`api/miresidian.h`](../api/miresidian.h)。C#、LabVIEW 或其他语言的包装层必须严格遵守本文件的编码、所有权和线程约定。
 
+参数通道、名称边界和参数描述文本的固定规则见[平台调用契约](platform-contract.md)。
+
 ## 导出函数
 
 | 函数 | 用途 |
@@ -16,10 +18,10 @@ Miresidian 的原生 DLL 以 `extern "C"` 导出，调用约定为 C 默认调�
 ## 调用模型
 
 ```text
-operation + config[] + input[] -> output[]
+Function + Config[] + Input[] -> Output[]
 ```
 
-- `operation`、`config` 和 `input` 均使用以 NUL 结尾的 UTF-8 文本。
+- `Function`、`Config` 和 `Input` 均使用以 NUL 结尾的 UTF-8 文本。`Function` 是平台调用约定中的操作名称；框架内部继续以 `operation` 表示调度语义。
 - `config_count` 或 `input_count` 为 `0` 时，可将对应数组指针传为 `NULL`。
 - 数量非零时，对应数组及每一项字符串指针均不得为 `NULL`。
 - 两个数组是相互独立的参数通道。具体参数从哪个通道取值由节点的宏标注决定：未标注的

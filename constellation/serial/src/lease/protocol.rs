@@ -64,7 +64,7 @@ pub(super) fn decode_settings(payload: &[u8]) -> DriverResult<SerialSettings> {
     let port_name = String::from_utf8(read_bytes_field(payload, &mut offset)?.to_vec())
         .map_err(|_| failure("端口名称必须为 UTF-8"))?;
     let baud_rate = read_u32(payload, &mut offset)?;
-    let data_bits = decode_data_bits(read_u8(payload, &mut offset)?)?;
+    let data_bits = decode_serial_data_bits(read_u8(payload, &mut offset)?)?;
     let parity = decode_parity(read_u8(payload, &mut offset)?)?;
     let stop_bits = decode_stop_bits(read_u8(payload, &mut offset)?)?;
     let flow_control = decode_flow_control(read_u8(payload, &mut offset)?)?;
@@ -95,17 +95,14 @@ pub(super) fn decode_lease_bytes(payload: &[u8]) -> DriverResult<([u8; 16], Vec<
     Ok((lease, read_bytes_field(payload, &mut offset)?.to_vec()))
 }
 
-pub(super) fn decode_lease_length(payload: &[u8]) -> DriverResult<([u8; 16], usize)> {
-    let lease = decode_lease_prefix(payload)?;
-    let mut offset = 16;
-    Ok((lease, read_u32(payload, &mut offset)? as usize))
-}
-
-pub(super) fn decode_query(payload: &[u8]) -> DriverResult<([u8; 16], Vec<u8>, usize)> {
+pub(super) fn decode_query(payload: &[u8]) -> DriverResult<([u8; 16], Vec<u8>)> {
     let lease = decode_lease_prefix(payload)?;
     let mut offset = 16;
     let bytes = read_bytes_field(payload, &mut offset)?.to_vec();
-    Ok((lease, bytes, read_u32(payload, &mut offset)? as usize))
+    if offset != payload.len() {
+        return Err(failure("串口查询请求包含多余内容"));
+    }
+    Ok((lease, bytes))
 }
 
 pub(super) fn push_bytes(target: &mut Vec<u8>, bytes: &[u8]) -> DriverResult<()> {
@@ -201,7 +198,10 @@ fn data_bits_code(value: DataBits) -> u8 {
         DataBits::Eight => 8,
     }
 }
-fn decode_data_bits(value: u8) -> DriverResult<DataBits> {
+/// 将租约协议中的数据位字段还原为串口库枚举。
+///
+/// 这是串口代理内部协议字段的解码，不属于框架 `codec` 的文本—字节转换能力。
+fn decode_serial_data_bits(value: u8) -> DriverResult<DataBits> {
     match value {
         5 => Ok(DataBits::Five),
         6 => Ok(DataBits::Six),

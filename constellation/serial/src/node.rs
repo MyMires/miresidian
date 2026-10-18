@@ -3,7 +3,7 @@
 //! 节点状态和平台操作共同构成一个完整的设备节点，属性宏据此生成生命周期调度、操作描述
 //! 和 C ABI 入口。
 
-use miresidian::DriverResult;
+use miresidian::{ByteTextFormat, DriverResult, decode_text_to_bytes, encode_bytes_to_text};
 
 use crate::transport::SerialTransport;
 
@@ -26,7 +26,7 @@ impl SerialNode {
         #[miresidian::config("端口名称:COM1")] port_name: String,
         #[miresidian::config("波特率:9600")] baud_rate: u32,
         #[miresidian::config("数据位:8")] data_bits: u8,
-        #[miresidian::config("校验位:None")] parity: String,
+        #[miresidian::config("校验位:None-无校验/Odd-奇校验/Even-偶校验")] parity: String,
         #[miresidian::config("停止位:1")] stop_bits: u8,
         #[miresidian::config("流控:None")] flow_control: String,
         #[miresidian::config("超时毫秒:1000")] timeout_ms: u64,
@@ -54,33 +54,38 @@ impl SerialNode {
         SerialTransport::first_port()
     }
 
-    /// 将 UTF-8 文本写入串口。
-    #[miresidian::operation("写入文本")]
-    #[miresidian::output("写入字节数")]
-    fn write_text(
-        &mut self, #[miresidian::input("发送文本")] text: String
-    ) -> DriverResult<usize> {
-        self.transport.write_text(text)
+    /// 按指定数据格式将平台文本转换为字节并发送。
+    #[miresidian::operation("发送数据")]
+    fn send_data(
+        &mut self,
+        #[miresidian::input("发送数据")] data: String,
+        #[miresidian::input("数据格式:UTF-8/Unicode/HEX/Base64")] format: ByteTextFormat,
+    ) -> DriverResult<()> {
+        let bytes = decode_text_to_bytes(&data, format)?;
+        self.transport.write_bytes(&bytes)
     }
 
-    /// 从串口读取 UTF-8 文本。
-    #[miresidian::operation("读取文本")]
-    #[miresidian::output("接收文本")]
-    fn read_text(
+    /// 读取字节直到本次读取超时，再编码为平台文本。
+    #[miresidian::operation("读取数据")]
+    #[miresidian::output("接收数据")]
+    fn read_data(
         &mut self,
-        #[miresidian::input("最大接收字节数:1024")] maximum_bytes: usize,
+        #[miresidian::input("数据格式:UTF-8/Unicode/HEX/Base64")] format: ByteTextFormat,
     ) -> DriverResult<String> {
-        self.transport.read_text(maximum_bytes)
+        encode_bytes_to_text(&self.transport.read_bytes()?, format)
     }
 
-    /// 在单一独占事务内完成写入与读取。
-    #[miresidian::operation("查询文本")]
-    #[miresidian::output("接收文本")]
-    fn query_text(
+    /// 在单一独占事务内完成发送、刷新、读取和结果编码。
+    #[miresidian::operation("查询数据")]
+    #[miresidian::output("接收数据")]
+    fn query_data(
         &mut self,
-        #[miresidian::input("发送文本")] text: String,
-        #[miresidian::input("最大接收字节数:1024")] maximum_bytes: usize,
+        #[miresidian::input("发送数据")] data: String,
+        #[miresidian::input("发送数据格式:UTF-8/Unicode/HEX/Base64")] send_format: ByteTextFormat,
+        #[miresidian::input("接收数据格式:UTF-8/Unicode/HEX/Base64")]
+        receive_format: ByteTextFormat,
     ) -> DriverResult<String> {
-        self.transport.query_text(text, maximum_bytes)
+        let request = decode_text_to_bytes(&data, send_format)?;
+        encode_bytes_to_text(&self.transport.query_bytes(&request)?, receive_format)
     }
 }

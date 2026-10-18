@@ -14,6 +14,9 @@ default-members = ["constellation/serial"]
 resolver = "3"
 
 [dependencies]
+base64 = "0.22"
+encoding_rs = "0.8"
+hex = "0.4"
 miresidian-macros = { path = "macros" }
 syn = { version = "2.0.117", features = ["full"] }
 cargo_metadata = "0.19"

@@ -1,6 +1,6 @@
 //! 串口传输实现。
 //!
-//! 本模块只负责串口连接、文本收发及跨 DLL 租约；它不声明任何测试平台功能。
+//! 本模块只负责串口连接、字节收发及跨 DLL 租约；它不声明任何测试平台功能。
 //! 平台方法、参数名称和输出契约全部由具体驱动的方法属性宏声明。
 
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -48,20 +48,19 @@ impl SerialTransport {
         self.lease.take();
     }
 
-    /// 写入并刷新 UTF-8 文本，返回写入的字节数。
-    pub fn write_text(&mut self, text: String) -> DriverResult<usize> {
-        self.lease_mut()?.write(text.as_bytes())?;
-        Ok(text.len())
+    /// 写入并刷新原始字节。
+    pub fn write_bytes(&mut self, bytes: &[u8]) -> DriverResult<()> {
+        self.lease_mut()?.write(bytes)
     }
 
-    /// 读取指定上限内的字节，并要求其为有效 UTF-8 文本。
-    pub fn read_text(&mut self, maximum_bytes: usize) -> DriverResult<String> {
-        decode_utf8(self.lease_mut()?.read(maximum_bytes)?)
+    /// 读取原始字节，直到本次读取超时。
+    pub fn read_bytes(&mut self) -> DriverResult<Vec<u8>> {
+        self.lease_mut()?.read()
     }
 
-    /// 在同一串口事务中写入、刷新并读取文本响应。
-    pub fn query_text(&mut self, text: String, maximum_bytes: usize) -> DriverResult<String> {
-        decode_utf8(self.lease_mut()?.query(text.as_bytes(), maximum_bytes)?)
+    /// 在同一串口事务中写入、刷新并读取原始字节响应。
+    pub fn query_bytes(&mut self, bytes: &[u8]) -> DriverResult<Vec<u8>> {
+        self.lease_mut()?.query(bytes)
     }
 
     /// 返回系统枚举的第一个串口；具体驱动可按设备协议实现更严格的探测。
@@ -115,12 +114,6 @@ impl SerialSettings {
             timeout_ms,
         })
     }
-}
-
-fn decode_utf8(bytes: Vec<u8>) -> DriverResult<String> {
-    String::from_utf8(bytes).map_err(|error| {
-        DriverError::Failure(format!("串口返回的内容不是有效 UTF-8 文本: {error}"))
-    })
 }
 
 fn parse_data_bits(value: u8) -> DriverResult<DataBits> {
@@ -192,5 +185,21 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn 平台传入的校验位实际值会被正确解析() {
+        let settings = SerialSettings::new(
+            "COM1".to_owned(),
+            9_600,
+            8,
+            "Odd".to_owned(),
+            1,
+            "None".to_owned(),
+            1_000,
+        )
+        .expect("Odd 是平台调用阶段传入的有效校验位值");
+
+        assert_eq!(settings.parity, Parity::Odd);
     }
 }

@@ -107,12 +107,12 @@ fn handle_request(
             Ok(Vec::new())
         }
         READ => {
-            let (lease, maximum_bytes) = protocol::decode_lease_length(payload)?;
-            registry.read(lease, maximum_bytes)
+            let lease = protocol::decode_lease(payload)?;
+            registry.read(lease)
         }
         QUERY => {
-            let (lease, bytes, maximum_bytes) = protocol::decode_query(payload)?;
-            registry.query(lease, bytes, maximum_bytes)
+            let (lease, bytes) = protocol::decode_query(payload)?;
+            registry.query(lease, bytes)
         }
         RELEASE => {
             let lease = protocol::decode_lease(payload)?;
@@ -206,21 +206,16 @@ impl BrokerRegistry {
         })
     }
 
-    fn read(&self, lease: [u8; 16], maximum_bytes: usize) -> DriverResult<Vec<u8>> {
-        self.with_port(lease, |port| read_bytes(port, maximum_bytes))
+    fn read(&self, lease: [u8; 16]) -> DriverResult<Vec<u8>> {
+        self.with_port(lease, read_until_timeout)
     }
 
-    fn query(
-        &self,
-        lease: [u8; 16],
-        bytes: Vec<u8>,
-        maximum_bytes: usize,
-    ) -> DriverResult<Vec<u8>> {
+    fn query(&self, lease: [u8; 16], bytes: Vec<u8>) -> DriverResult<Vec<u8>> {
         self.with_port(lease, |port| {
             port.write_all(&bytes)
                 .map_err(|error| io_failure("写入", error))?;
             port.flush().map_err(|error| io_failure("刷新", error))?;
-            read_bytes(port, maximum_bytes)
+            read_until_timeout(port)
         })
     }
 
@@ -285,13 +280,21 @@ impl From<&SerialSettings> for PhysicalSettings {
     }
 }
 
-fn read_bytes(port: &mut dyn SerialPort, maximum_bytes: usize) -> DriverResult<Vec<u8>> {
-    let mut buffer = vec![0; maximum_bytes];
-    let length = port
-        .read(&mut buffer)
-        .map_err(|error| io_failure("读取", error))?;
-    buffer.truncate(length);
-    Ok(buffer)
+fn read_until_timeout(port: &mut dyn SerialPort) -> DriverResult<Vec<u8>> {
+    let mut received = Vec::new();
+    let mut buffer = [0_u8; 4096];
+    loop {
+        match port.read(&mut buffer) {
+            Ok(length) => received.extend_from_slice(&buffer[..length]),
+            Err(error) if error.kind() == std::io::ErrorKind::TimedOut && !received.is_empty() => {
+                return Ok(received);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+                return Err(io_failure("读取", error));
+            }
+            Err(error) => return Err(io_failure("读取", error)),
+        }
+    }
 }
 
 fn next_lease() -> [u8; 16] {
@@ -314,7 +317,7 @@ mod tests {
     fn 未知租约无法访问代理状态() {
         let registry = BrokerRegistry::default();
         assert!(registry.write([0; 16], Vec::new()).is_err());
-        assert!(registry.read([0; 16], 1).is_err());
+        assert!(registry.read([0; 16]).is_err());
         registry.release([0; 16]);
     }
 

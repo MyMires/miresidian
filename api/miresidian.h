@@ -31,7 +31,7 @@ typedef struct MiresidianOutputV1 {
 MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
 
 MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_v1(
-    const char *operation,
+    const char *function,
     const char *const *config,
     size_t config_count,
     const char *const *input,

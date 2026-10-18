@@ -10,7 +10,7 @@ pub(super) fn with_config(self_type: &Type, method: &InitMethod) -> proc_macro2:
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let method = &method.method;
-    quote! { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::into_invocation_output(value?) }
+    quote! { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) }
 }
 
 /// 生成固定入口的双通道参数解析和调用。
@@ -27,7 +27,7 @@ pub(super) fn operation(self_type: &Type, operation: &OperationMethod) -> proc_m
     let method = &operation.method;
     let arguments = parse_arguments(&operation.parameters);
     let variables = argument_variables(operation.parameters.len());
-    quote! { #operation_name => { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::into_invocation_output(value?) } }
+    quote! { #operation_name => { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) } }
 }
 
 /// 生成可选 `get_port_no` 的双通道临时节点调用实现。
@@ -53,13 +53,12 @@ fn parse_arguments(
                 Some(value) => quote!(Some(#value)),
                 None => quote!(None),
             };
-            let (values, parser, source_index) = match parameter.source {
+            let (values, source_index) = match parameter.source {
                 ParameterSource::Config => {
                     let source_index = config_index;
                     config_index += 1;
                     (
                         quote!(config),
-                        quote!(::miresidian::parse_config),
                         source_index,
                     )
                 }
@@ -68,12 +67,11 @@ fn parse_arguments(
                     input_index += 1;
                     (
                         quote!(input),
-                        quote!(::miresidian::parse_input),
                         source_index,
                     )
                 }
             };
-            quote! { let #variable: #ty = #parser(#values, #source_index, #name, #default)?; }
+            quote! { let #variable: #ty = ::miresidian::codec::decode_value(#values, #source_index, #name, #default)?; }
         })
 }
 
