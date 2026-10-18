@@ -1,7 +1,6 @@
 #ifndef MIRESIDIAN_H
 #define MIRESIDIAN_H
 
-#include <stddef.h>
 #include <stdint.h>
 
 #if defined(_WIN32)
@@ -16,50 +15,17 @@
 extern "C" {
 #endif
 
-enum {
-    MIRESIDIAN_STATUS_OK = 0,
-    MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1,
-    MIRESIDIAN_STATUS_OPERATION_FAILED = 2,
-    MIRESIDIAN_STATUS_INTERNAL_ERROR = 3
-};
+enum { MIRESIDIAN_STATUS_OK = 0, MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1, MIRESIDIAN_STATUS_OPERATION_FAILED = 2, MIRESIDIAN_STATUS_INTERNAL_ERROR = 3 };
 
-typedef struct MiresidianTextArray {
-    char **values;
-    size_t count;
-} MiresidianTextArray;
-
+/*
+ * Config、Input、Output 与 Error 均为以 NULL 结尾的 UTF-8 字符串数组。
+ * Config、Input 可传 NULL 表示空数组。Output、Error 由 DLL 写入；调用方不得释放，
+ * 应在下一次写入同一输出通道前读取并复制其中的文本。
+ */
 MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
-
-/* 合并结果：[错误码, 错误信息, ..业务输出]。 */
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke(
-    const char *function,
-    const char *const *config,
-    size_t config_count,
-    const char *const *input,
-    size_t input_count,
-    MiresidianTextArray *output);
-
-/* 业务输出与错误信息分离；失败时 error 为 [错误码, 错误信息]。 */
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_with_error(
-    const char *function,
-    const char *const *config,
-    size_t config_count,
-    const char *const *input,
-    size_t input_count,
-    MiresidianTextArray *output,
-    MiresidianTextArray *error);
-
-/* 仅返回业务输出；失败原因只能由返回状态码获知。 */
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_without_error(
-    const char *function,
-    const char *const *config,
-    size_t config_count,
-    const char *const *input,
-    size_t input_count,
-    MiresidianTextArray *output);
-
-MIRESIDIAN_API void MIRESIDIAN_CALL miresidian_free_text_array(
-    MiresidianTextArray *value);
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke(const char *Function, const char *const *Config, const char *const *Input, char ***Output);
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_with_error(const char *Function, const char *const *Config, const char *const *Input, char ***Output, char ***Error);
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_without_error(const char *Function, const char *const *Config, const char *const *Input, char ***Output);
 
 #ifdef __cplusplus
 }

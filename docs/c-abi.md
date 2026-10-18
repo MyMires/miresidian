@@ -1,71 +1,69 @@
 # C ABI
 
-Miresidian 节点 DLL 通过 C ABI 导出三个操作入口。三个入口均接收同一组输入：
+Miresidian 节点 DLL 使用固定的 C ABI。平台只需调用 DLL 导出的入口，不需要了解 Rust
+类型、结构体或数组长度字段。
 
-```text
-function + config[] + input[]
+ABI 版本 `miresidian_abi_version()` 当前返回 `3`。
+
+## 数据约定
+
+- `Function` 是一个以 NUL 结尾的 UTF-8 字符串，例如 `GetFunctions`、`InitDevice` 或节点操作名。
+- `Config`、`Input` 是以空指针结尾的 UTF-8 字符串指针数组；`NULL` 等同于空数组。
+- `Output`、`Error` 是 DLL 返回的同类数组。数组最后一项必为 `NULL`，空数组仅包含该结束指针。
+- 调用方不得释放返回数组或其中字符串。DLL 会保留每个输出通道最近一次结果；调用方必须在下一次调用写入同一通道前读取并复制文本。
+- 所有入口使用 `__cdecl`；状态码为 `int32_t`：`0` 成功、`1` 参数错误、`2` 节点操作失败、`3` 内部错误。
+
+`api/miresidian.h` 是 C/C++ 调用方的唯一声明来源。
+
+## 导出入口
+
+```c
+uint32_t miresidian_abi_version(void);
+
+int32_t miresidian_invoke(
+    const char *Function,
+    const char *const *Config,
+    const char *const *Input,
+    char ***Output);
+
+int32_t miresidian_invoke_with_error(
+    const char *Function,
+    const char *const *Config,
+    const char *const *Input,
+    char ***Output,
+    char ***Error);
+
+int32_t miresidian_invoke_without_error(
+    const char *Function,
+    const char *const *Config,
+    const char *const *Input,
+    char ***Output);
 ```
 
-`function` 是平台传入的操作名称；框架在内部将其作为 operation 调度到 `InitDevice`、
-`CloseDevice` 或节点声明的方法。
+三者处理同一个 `Function + Config[] + Input[]` 请求，区别仅在结果通道：
 
-## 导出函数
-
-| 导出名 | 输出方式 | 适用场景 |
+| 入口 | 成功结果 | 失败结果 |
 | --- | --- | --- |
-| `miresidian_invoke` | 一个合并数组 | 平台只能接收一个输出数组。 |
-| `miresidian_invoke_with_error` | `output` 与 `error` 两个数组 | 平台支持独立错误通道。 |
-| `miresidian_invoke_without_error` | 仅 `output` 数组 | 平台只关心业务输出和 C ABI 返回状态。 |
-| `miresidian_free_text_array` | 释放数组 | 释放任意入口返回的数组。 |
+| `miresidian_invoke` | `Output = ["0", "", ..业务输出]` | `Output = [错误码, 错误信息]` |
+| `miresidian_invoke_with_error` | `Output = [..业务输出]`，`Error = []` | `Output = []`，`Error = [错误码, 错误信息]` |
+| `miresidian_invoke_without_error` | `Output = [..业务输出]` | `Output = []`，失败原因只由返回状态码表示 |
 
-`miresidian_abi_version()` 当前返回 `2`。
+例如查询操作列表：
 
-## 输出规则
+```c
+char **output = NULL;
+int32_t status = miresidian_invoke(
+    "GetFunctions", NULL, NULL, &output);
 
-### `miresidian_invoke`
-
-`output` 固定为：
-
-```text
-[错误码, 错误信息, ..业务输出]
+/* status == 0；output[0] == "0"，output[1] == ""，业务输出从 output[2] 开始。 */
+/* 读取所需文本后复制；不调用 free，也不向 DLL 传回 output。 */
 ```
 
-例如读取成功：
+## 错误边界
 
-```text
-["0", "", "01 03 00 00"]
-```
+`Function` 为 `NULL`、非 UTF-8 文本、数组未以 `NULL` 结束，或输出地址为空时，入口返回
+`MIRESIDIAN_STATUS_INVALID_ARGUMENT`。节点自身的初始化、配置、通信或业务失败返回
+`MIRESIDIAN_STATUS_OPERATION_FAILED`。Rust panic 不会跨越 ABI 边界，而会被转换为
+`MIRESIDIAN_STATUS_INTERNAL_ERROR`。
 
-例如未初始化：
-
-```text
-["2", "节点尚未初始化"]
-```
-
-### `miresidian_invoke_with_error`
-
-成功时：
-
-```text
-output = [..业务输出]
-error  = []
-```
-
-失败时：
-
-```text
-output = []
-error  = [错误码, 错误信息]
-```
-
-### `miresidian_invoke_without_error`
-
-成功时 `output` 仅包含业务输出；失败时为空数组。错误详情不写入数组。
-
-## 返回状态与内存
-
-三个入口均返回 `int32_t` 状态码：`0` 成功、`1` 参数错误、`2` 节点操作失败、`3` 框架捕获
-到内部 panic。返回的每个 `MiresidianTextArray` 都必须以同一 DLL 的
-`miresidian_free_text_array` 释放；零初始化或已释放的数组可重复传入释放函数。
-
-错误不再通过线程本地 `last_error` 传递。
+合并入口即使失败也会尽量把错误码与错误信息写入 `Output`；分离入口将它们写入 `Error`。

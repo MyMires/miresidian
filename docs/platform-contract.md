@@ -18,7 +18,9 @@ Function + Config[] + Input[] -> Output[]
 | `miresidian_invoke_with_error` | `output` 为业务输出；失败时 `error` 为 `[错误码, 错误信息]`。 |
 | `miresidian_invoke_without_error` | `output` 仅包含业务输出；失败原因仅由 C ABI 返回状态表示。 |
 
-三者均以 `function`、`config`、`input` 传入相同业务请求。完整的参数顺序、内存释放与状态码见 [C ABI](c-abi.md)。
+三者均以 `Function`、`Config`、`Input` 传入相同业务请求。它们均为以 `NULL` 结尾的 UTF-8
+字符串数组（`Function` 除外）；`Config` 与 `Input` 可传 `NULL` 表示空数组。完整的参数顺序、
+输出指针有效期与状态码见 [C ABI](c-abi.md)。
 
 - `Function` 是平台调用入口中的函数名称。
 - `Config[]` 与 `Input[]` 都是字符串数组，是相互独立的参数通道。

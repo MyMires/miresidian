@@ -40,7 +40,7 @@
 - 常量使用 `SCREAMING_SNAKE_CASE`。
 - 默认保持私有；仅当跨 crate、宏生成代码或调用方确实需要时才暴露 `pub` API。
 - Rust 内部采用惯用命名，例如 `invoke`、`init_device`、`close_device`。
-- C ABI 导出符号和对外 Operation 名称以契约为准。当前 ABI 操作入口为 `miresidian_invoke`、`miresidian_invoke_with_error` 与 `miresidian_invoke_without_error`。
+- C ABI 导出符号和对外 Operation 名称以契约为准。当前稳定入口为 `miresidian_invoke`、`miresidian_invoke_with_error` 与 `miresidian_invoke_without_error`。
 - 物理量、超时、长度等应通过名称或文档表明单位，例如 `timeout_ms`、`voltage_v`、`maximum_bytes`。
 - 禁止散落的魔法数字；协议常量、默认值和状态码必须定义为具名常量或明确的枚举成员。
 
@@ -50,16 +50,16 @@
 - 禁止 Rust panic 穿过 C ABI 边界；FFI 入口必须捕获并转换所有异常路径。
 - `unsafe` 必须最小化并隔离在 FFI 或确有必要的底层模块中。
 - 每个 `unsafe` 块必须附带说明，阐明其前置条件和安全性理由；含有不安全调用约束的公共 API 应提供 `# Safety` 文档。
-- 所有跨语言 ABI 结构都必须使用 `#[repr(C)]`，并仅使用布局稳定的字段类型。
+- 需要公开 ABI 结构时必须使用 `#[repr(C)]`，并仅使用布局稳定的字段类型；当前入口使用 C 字符串与 NULL 结尾指针数组，不公开 Rust 结构体。
 - 不允许将 Rust 的 `String`、`Vec<T>`、引用、trait 对象或未标注布局的 Rust 结构体直接暴露给 C、Python、LabVIEW 或其他外部调用方。
 
 ## 4. 跨语言契约
 
 - 平台可见输入输出仅支持稳定、通用且可明确序列化的类型：数值、布尔值、UTF-8 文本、字节数组、基础类型一维数组、可选值、规范化枚举值和空返回值。
 - C ABI 文本统一使用 UTF-8，并明确空指针、空数组、空字符串与错误值的含义。
-- 所有由 Rust 分配并交给外部调用方的内存，都必须由 Miresidian 对应的导出释放函数回收；外部调用方不得使用语言自身的 `free` 或释放器处理该内存。
-- ABI 的函数名、参数顺序、调用约定、所有权和版本必须记录在公开头文件与 ABI 文档中。已发布 ABI 的破坏性修改必须保留旧入口或提供明确迁移版本说明。
-- 当前统一调用模型为 `Operation + Config + Input -> Output`。C ABI 额外提供合并错误、独立错误与无错误三个输出策略，详情以 `docs/c-abi.md` 为准。
+- 由 Rust 分配并交给外部调用方读取的内存，其所有权、有效期与回收策略必须由 ABI 文档明确。当前 NULL 结尾文本数组由 DLL 管理，调用方不得使用语言自身的 `free` 或释放器处理。
+- ABI 的函数名、参数顺序、调用约定、所有权和版本必须记录在公开头文件与 ABI 文档中。任何破坏性修改必须新增 ABI 版本，而不是覆盖旧入口。
+- 当前统一调用模型为 `Function + Config + Input -> Output`。`operation` 是 Rust 内部节点调度语义，`miresidian_invoke` 是稳定 C ABI 导出名称。
 
 ## 5. 设备节点、并发与资源
 
@@ -74,7 +74,7 @@
 - 每次修改公共行为、参数规则、错误行为、ABI 或调用顺序时，必须同时更新对应文档与测试。
 - 公共 Rust API 使用 Rustdoc 注释，至少说明用途、参数、返回值、错误条件以及线程或资源约束。
 - 注释应解释设计原因、协议限制和不明显的边界条件，而非重复代码字面含义。
-- C ABI 变更必须同步更新 `api/miresidian.h` 和 `docs/c-abi.md`。
+- C ABI 变更必须同步更新 `api/miresidian.h`、`docs/c-abi.md` 与相关节点发布说明。
 - 驱动接口、默认值、Operation 名称、配置标签、输入输出标签发生变化时，必须同步更新该驱动的调用说明。
 - 属性宏的行为、固定入口映射、自动命名或生成代码的职责边界发生变化时，必须同步更新
   `docs/宏驱动开发.md`，并为该行为增加或更新回归测试。
@@ -83,7 +83,7 @@
 
 - 参数默认值、文本与数组编解码、Base64、数值格式和错误输入必须有单元测试。
 - 生命周期应有集成测试，至少覆盖 `init -> invoke -> close`、重复关闭、初始化失败和未初始化调用。
-- C ABI 必须有 FFI 测试，覆盖 UTF-8、数组边界、输出释放、错误码和错误信息。
+- C ABI 必须有 FFI 测试，覆盖 UTF-8、NULL 结尾数组边界、输出有效期、错误码和错误信息。
 - 修复缺陷时应新增能够复现该问题的回归测试。
 - 有真实硬件的通信验证与无硬件的协议/模拟验证应分开；硬件测试不得成为基础契约测试的前提。
 
