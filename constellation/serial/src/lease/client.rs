@@ -10,9 +10,9 @@ use miresidian::MiresidianResult;
 
 use super::{
     broker,
-    protocol::{self, ACQUIRE, QUERY, READ, RELEASE, WRITE},
+    protocol::{self, ACQUIRE, CLEAR, CONTROL, QUERY, READ, RELEASE, STATUS, WRITE},
 };
-use crate::transport::SerialSettings;
+use crate::transport::{BufferDirection, ControlSignalState, ReceiveOptions, SerialSettings};
 
 /// 回环端点是同一主机内所有 Miresidian 串口 DLL 的固定会合点。
 ///
@@ -46,15 +46,52 @@ impl SerialLease {
     }
 
     /// 从当前租约对应的串口读取数据，直到本次读取超时。
-    pub(crate) fn read(&mut self) -> MiresidianResult<Vec<u8>> {
-        protocol::request(&mut self.stream, READ, &self.id)
+    pub(crate) fn read(&mut self, options: ReceiveOptions) -> MiresidianResult<Vec<u8>> {
+        protocol::request(
+            &mut self.stream,
+            READ,
+            &protocol::encode_read(&self.id, &options)?,
+        )
     }
 
     /// 在同一串口锁中完成写入、刷新和读取。
-    pub(crate) fn query(&mut self, bytes: &[u8]) -> MiresidianResult<Vec<u8>> {
-        let mut payload = self.id.to_vec();
-        protocol::push_bytes(&mut payload, bytes)?;
-        protocol::request(&mut self.stream, QUERY, &payload)
+    pub(crate) fn query(
+        &mut self,
+        bytes: &[u8],
+        options: ReceiveOptions,
+    ) -> MiresidianResult<Vec<u8>> {
+        protocol::request(
+            &mut self.stream,
+            QUERY,
+            &protocol::encode_query(&self.id, bytes, &options)?,
+        )
+    }
+
+    pub(crate) fn clear(&mut self, direction: BufferDirection) -> MiresidianResult<()> {
+        protocol::request(
+            &mut self.stream,
+            CLEAR,
+            &protocol::encode_clear(&self.id, direction),
+        )
+        .map(|_| ())
+    }
+
+    pub(crate) fn set_control(
+        &mut self,
+        dtr: ControlSignalState,
+        rts: ControlSignalState,
+        break_state: ControlSignalState,
+    ) -> MiresidianResult<()> {
+        protocol::request(
+            &mut self.stream,
+            CONTROL,
+            &protocol::encode_control(&self.id, dtr, rts, break_state),
+        )
+        .map(|_| ())
+    }
+
+    pub(crate) fn buffered_bytes(&mut self) -> MiresidianResult<(usize, usize)> {
+        protocol::decode_status(&protocol::request(&mut self.stream, STATUS, &self.id)?)
     }
 
     fn release(&mut self) {

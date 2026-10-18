@@ -12,10 +12,13 @@ use std::{
 };
 
 use miresidian::MiresidianResult;
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use serialport::{ClearBuffer, DataBits, FlowControl, Parity, SerialPort, StopBits};
 
-use super::protocol::{self, ACQUIRE, QUERY, READ, RELEASE, WRITE};
-use crate::transport::{SerialSettings, io_failure, serial_failure};
+use super::protocol::{self, ACQUIRE, CLEAR, CONTROL, QUERY, READ, RELEASE, STATUS, WRITE};
+use crate::transport::{
+    BufferDirection, ControlSignalState, ReceiveMode, ReceiveOptions, SerialSettings, io_failure,
+    serial_failure,
+};
 
 static LOCAL_SERVER: OnceLock<()> = OnceLock::new();
 static NEXT_LEASE: AtomicU64 = AtomicU64::new(1);
@@ -107,12 +110,36 @@ fn handle_request(
             Ok(Vec::new())
         }
         READ => {
-            let lease = protocol::decode_lease(payload)?;
-            registry.read(lease)
+            let (lease, options) = protocol::decode_read(payload)?;
+            registry.read(lease, options)
         }
         QUERY => {
-            let (lease, bytes) = protocol::decode_query(payload)?;
-            registry.query(lease, bytes)
+            let (lease, bytes, options) = protocol::decode_query_with_options(payload)?;
+            registry.query(lease, bytes, options)
+        }
+        CLEAR => {
+            let (lease, direction) = protocol::decode_clear(payload)?;
+            registry.clear(lease, direction)?;
+            Ok(Vec::new())
+        }
+        CONTROL => {
+            let (lease, dtr, rts, break_state) = protocol::decode_control(payload)?;
+            registry.control(lease, dtr, rts, break_state)?;
+            Ok(Vec::new())
+        }
+        STATUS => {
+            let lease = protocol::decode_lease(payload)?;
+            let (read, write) = registry.status(lease)?;
+            let mut out = Vec::new();
+            out.extend_from_slice(
+                &(u64::try_from(read).map_err(|_| protocol::failure("待读字节数超出范围"))?)
+                    .to_be_bytes(),
+            );
+            out.extend_from_slice(
+                &(u64::try_from(write).map_err(|_| protocol::failure("待写字节数超出范围"))?)
+                    .to_be_bytes(),
+            );
+            Ok(out)
         }
         RELEASE => {
             let lease = protocol::decode_lease(payload)?;
@@ -137,7 +164,8 @@ struct RegistryState {
 
 struct LeaseInfo {
     port_key: String,
-    timeout_ms: u64,
+    read_timeout_ms: u64,
+    write_timeout_ms: u64,
 }
 
 struct PortEntry {
@@ -176,7 +204,7 @@ impl BrokerRegistry {
                 .parity(settings.parity)
                 .stop_bits(settings.stop_bits)
                 .flow_control(settings.flow_control)
-                .timeout(Duration::from_millis(settings.timeout_ms))
+                .timeout(Duration::from_millis(settings.read_timeout_ms))
                 .open()
                 .map_err(|error| serial_failure("打开", error))?;
             let entry = Arc::new(PortEntry {
@@ -191,7 +219,8 @@ impl BrokerRegistry {
             lease,
             LeaseInfo {
                 port_key: key,
-                timeout_ms: settings.timeout_ms,
+                read_timeout_ms: settings.read_timeout_ms,
+                write_timeout_ms: settings.write_timeout_ms,
             },
         );
         let _ = entry;
@@ -199,32 +228,59 @@ impl BrokerRegistry {
     }
 
     fn write(&self, lease: [u8; 16], bytes: Vec<u8>) -> MiresidianResult<()> {
-        self.with_port(lease, |port| {
+        self.with_port(lease, true, |port| {
             port.write_all(&bytes)
                 .map_err(|error| io_failure("写入", error))?;
             port.flush().map_err(|error| io_failure("刷新", error))
         })
     }
 
-    fn read(&self, lease: [u8; 16]) -> MiresidianResult<Vec<u8>> {
-        self.with_port(lease, read_until_timeout)
+    fn read(&self, lease: [u8; 16], options: ReceiveOptions) -> MiresidianResult<Vec<u8>> {
+        self.with_port_timeout(lease, options.timeout_ms, |port| read_until(port, &options))
     }
 
-    fn query(&self, lease: [u8; 16], bytes: Vec<u8>) -> MiresidianResult<Vec<u8>> {
-        self.with_port(lease, |port| {
+    fn query(
+        &self,
+        lease: [u8; 16],
+        bytes: Vec<u8>,
+        options: ReceiveOptions,
+    ) -> MiresidianResult<Vec<u8>> {
+        self.with_port(lease, true, |port| {
             port.write_all(&bytes)
                 .map_err(|error| io_failure("写入", error))?;
             port.flush().map_err(|error| io_failure("刷新", error))?;
-            read_until_timeout(port)
+            read_until(port, &options)
         })
     }
 
     fn with_port<T>(
         &self,
         lease: [u8; 16],
+        write: bool,
         action: impl FnOnce(&mut dyn SerialPort) -> MiresidianResult<T>,
     ) -> MiresidianResult<T> {
-        let (entry, timeout_ms) = self.entry_for(lease)?;
+        self.with_port_timeout(
+            lease,
+            if write {
+                self.entry_for(lease)?.1.write_timeout_ms
+            } else {
+                0
+            },
+            action,
+        )
+    }
+    fn with_port_timeout<T>(
+        &self,
+        lease: [u8; 16],
+        timeout_ms: u64,
+        action: impl FnOnce(&mut dyn SerialPort) -> MiresidianResult<T>,
+    ) -> MiresidianResult<T> {
+        let (entry, info) = self.entry_for(lease)?;
+        let timeout_ms = if timeout_ms == 0 {
+            info.read_timeout_ms
+        } else {
+            timeout_ms
+        };
         let mut port = entry
             .port
             .lock()
@@ -234,7 +290,7 @@ impl BrokerRegistry {
         action(port.as_mut())
     }
 
-    fn entry_for(&self, lease: [u8; 16]) -> MiresidianResult<(Arc<PortEntry>, u64)> {
+    fn entry_for(&self, lease: [u8; 16]) -> MiresidianResult<(Arc<PortEntry>, LeaseInfo)> {
         let state = self
             .state
             .lock()
@@ -247,7 +303,62 @@ impl BrokerRegistry {
             .ports
             .get(&info.port_key)
             .ok_or_else(|| protocol::failure("串口租约对应端口不存在"))?;
-        Ok((Arc::clone(entry), info.timeout_ms))
+        Ok((
+            Arc::clone(entry),
+            LeaseInfo {
+                port_key: info.port_key.clone(),
+                read_timeout_ms: info.read_timeout_ms,
+                write_timeout_ms: info.write_timeout_ms,
+            },
+        ))
+    }
+
+    fn clear(&self, lease: [u8; 16], direction: BufferDirection) -> MiresidianResult<()> {
+        self.with_port(lease, false, |port| {
+            port.clear(match direction {
+                BufferDirection::Input => ClearBuffer::Input,
+                BufferDirection::Output => ClearBuffer::Output,
+                BufferDirection::Both => ClearBuffer::All,
+            })
+            .map_err(|error| io_failure("清空缓冲区", error.into()))
+        })
+    }
+    fn control(
+        &self,
+        lease: [u8; 16],
+        dtr: ControlSignalState,
+        rts: ControlSignalState,
+        break_state: ControlSignalState,
+    ) -> MiresidianResult<()> {
+        self.with_port(lease, false, |port| {
+            if let Some(value) = signal_value(dtr) {
+                port.write_data_terminal_ready(value)
+                    .map_err(|e| io_failure("设置 DTR", e.into()))?;
+            }
+            if let Some(value) = signal_value(rts) {
+                port.write_request_to_send(value)
+                    .map_err(|e| io_failure("设置 RTS", e.into()))?;
+            }
+            if let Some(value) = signal_value(break_state) {
+                port.set_break()
+                    .map_err(|e| io_failure("设置中断", e.into()))?;
+                if !value {
+                    port.clear_break()
+                        .map_err(|e| io_failure("清除中断", e.into()))?;
+                }
+            }
+            Ok(())
+        })
+    }
+    fn status(&self, lease: [u8; 16]) -> MiresidianResult<(usize, usize)> {
+        self.with_port(lease, false, |port| {
+            Ok((
+                port.bytes_to_read()
+                    .map_err(|e| io_failure("读取缓冲区状态", e.into()))? as usize,
+                port.bytes_to_write()
+                    .map_err(|e| io_failure("读取缓冲区状态", e.into()))? as usize,
+            ))
+        })
     }
 
     fn release(&self, lease: [u8; 16]) {
@@ -280,12 +391,32 @@ impl From<&SerialSettings> for PhysicalSettings {
     }
 }
 
-fn read_until_timeout(port: &mut dyn SerialPort) -> MiresidianResult<Vec<u8>> {
+fn signal_value(value: ControlSignalState) -> Option<bool> {
+    match value {
+        ControlSignalState::Keep => None,
+        ControlSignalState::Enabled => Some(true),
+        ControlSignalState::Disabled => Some(false),
+    }
+}
+fn read_until(port: &mut dyn SerialPort, options: &ReceiveOptions) -> MiresidianResult<Vec<u8>> {
     let mut received = Vec::new();
     let mut buffer = [0_u8; 4096];
     loop {
         match port.read(&mut buffer) {
-            Ok(length) => received.extend_from_slice(&buffer[..length]),
+            Ok(length) => {
+                received.extend_from_slice(&buffer[..length]);
+                if matches!(options.mode, ReceiveMode::Length)
+                    && received.len() >= options.byte_count
+                {
+                    received.truncate(options.byte_count);
+                    return Ok(received);
+                }
+                if matches!(options.mode, ReceiveMode::Terminator)
+                    && received.ends_with(&options.terminator)
+                {
+                    return Ok(received);
+                }
+            }
             Err(error) if error.kind() == std::io::ErrorKind::TimedOut && !received.is_empty() => {
                 return Ok(received);
             }
@@ -317,7 +448,15 @@ mod tests {
     fn 未知租约无法访问代理状态() {
         let registry = BrokerRegistry::default();
         assert!(registry.write([0; 16], Vec::new()).is_err());
-        assert!(registry.read([0; 16]).is_err());
+        assert!(
+            registry
+                .read(
+                    [0; 16],
+                    ReceiveOptions::new(ReceiveMode::IdleTimeout, Vec::new(), 0, 0)
+                        .expect("空闲超时模式允许空参数"),
+                )
+                .is_err()
+        );
         registry.release([0; 16]);
     }
 

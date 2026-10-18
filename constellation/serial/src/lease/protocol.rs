@@ -8,13 +8,18 @@ use std::{
 use miresidian::{MiresidianError, MiresidianResult};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
-use crate::transport::SerialSettings;
+use crate::transport::{
+    BufferDirection, ControlSignalState, ReceiveMode, ReceiveOptions, SerialSettings,
+};
 
 pub(super) const ACQUIRE: u8 = 1;
 pub(super) const WRITE: u8 = 2;
 pub(super) const READ: u8 = 3;
 pub(super) const QUERY: u8 = 4;
 pub(super) const RELEASE: u8 = 5;
+pub(super) const CLEAR: u8 = 6;
+pub(super) const CONTROL: u8 = 7;
+pub(super) const STATUS: u8 = 8;
 const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024;
 
 /// 发送请求并将代理端的失败文本转换为驱动错误。
@@ -54,8 +59,157 @@ pub(super) fn encode_settings(settings: &SerialSettings) -> Vec<u8> {
     payload.push(parity_code(settings.parity));
     payload.push(stop_bits_code(settings.stop_bits));
     payload.push(flow_control_code(settings.flow_control));
-    payload.extend_from_slice(&settings.timeout_ms.to_be_bytes());
+    payload.extend_from_slice(&settings.read_timeout_ms.to_be_bytes());
+    payload.extend_from_slice(&settings.write_timeout_ms.to_be_bytes());
     payload
+}
+
+pub(super) fn encode_read(lease: &[u8; 16], options: &ReceiveOptions) -> MiresidianResult<Vec<u8>> {
+    let mut payload = lease.to_vec();
+    push_options(&mut payload, options)?;
+    Ok(payload)
+}
+pub(super) fn decode_read(payload: &[u8]) -> MiresidianResult<([u8; 16], ReceiveOptions)> {
+    let lease = decode_lease_prefix(payload)?;
+    let mut offset = 16;
+    let options = read_options(payload, &mut offset)?;
+    if offset != payload.len() {
+        return Err(failure("串口读取请求包含多余内容"));
+    }
+    Ok((lease, options))
+}
+pub(super) fn encode_query(
+    lease: &[u8; 16],
+    bytes: &[u8],
+    options: &ReceiveOptions,
+) -> MiresidianResult<Vec<u8>> {
+    let mut payload = lease.to_vec();
+    push_bytes(&mut payload, bytes)?;
+    push_options(&mut payload, options)?;
+    Ok(payload)
+}
+pub(super) fn decode_query_with_options(
+    payload: &[u8],
+) -> MiresidianResult<([u8; 16], Vec<u8>, ReceiveOptions)> {
+    let lease = decode_lease_prefix(payload)?;
+    let mut offset = 16;
+    let bytes = read_bytes_field(payload, &mut offset)?.to_vec();
+    let options = read_options(payload, &mut offset)?;
+    if offset != payload.len() {
+        return Err(failure("串口查询请求包含多余内容"));
+    }
+    Ok((lease, bytes, options))
+}
+pub(super) fn encode_clear(lease: &[u8; 16], direction: BufferDirection) -> Vec<u8> {
+    let mut value = lease.to_vec();
+    value.push(match direction {
+        BufferDirection::Input => 0,
+        BufferDirection::Output => 1,
+        BufferDirection::Both => 2,
+    });
+    value
+}
+pub(super) fn decode_clear(payload: &[u8]) -> MiresidianResult<([u8; 16], BufferDirection)> {
+    let lease = decode_lease_prefix(payload)?;
+    let value = *payload.get(16).ok_or_else(|| failure("缺少缓冲区方向"))?;
+    if payload.len() != 17 {
+        return Err(failure("清空请求包含多余内容"));
+    }
+    Ok((
+        lease,
+        match value {
+            0 => BufferDirection::Input,
+            1 => BufferDirection::Output,
+            2 => BufferDirection::Both,
+            _ => return Err(failure("缓冲区方向无效")),
+        },
+    ))
+}
+pub(super) fn encode_control(
+    lease: &[u8; 16],
+    dtr: ControlSignalState,
+    rts: ControlSignalState,
+    break_state: ControlSignalState,
+) -> Vec<u8> {
+    let mut v = lease.to_vec();
+    for s in [dtr, rts, break_state] {
+        v.push(match s {
+            ControlSignalState::Keep => 0,
+            ControlSignalState::Enabled => 1,
+            ControlSignalState::Disabled => 2,
+        });
+    }
+    v
+}
+pub(super) fn decode_control(
+    payload: &[u8],
+) -> MiresidianResult<(
+    [u8; 16],
+    ControlSignalState,
+    ControlSignalState,
+    ControlSignalState,
+)> {
+    let lease = decode_lease_prefix(payload)?;
+    if payload.len() != 19 {
+        return Err(failure("控制信号请求无效"));
+    }
+    let decode = |v| match v {
+        0 => Ok(ControlSignalState::Keep),
+        1 => Ok(ControlSignalState::Enabled),
+        2 => Ok(ControlSignalState::Disabled),
+        _ => Err(failure("控制信号状态无效")),
+    };
+    Ok((
+        lease,
+        decode(payload[16])?,
+        decode(payload[17])?,
+        decode(payload[18])?,
+    ))
+}
+pub(super) fn decode_status(payload: &[u8]) -> MiresidianResult<(usize, usize)> {
+    if payload.len() != 16 {
+        return Err(failure("串口状态响应无效"));
+    }
+    let a = u64::from_be_bytes(
+        payload[..8]
+            .try_into()
+            .map_err(|_| failure("串口状态响应无效"))?,
+    );
+    let b = u64::from_be_bytes(
+        payload[8..]
+            .try_into()
+            .map_err(|_| failure("串口状态响应无效"))?,
+    );
+    Ok((
+        usize::try_from(a).map_err(|_| failure("待读字节数超出范围"))?,
+        usize::try_from(b).map_err(|_| failure("待写字节数超出范围"))?,
+    ))
+}
+fn push_options(target: &mut Vec<u8>, options: &ReceiveOptions) -> MiresidianResult<()> {
+    target.push(match options.mode {
+        ReceiveMode::IdleTimeout => 0,
+        ReceiveMode::Terminator => 1,
+        ReceiveMode::Length => 2,
+    });
+    target.extend_from_slice(&options.timeout_ms.to_be_bytes());
+    target.extend_from_slice(
+        &(u64::try_from(options.byte_count).map_err(|_| failure("接收字节数超出范围"))?)
+            .to_be_bytes(),
+    );
+    push_bytes(target, &options.terminator)
+}
+fn read_options(payload: &[u8], offset: &mut usize) -> MiresidianResult<ReceiveOptions> {
+    let mode = match read_u8(payload, offset)? {
+        0 => ReceiveMode::IdleTimeout,
+        1 => ReceiveMode::Terminator,
+        2 => ReceiveMode::Length,
+        _ => return Err(failure("接收方式无效")),
+    };
+    let timeout_ms = read_u64(payload, offset)?;
+    let byte_count =
+        usize::try_from(read_u64(payload, offset)?).map_err(|_| failure("接收字节数超出范围"))?;
+    let terminator = read_bytes_field(payload, offset)?.to_vec();
+    ReceiveOptions::new(mode, terminator, byte_count, timeout_ms)
 }
 
 /// 解码客户端提交的通信设置。
@@ -68,7 +222,8 @@ pub(super) fn decode_settings(payload: &[u8]) -> MiresidianResult<SerialSettings
     let parity = decode_parity(read_u8(payload, &mut offset)?)?;
     let stop_bits = decode_stop_bits(read_u8(payload, &mut offset)?)?;
     let flow_control = decode_flow_control(read_u8(payload, &mut offset)?)?;
-    let timeout_ms = read_u64(payload, &mut offset)?;
+    let read_timeout_ms = read_u64(payload, &mut offset)?;
+    let write_timeout_ms = read_u64(payload, &mut offset)?;
     if offset != payload.len() {
         return Err(failure("串口代理配置包含多余内容"));
     }
@@ -79,7 +234,8 @@ pub(super) fn decode_settings(payload: &[u8]) -> MiresidianResult<SerialSettings
         parity,
         stop_bits,
         flow_control,
-        timeout_ms,
+        read_timeout_ms,
+        write_timeout_ms,
     })
 }
 
@@ -93,16 +249,6 @@ pub(super) fn decode_lease_bytes(payload: &[u8]) -> MiresidianResult<([u8; 16], 
     let lease = decode_lease_prefix(payload)?;
     let mut offset = 16;
     Ok((lease, read_bytes_field(payload, &mut offset)?.to_vec()))
-}
-
-pub(super) fn decode_query(payload: &[u8]) -> MiresidianResult<([u8; 16], Vec<u8>)> {
-    let lease = decode_lease_prefix(payload)?;
-    let mut offset = 16;
-    let bytes = read_bytes_field(payload, &mut offset)?.to_vec();
-    if offset != payload.len() {
-        return Err(failure("串口查询请求包含多余内容"));
-    }
-    Ok((lease, bytes))
 }
 
 pub(super) fn push_bytes(target: &mut Vec<u8>, bytes: &[u8]) -> MiresidianResult<()> {
@@ -273,7 +419,8 @@ mod tests {
             parity: Parity::None,
             stop_bits: StopBits::One,
             flow_control: FlowControl::None,
-            timeout_ms: 800,
+            read_timeout_ms: 800,
+            write_timeout_ms: 800,
         }
     }
 
@@ -290,7 +437,7 @@ mod tests {
     fn 截断的租约协议报错而不恐慌() {
         assert!(decode_settings(&[0, 0, 0]).is_err());
         assert!(decode_lease(&[0; 15]).is_err());
-        assert!(decode_query(&[0; 16]).is_err());
+        assert!(decode_query_with_options(&[0; 16]).is_err());
     }
 
     #[test]
