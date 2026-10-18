@@ -50,7 +50,7 @@ pub mod codec {
 
 pub use ffi::{
     MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
-    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianOutputV1, MiresidianStatus,
+    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus, MiresidianTextArray,
 };
 pub use foundation::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,

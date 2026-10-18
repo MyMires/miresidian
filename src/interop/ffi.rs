@@ -1,7 +1,7 @@
 //! Miresidian C ABI 的公共类型。
 //!
-//! 实际导出函数由每个驱动 crate 上的 `#[miresidian::node_impl]` 生成；运行时 crate
-//! 本身不再绑定任何具体设备，也不导出某个设备 DLL。
+//! 实际导出函数由每个节点 crate 上的 `#[miresidian::node_impl]` 生成；运行时 crate
+//! 本身不绑定任何具体设备，也不导出某个节点 DLL。
 
 use std::{ffi::c_char, ptr};
 
@@ -17,20 +17,20 @@ pub const MIRESIDIAN_STATUS_INTERNAL_ERROR: MiresidianStatus = 3;
 /// C ABI 函数返回的状态码。
 pub type MiresidianStatus = i32;
 
-/// `miresidian_invoke_v1` 成功返回的 UTF-8 输出字符串数组。
+/// C ABI 中传递 UTF-8 文本数组的通用结构。
 ///
-/// 调用方必须将此结构体零初始化；成功调用后必须使用同一 DLL 导出的
-/// `miresidian_free_output_v1` 释放，不得自行释放数组或其中任何字符串。
+/// `miresidian_invoke` 同时用它承载业务 `output` 与错误 `error`。调用方必须将结构体
+/// 零初始化，并在调用后以同一 DLL 的 `miresidian_free_text_array` 释放。
 #[repr(C)]
 #[derive(Debug)]
-pub struct MiresidianOutputV1 {
+pub struct MiresidianTextArray {
     /// 指向以 NUL 结尾字符串指针的连续数组。
     pub values: *mut *mut c_char,
     /// `values` 数组中的元素数量。
     pub count: usize,
 }
 
-impl Default for MiresidianOutputV1 {
+impl Default for MiresidianTextArray {
     fn default() -> Self {
         Self {
             values: ptr::null_mut(),

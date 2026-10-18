@@ -40,7 +40,7 @@
 - 常量使用 `SCREAMING_SNAKE_CASE`。
 - 默认保持私有；仅当跨 crate、宏生成代码或调用方确实需要时才暴露 `pub` API。
 - Rust 内部采用惯用命名，例如 `invoke`、`init_device`、`close_device`。
-- C ABI 导出符号和对外 Operation 名称以契约为准。例如稳定 ABI 入口使用 `miresidian_invoke_v1`。
+- C ABI 导出符号和对外 Operation 名称以契约为准。当前 ABI 操作入口为 `miresidian_invoke`、`miresidian_invoke_with_error` 与 `miresidian_invoke_without_error`。
 - 物理量、超时、长度等应通过名称或文档表明单位，例如 `timeout_ms`、`voltage_v`、`maximum_bytes`。
 - 禁止散落的魔法数字；协议常量、默认值和状态码必须定义为具名常量或明确的枚举成员。
 
@@ -58,8 +58,8 @@
 - 平台可见输入输出仅支持稳定、通用且可明确序列化的类型：数值、布尔值、UTF-8 文本、字节数组、基础类型一维数组、可选值、规范化枚举值和空返回值。
 - C ABI 文本统一使用 UTF-8，并明确空指针、空数组、空字符串与错误值的含义。
 - 所有由 Rust 分配并交给外部调用方的内存，都必须由 Miresidian 对应的导出释放函数回收；外部调用方不得使用语言自身的 `free` 或释放器处理该内存。
-- ABI 的函数名、参数顺序、调用约定、所有权和版本必须记录在公开头文件与 ABI 文档中。任何破坏性修改必须新增 ABI 版本，而不是覆盖旧入口。
-- 当前统一调用模型为 `Operation + Config + Input -> Output`。`invoke` 是 Rust 内部语义名称，`miresidian_invoke_v1` 是稳定 C ABI 导出名称。
+- ABI 的函数名、参数顺序、调用约定、所有权和版本必须记录在公开头文件与 ABI 文档中。已发布 ABI 的破坏性修改必须保留旧入口或提供明确迁移版本说明。
+- 当前统一调用模型为 `Operation + Config + Input -> Output`。C ABI 额外提供合并错误、独立错误与无错误三个输出策略，详情以 `docs/c-abi.md` 为准。
 
 ## 5. 设备节点、并发与资源
 
@@ -74,7 +74,7 @@
 - 每次修改公共行为、参数规则、错误行为、ABI 或调用顺序时，必须同时更新对应文档与测试。
 - 公共 Rust API 使用 Rustdoc 注释，至少说明用途、参数、返回值、错误条件以及线程或资源约束。
 - 注释应解释设计原因、协议限制和不明显的边界条件，而非重复代码字面含义。
-- C ABI 变更必须同步更新 `api/miresidian.h` 和 `docs/c-abi-v1.md`。
+- C ABI 变更必须同步更新 `api/miresidian.h` 和 `docs/c-abi.md`。
 - 驱动接口、默认值、Operation 名称、配置标签、输入输出标签发生变化时，必须同步更新该驱动的调用说明。
 - 属性宏的行为、固定入口映射、自动命名或生成代码的职责边界发生变化时，必须同步更新
   `docs/宏驱动开发.md`，并为该行为增加或更新回归测试。

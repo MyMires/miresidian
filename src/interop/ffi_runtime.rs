@@ -1,129 +1,240 @@
-//! 由属性宏生成的驱动 DLL 共用的 FFI 调用支撑。
+//! 由属性宏生成的节点 DLL 共用的 FFI 调用支撑。
 
 use std::{
-    cell::RefCell,
     ffi::{CStr, CString, c_char},
     mem,
     panic::{AssertUnwindSafe, catch_unwind},
-    ptr,
     sync::{Mutex, OnceLock},
 };
 
 use crate::{
     DeviceNode, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianOutputV1, MiresidianStatus,
-    NodeRuntime,
+    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus,
+    MiresidianTextArray, NodeRuntime,
 };
 
-thread_local! {
-    static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
-}
-
-/// 由宏生成的 `miresidian_invoke_v1` 调用。
+/// 调用节点并将错误与业务输出合并为一个文本数组。
+///
+/// 合并数组固定为 `[错误码, 错误信息, ..业务输出]`。错误码为 `0` 时表示成功。
 ///
 /// # Safety
 ///
-/// 指针和数组必须满足 C ABI v1 的有效性与 UTF-8 约定。
-pub unsafe fn invoke_v1<N: DeviceNode>(
+/// 所有字符串、数组和输出指针必须符合 C ABI 契约。
+pub unsafe fn invoke<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    operation: *const c_char,
+    function: *const c_char,
     config: *const *const c_char,
     config_count: usize,
     input: *const *const c_char,
     input_count: usize,
-    output: *mut MiresidianOutputV1,
+    output: *mut MiresidianTextArray,
 ) -> MiresidianStatus {
-    // SAFETY: 此公开函数的调用方已承诺所有 ABI 指针、数组长度和 UTF-8 文本满足 v1
-    // 契约；`invoke` 在读取每个指针前仍执行空指针与文本校验。
-    match catch_unwind(AssertUnwindSafe(|| unsafe {
-        invoke(
+    if output.is_null() {
+        return MIRESIDIAN_STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: 导出函数承诺所有 ABI 指针、数组长度及 UTF-8 文本符合约定；辅助函数仍会
+    // 在读取前校验空指针与 UTF-8。
+    unsafe {
+        invoke_with_writer(
             runtime,
-            operation,
+            function,
             config,
             config_count,
             input,
             input_count,
-            output,
+            |status, message, values| {
+                let mut combined = vec![status.to_string(), message];
+                combined.extend(values);
+                write_text_array(output, combined)
+            },
         )
-    })) {
-        Ok(Ok(())) => MIRESIDIAN_STATUS_OK,
-        Ok(Err(message)) => {
-            set_error(&message);
-            if message.starts_with("参数 ") || message.starts_with("输出参数") {
-                MIRESIDIAN_STATUS_INVALID_ARGUMENT
-            } else {
-                MIRESIDIAN_STATUS_OPERATION_FAILED
-            }
-        }
-        Err(_) => {
-            set_error("Miresidian 内部发生未预期错误");
-            MIRESIDIAN_STATUS_INTERNAL_ERROR
-        }
     }
 }
 
-/// 释放由宏生成入口返回的输出。
+/// 调用节点并分别写入业务输出与错误输出。
+///
+/// 成功时 `output` 为业务输出、`error` 为空；失败时 `output` 为空、`error` 为
+/// `[错误码, 错误信息]`。
 ///
 /// # Safety
 ///
-/// `output` 必须来自同一 DLL 的成功调用。函数会在释放后将其重置为默认值，因此零初始化或已
-/// 重置的输出可安全再次传入；不得传入任意伪造的非空指针。
-pub unsafe fn free_output_v1(output: *mut MiresidianOutputV1) {
-    if output.is_null() {
-        return;
-    }
-    // SAFETY: 非空指针的有效性是 `free_output_v1` 的调用前置条件，且只在本块中借用。
-    let output = unsafe { &mut *output };
-    if !output.values.is_null() {
-        // SAFETY: 成功调用仅以此精确长度和容量分配 `values`，释放后会立刻重置输出结构。
-        let values = unsafe { Vec::from_raw_parts(output.values, output.count, output.count) };
-        for value in values {
-            if !value.is_null() {
-                // SAFETY: 数组中的非空元素均由 `CString::into_raw` 生成，所有权在此收回。
-                drop(unsafe { CString::from_raw(value) });
-            }
-        }
-    }
-    *output = MiresidianOutputV1::default();
-}
-
-/// 返回当前线程最近一次由宏入口产生的错误。
-pub fn last_error_v1() -> *const c_char {
-    LAST_ERROR.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .map_or(ptr::null(), |value| value.as_ptr())
-    })
-}
-
-unsafe fn invoke<N: DeviceNode>(
+/// 所有字符串、数组和输出指针必须符合 C ABI 契约。
+#[allow(
+    clippy::too_many_arguments,
+    reason = "C ABI 需保持 function、两个输入数组及两个输出通道的扁平参数顺序"
+)]
+pub unsafe fn invoke_with_error<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    operation: *const c_char,
+    function: *const c_char,
     config: *const *const c_char,
     config_count: usize,
     input: *const *const c_char,
     input_count: usize,
-    output: *mut MiresidianOutputV1,
-) -> Result<(), String> {
-    if output.is_null() {
-        return Err("输出参数 output 不能为空".to_owned());
+    output: *mut MiresidianTextArray,
+    error: *mut MiresidianTextArray,
+) -> MiresidianStatus {
+    if output.is_null() || error.is_null() {
+        return MIRESIDIAN_STATUS_INVALID_ARGUMENT;
     }
-    // SAFETY: 已在函数开头拒绝空输出指针；调用方保证其指向可写的 ABI 结构。
-    unsafe { *output = MiresidianOutputV1::default() };
-    // SAFETY: 各辅助函数根据 C ABI 契约读取 NUL 结尾字符串和数组，并在内部验证空指针。
-    let operation = unsafe { copy_string(operation, "operation") }?;
-    // SAFETY: 同上；数量为零时允许空数组指针。
-    let config = unsafe { copy_array(config, config_count, "config") }?;
-    // SAFETY: 同上；数量为零时允许空数组指针。
-    let input = unsafe { copy_array(input, input_count, "input") }?;
-    let result = runtime
+    // SAFETY: 已验证两个输出指针非空；调用方承诺它们均指向可写的 ABI 结构。
+    unsafe {
+        *output = MiresidianTextArray::default();
+        *error = MiresidianTextArray::default();
+        invoke_with_writer(
+            runtime,
+            function,
+            config,
+            config_count,
+            input,
+            input_count,
+            |status, message, values| {
+                if status == MIRESIDIAN_STATUS_OK {
+                    write_text_array(output, values)
+                } else {
+                    write_text_array(error, vec![status.to_string(), message])
+                }
+            },
+        )
+    }
+}
+
+/// 调用节点并仅写入业务输出。
+///
+/// 错误信息不会写入输出数组；调用方只能通过返回状态码获知失败。
+///
+/// # Safety
+///
+/// 所有字符串、数组和输出指针必须符合 C ABI 契约。
+pub unsafe fn invoke_without_error<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    function: *const c_char,
+    config: *const *const c_char,
+    config_count: usize,
+    input: *const *const c_char,
+    input_count: usize,
+    output: *mut MiresidianTextArray,
+) -> MiresidianStatus {
+    if output.is_null() {
+        return MIRESIDIAN_STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: 调用方遵守同一 ABI 契约；仅成功调用会将业务输出写入数组。
+    unsafe {
+        invoke_with_writer(
+            runtime,
+            function,
+            config,
+            config_count,
+            input,
+            input_count,
+            |status, _message, values| {
+                if status == MIRESIDIAN_STATUS_OK {
+                    write_text_array(output, values)
+                } else {
+                    write_text_array(output, Vec::new())
+                }
+            },
+        )
+    }
+}
+
+/// 释放任一入口返回的文本数组。
+///
+/// # Safety
+///
+/// `value` 必须来自同一 DLL 的入口调用。函数会在释放后重置结构，因此零初始化或已重置的
+/// 结构可安全再次传入。
+pub unsafe fn free_text_array(value: *mut MiresidianTextArray) {
+    if value.is_null() {
+        return;
+    }
+    // SAFETY: 非空指针的有效性是调用前置条件，且只在本块中借用。
+    let value = unsafe { &mut *value };
+    if !value.values.is_null() {
+        // SAFETY: 指针仅由 `write_text_array` 以此精确长度及容量分配。
+        let values = unsafe { Vec::from_raw_parts(value.values, value.count, value.count) };
+        for item in values {
+            if !item.is_null() {
+                // SAFETY: 非空元素均由 `CString::into_raw` 生成，所有权在此收回。
+                drop(unsafe { CString::from_raw(item) });
+            }
+        }
+    }
+    *value = MiresidianTextArray::default();
+}
+
+unsafe fn invoke_with_writer<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    function: *const c_char,
+    config: *const *const c_char,
+    config_count: usize,
+    input: *const *const c_char,
+    input_count: usize,
+    write: impl FnOnce(MiresidianStatus, String, Vec<String>) -> Result<(), String>,
+) -> MiresidianStatus {
+    match catch_unwind(AssertUnwindSafe(|| unsafe {
+        dispatch(runtime, function, config, config_count, input, input_count)
+    })) {
+        Ok(Ok(values)) => finish(write, MIRESIDIAN_STATUS_OK, String::new(), values),
+        Ok(Err((status, message))) => finish(write, status, message, Vec::new()),
+        Err(_) => finish(
+            write,
+            MIRESIDIAN_STATUS_INTERNAL_ERROR,
+            "Miresidian 内部发生未预期错误".to_owned(),
+            Vec::new(),
+        ),
+    }
+}
+
+fn finish(
+    write: impl FnOnce(MiresidianStatus, String, Vec<String>) -> Result<(), String>,
+    status: MiresidianStatus,
+    message: String,
+    values: Vec<String>,
+) -> MiresidianStatus {
+    match write(status, message, values) {
+        Ok(()) => status,
+        Err(_) => MIRESIDIAN_STATUS_INTERNAL_ERROR,
+    }
+}
+
+unsafe fn dispatch<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    function: *const c_char,
+    config: *const *const c_char,
+    config_count: usize,
+    input: *const *const c_char,
+    input_count: usize,
+) -> Result<Vec<String>, (MiresidianStatus, String)> {
+    let function = unsafe { copy_string(function, "function") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let config = unsafe { copy_array(config, config_count, "config") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let input = unsafe { copy_array(input, input_count, "input") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    runtime
         .get_or_init(|| Mutex::new(NodeRuntime::new()))
         .lock()
-        .map_err(|_| "节点状态锁已损坏".to_owned())?
-        .invoke(&Invocation::new(operation, config, input))
-        .map_err(|error| error.to_string())?;
-    let strings = result
-        .into_values()
+        .map_err(|_| {
+            (
+                MIRESIDIAN_STATUS_INTERNAL_ERROR,
+                "节点状态锁已损坏".to_owned(),
+            )
+        })?
+        .invoke(&Invocation::new(function, config, input))
+        .map(|value| value.into_values())
+        .map_err(|error| (MIRESIDIAN_STATUS_OPERATION_FAILED, error.to_string()))
+}
+
+unsafe fn write_text_array(
+    target: *mut MiresidianTextArray,
+    values: Vec<String>,
+) -> Result<(), String> {
+    if target.is_null() {
+        return Err("输出参数不能为空".to_owned());
+    }
+    // SAFETY: 调用方承诺非空输出指针指向可写 ABI 结构；先清空以保证失败时没有残留值。
+    unsafe { *target = MiresidianTextArray::default() };
+    let strings = values
         .into_iter()
         .map(|value| CString::new(value).map_err(|_| "输出文本不能包含 NUL 字符".to_owned()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -131,16 +242,14 @@ unsafe fn invoke<N: DeviceNode>(
         .into_iter()
         .map(CString::into_raw)
         .collect::<Vec<_>>();
-    // SAFETY: `values` 来自本函数的 Rust 分配，指针与长度将作为 ABI 输出移交并由
-    // `miresidian_free_output_v1` 使用完全相同的长度和容量回收。
+    // SAFETY: 数组来自本函数的 Rust 分配，所有权转移给调用方，并由 `free_text_array` 回收。
     unsafe {
-        *output = MiresidianOutputV1 {
+        *target = MiresidianTextArray {
             values: values.as_mut_ptr(),
             count: values.len(),
         };
     }
     mem::forget(values);
-    LAST_ERROR.with(|slot| *slot.borrow_mut() = None);
     Ok(())
 }
 
@@ -168,13 +277,8 @@ unsafe fn copy_array(
     }
     (0..count)
         .map(|index| {
-            // SAFETY: 调用方保证 `values` 指向至少 `count` 个指针；每个元素的字符串
-            // 有效性继续由 `copy_string` 验证。
+            // SAFETY: 调用方保证 `values` 至少有 `count` 个元素；字符串继续由 `copy_string` 校验。
             unsafe { copy_string(*values.add(index), field) }
         })
         .collect()
-}
-
-fn set_error(message: &str) {
-    LAST_ERROR.with(|slot| *slot.borrow_mut() = CString::new(message.replace('\0', "\\0")).ok());
 }

@@ -14,7 +14,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 - 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
 - 提供基于成熟 `serialport` crate 的串口通信节点 `SerialNode`，包含串口参数验证、端口探测和 UTF-8 文本收发。
 
-已导出 C ABI v1：`miresidian_invoke_v1`、`miresidian_free_output_v1`、`miresidian_last_error_v1` 与 `miresidian_abi_version`。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
+已导出 C ABI v2：`miresidian_invoke`、`miresidian_invoke_with_error`、`miresidian_invoke_without_error`、`miresidian_free_text_array` 与 `miresidian_abi_version`。三个入口分别提供合并结果、独立错误通道和仅业务输出三种平台适配方式。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
 
 ## 运行时源码结构
 
@@ -43,7 +43,7 @@ src/
 ```
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
-`miresidian::ffi::MiresidianOutputV1` 与 `miresidian::ffi_runtime::invoke_v1`，已有节点和
+`miresidian::ffi::MiresidianTextArray` 与 `miresidian::ffi_runtime::invoke`，已有节点和
 宏无需修改。
 
 具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自身目录；
@@ -103,5 +103,5 @@ cargo build --release
 编码、文档、FFI 与测试约束见 [docs/coding-standards.md](docs/coding-standards.md)。
 数据格式、文本编码与数组表示规则见 [docs/data-codec.md](docs/data-codec.md)。
 串口通信节点的配置与操作说明见 [docs/drivers/串口通信.md](docs/drivers/串口通信.md)。
-C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi-v1.md](docs/c-abi-v1.md)。
+C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
 构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。

@@ -4,11 +4,21 @@
 
 ## 调用模型与命名边界
 
-测试平台的统一调用模型为：
+节点业务调用模型为：
 
 ```text
 Function + Config[] + Input[] -> Output[]
 ```
+
+原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出以下三种入口：
+
+| C ABI 入口 | 结果形式 |
+| --- | --- |
+| `miresidian_invoke` | 一个合并数组：`[错误码, 错误信息, ..业务输出]`。 |
+| `miresidian_invoke_with_error` | `output` 为业务输出；失败时 `error` 为 `[错误码, 错误信息]`。 |
+| `miresidian_invoke_without_error` | `output` 仅包含业务输出；失败原因仅由 C ABI 返回状态表示。 |
+
+三者均以 `function`、`config`、`input` 传入相同业务请求。完整的参数顺序、内存释放与状态码见 [C ABI](c-abi.md)。
 
 - `Function` 是平台调用入口中的函数名称。
 - `Config[]` 与 `Input[]` 都是字符串数组，是相互独立的参数通道。
@@ -47,7 +57,7 @@ parity: SerialParity,
 
 参数描述与参数值处于两个不同阶段，必须严格区分。
 
-第一阶段，平台通过 Invoke 调用 `GetFunctions` 或 `GetInitConfig` 查询描述。节点标注：
+第一阶段，平台通过所选调用入口以 `GetFunctions` 或 `GetInitConfig` 查询描述。节点标注：
 
 ```rust
 #[miresidian::config("校验位:None-无校验/Odd-奇校验/Even-偶校验")]

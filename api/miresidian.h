@@ -23,25 +23,43 @@ enum {
     MIRESIDIAN_STATUS_INTERNAL_ERROR = 3
 };
 
-typedef struct MiresidianOutputV1 {
+typedef struct MiresidianTextArray {
     char **values;
     size_t count;
-} MiresidianOutputV1;
+} MiresidianTextArray;
 
 MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
 
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_v1(
+/* 合并结果：[错误码, 错误信息, ..业务输出]。 */
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke(
     const char *function,
     const char *const *config,
     size_t config_count,
     const char *const *input,
     size_t input_count,
-    MiresidianOutputV1 *output);
+    MiresidianTextArray *output);
 
-MIRESIDIAN_API void MIRESIDIAN_CALL miresidian_free_output_v1(
-    MiresidianOutputV1 *output);
+/* 业务输出与错误信息分离；失败时 error 为 [错误码, 错误信息]。 */
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_with_error(
+    const char *function,
+    const char *const *config,
+    size_t config_count,
+    const char *const *input,
+    size_t input_count,
+    MiresidianTextArray *output,
+    MiresidianTextArray *error);
 
-MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_last_error_v1(void);
+/* 仅返回业务输出；失败原因只能由返回状态码获知。 */
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_without_error(
+    const char *function,
+    const char *const *config,
+    size_t config_count,
+    const char *const *input,
+    size_t input_count,
+    MiresidianTextArray *output);
+
+MIRESIDIAN_API void MIRESIDIAN_CALL miresidian_free_text_array(
+    MiresidianTextArray *value);
 
 #ifdef __cplusplus
 }
