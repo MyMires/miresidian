@@ -3,6 +3,7 @@
 //! C ABI 只传递普通 UTF-8 C 字符串：`config_json`、`input_json` 与 `output_json` 的
 //! 内容均为 JSON。调用方持有输出缓冲区，DLL 不向调用方分配任何内存。
 
+use serde::Serialize;
 use std::{
     ffi::{CStr, c_char},
     panic::{AssertUnwindSafe, catch_unwind},
@@ -16,6 +17,16 @@ use crate::{
 
 /// 调用方提供的输出缓冲区不足以容纳完整 JSON 文本。
 pub const MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL: MiresidianStatus = 4;
+
+/// C ABI 写入输出缓冲区的固定 JSON 响应。
+///
+/// 字段声明顺序即 JSON 文本顺序：先业务输出，后错误信息。使用结构体而非通用 JSON 映射，
+/// 避免序列化器重排字段而造成平台侧文本预期漂移。
+#[derive(Serialize)]
+struct InvocationResponse<'a> {
+    output: &'a [String],
+    error: Option<&'a str>,
+}
 
 /// 调用唯一的 DLL 入口。
 ///
@@ -94,10 +105,7 @@ fn write_response(
     output: &[String],
     error: Option<&str>,
 ) -> Result<(), MiresidianStatus> {
-    let response = serde_json::json!({
-        "output": output,
-        "error": error,
-    });
+    let response = InvocationResponse { output, error };
     let json = serde_json::to_vec(&response).map_err(|_| MIRESIDIAN_STATUS_INTERNAL_ERROR)?;
     if target.is_null() || capacity == 0 {
         return Err(MIRESIDIAN_STATUS_INVALID_ARGUMENT);

@@ -58,7 +58,9 @@ int32_t status = miresidian_invoke(
 ```
 
 错误码不重复写入 JSON；调用方通过函数返回值判断错误类型，通过 `error` 读取诊断文本。
-`output` 始终为字符串数组；`error` 只会是 `null` 或一个字符串。JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
+`output` 始终为字符串数组；`error` 只会是 `null` 或一个字符串。两者角色不同：`output` 承载一个或多个有序业务结果，`error` 仅承载失败诊断。JSON 文本字段顺序固定为 `output`、`error`。JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
+
+`GetFunctions`、`GetInitConfig` 和 `GetPortNO` 是常驻查询；它们不要求先调用 `InitDevice`。只有节点定义的设备操作才会在未初始化时返回“设备尚未初始化”。
 
 ## 状态码
 

@@ -28,7 +28,7 @@ enum {
  * output_json 指向调用方分配的可写 UTF-8 缓冲区，容量包含末尾 NUL 字符。
  * DLL 不分配、不持有、也不释放调用方内存。
  *
- * 返回值为状态码。成功时 output_json 为：
+ * 返回值为状态码。JSON 字段顺序固定为 output、error。成功时 output_json 为：
  *   {"output":[..业务输出],"error":null}
  * 失败时 output_json 为：
  *   {"output":[],"error":"错误信息"}

@@ -205,3 +205,33 @@ impl DeviceInput for ControlSignalState {
         )
     }
 }
+
+#[cfg(test)]
+mod ffi_tests {
+    use std::ffi::CStr;
+
+    use miresidian::MIRESIDIAN_STATUS_OK;
+
+    /// 验证宏生成的最终 C ABI 入口可在未初始化时处理常驻查询。
+    #[test]
+    fn get_functions_无需初始化设备() {
+        let mut output = [0_i8; 16_384];
+        let status = unsafe {
+            super::miresidian_invoke(
+                c"GetFunctions".as_ptr(),
+                c"[]".as_ptr(),
+                c"[]".as_ptr(),
+                output.as_mut_ptr(),
+                output.len() as u32,
+            )
+        };
+
+        assert_eq!(status, MIRESIDIAN_STATUS_OK);
+        let response = unsafe { CStr::from_ptr(output.as_ptr()) }
+            .to_str()
+            .expect("输出必须是 UTF-8 JSON");
+        assert!(response.starts_with(r#"{"output":"#));
+        assert!(response.contains("GetFunctions()(函数列表)"));
+        assert!(response.ends_with(r#","error":null}"#));
+    }
+}
