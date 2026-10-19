@@ -1,19 +1,9 @@
 # C ABI
 
-Miresidian 节点 DLL 使用固定的 C ABI。平台只需调用 DLL 导出的入口，不需要了解 Rust
-类型、结构体或数组长度字段。
+Miresidian 节点 DLL 只导出一个业务入口 `miresidian_invoke`。入口使用 UTF-8 JSON 文本，
+不传递 `char**`、`char***` 或 Rust 结构体。
 
-ABI 版本 `miresidian_abi_version()` 当前返回 `3`。
-
-## 数据约定
-
-- `Function` 是一个以 NUL 结尾的 UTF-8 字符串，例如 `GetFunctions`、`InitDevice` 或节点操作名。
-- `Config`、`Input` 是以空指针结尾的 UTF-8 字符串指针数组；`NULL` 等同于空数组。
-- `Output`、`Error` 是 DLL 返回的同类数组。数组最后一项必为 `NULL`，空数组仅包含该结束指针。
-- 调用方不得释放返回数组或其中字符串。DLL 会保留每个输出通道最近一次结果；调用方必须在下一次调用写入同一通道前读取并复制文本。
-- 所有入口使用 `__cdecl`；状态码为 `int32_t`：`0` 成功、`1` 参数错误、`2` 节点操作失败、`3` 内部错误。
-
-`api/miresidian.h` 是 C/C++ 调用方的唯一声明来源。
+ABI 版本 `miresidian_abi_version()` 当前返回 `4`。
 
 ## 导出入口
 
@@ -21,49 +11,61 @@ ABI 版本 `miresidian_abi_version()` 当前返回 `3`。
 uint32_t miresidian_abi_version(void);
 
 int32_t miresidian_invoke(
-    const char *Function,
-    const char *const *Config,
-    const char *const *Input,
-    char ***Output);
-
-int32_t miresidian_invoke_with_error(
-    const char *Function,
-    const char *const *Config,
-    const char *const *Input,
-    char ***Output,
-    char ***Error);
-
-int32_t miresidian_invoke_without_error(
-    const char *Function,
-    const char *const *Config,
-    const char *const *Input,
-    char ***Output);
+    const char *function,
+    const char *config_json,
+    const char *input_json,
+    char *output_json,
+    uint32_t output_capacity);
 ```
 
-三者处理同一个 `Function + Config[] + Input[]` 请求，区别仅在结果通道：
+- `function`：UTF-8 C 字符串，例如 `GetFunctions`、`InitDevice` 或节点操作名。
+- `config_json`、`input_json`：JSON **字符串数组**，例如 `["COM3","9600"]`；传 `NULL` 等同于 `[]`。数组元素不能是数值、布尔值或对象。
+- `output_json`：调用方预分配的 UTF-8 文本缓冲区。
+- `output_capacity`：输出缓冲区字节数，包含结尾 NUL 字符。
+- 返回值：唯一的错误码来源。
 
-| 入口 | 成功结果 | 失败结果 |
-| --- | --- | --- |
-| `miresidian_invoke` | `Output = ["0", "", ..业务输出]` | `Output = [错误码, 错误信息]` |
-| `miresidian_invoke_with_error` | `Output = [..业务输出]`，`Error = []` | `Output = []`，`Error = [错误码, 错误信息]` |
-| `miresidian_invoke_without_error` | `Output = [..业务输出]` | `Output = []`，失败原因只由返回状态码表示 |
+DLL 不分配、不保存、不释放调用方提供的任何内存。缓冲区不足时返回
+`MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL`，且不会越界写入；此时 `output_json` 不包含可用响应，调用方应扩大缓冲区后重新调用。
 
-例如查询操作列表：
+例如，调用 `GetFunctions`：
 
 ```c
-char **output = NULL;
+char output_json[65536] = {0};
 int32_t status = miresidian_invoke(
-    "GetFunctions", NULL, NULL, &output);
-
-/* status == 0；output[0] == "0"，output[1] == ""，业务输出从 output[2] 开始。 */
-/* 读取所需文本后复制；不调用 free，也不向 DLL 传回 output。 */
+    "GetFunctions", "[]", "[]", output_json, sizeof(output_json));
 ```
 
-## 错误边界
+## 响应体
 
-`Function` 为 `NULL`、非 UTF-8 文本、数组未以 `NULL` 结束，或输出地址为空时，入口返回
-`MIRESIDIAN_STATUS_INVALID_ARGUMENT`。节点自身的初始化、配置、通信或业务失败返回
-`MIRESIDIAN_STATUS_OPERATION_FAILED`。Rust panic 不会跨越 ABI 边界，而会被转换为
-`MIRESIDIAN_STATUS_INTERNAL_ERROR`。
+`output_json` 始终是同一种 JSON 对象，借鉴 HTTP 的“状态码在响应头、内容在响应体”规则。
 
-合并入口即使失败也会尽量把错误码与错误信息写入 `Output`；分离入口将它们写入 `Error`。
+成功时：
+
+```json
+{
+  "output": ["业务输出1", "业务输出2"],
+  "error": null
+}
+```
+
+失败时：
+
+```json
+{
+  "output": [],
+  "error": "设备尚未初始化"
+}
+```
+
+错误码不重复写入 JSON；调用方通过函数返回值判断错误类型，通过 `error` 读取诊断文本。
+`output` 始终为字符串数组；`error` 只会是 `null` 或一个字符串。JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
+
+## 状态码
+
+| 值 | 名称 | 含义 |
+| ---: | --- | --- |
+| 0 | `MIRESIDIAN_STATUS_OK` | 调用成功。 |
+| 1 | `MIRESIDIAN_STATUS_INVALID_ARGUMENT` | 空函数名、非 UTF-8 文本或 JSON 不是字符串数组。 |
+| 2 | `MIRESIDIAN_STATUS_OPERATION_FAILED` | 节点生命周期、配置、通信或业务调用失败。 |
+| 3 | `MIRESIDIAN_STATUS_INTERNAL_ERROR` | DLL 捕获到未预期内部错误。 |
+| 4 | `MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL` | 调用方提供的输出缓冲区不足。 |

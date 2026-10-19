@@ -8,12 +8,16 @@ fn 方法标注会生成中文平台契约() {
     let signatures = SerialNode::descriptor().function_signatures();
 
     assert!(
-        signatures.contains(&"发送数据(发送数据,数据格式:UTF-8/Unicode/HEX/Base64)()".to_owned())
+        signatures.contains(
+            &"发送数据(发送数据,数据格式:ASCII/GBK/UTF-8/Unicode/HEX/Base64)()".to_owned()
+        )
     );
-    assert!(
-        signatures.contains(&"读取数据(数据格式:UTF-8/Unicode/HEX/Base64)(接收数据)".to_owned())
-    );
-    assert!(signatures.contains(&"查询数据(发送数据,发送数据格式:UTF-8/Unicode/HEX/Base64,接收数据格式:UTF-8/Unicode/HEX/Base64)(接收数据)".to_owned()));
+    assert!(signatures.contains(
+        &"读取数据(数据格式:ASCII/GBK/UTF-8/Unicode/HEX/Base64,接收方式:IdleTimeout-空闲超时/Terminator-结束符/Length-固定长度,结束符:,接收字节数:0,接收超时/ms:0)(接收数据)".to_owned()
+    ));
+    assert!(signatures.contains(
+        &"查询数据(发送数据,发送数据格式:ASCII/GBK/UTF-8/Unicode/HEX/Base64,接收数据格式:ASCII/GBK/UTF-8/Unicode/HEX/Base64,接收方式:IdleTimeout-空闲超时/Terminator-结束符/Length-固定长度,结束符:,接收字节数:0,接收超时/ms:0)(接收数据)".to_owned()
+    ));
 }
 
 #[test]

@@ -1,11 +1,10 @@
-//! 平台字符串数组与 Rust 节点运行时之间的 DLL 适配层。
+//! JSON 文本 ABI 与 Rust 节点运行时之间的适配层。
 //!
-//! 公开 ABI 只传递以 NULL 结尾的 UTF-8 字符串数组，不暴露 Rust 容器或长度参数。
-//! 输出指针由 DLL 持有，调用方应在下一次同类输出写入前完成读取与复制。
-#![allow(non_snake_case, reason = "公开 ABI 参数名必须与平台通道名称一致")]
+//! C ABI 只传递普通 UTF-8 C 字符串：`config_json`、`input_json` 与 `output_json` 的
+//! 内容均为 JSON。调用方持有输出缓冲区，DLL 不向调用方分配任何内存。
 
 use std::{
-    ffi::{CStr, CString, c_char},
+    ffi::{CStr, c_char},
     panic::{AssertUnwindSafe, catch_unwind},
     sync::{Mutex, OnceLock},
 };
@@ -15,146 +14,47 @@ use crate::{
     MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus, NodeRuntime,
 };
 
-const MAX_ARRAY_ITEMS: usize = 65_536;
-static OUTPUT_SLOTS: OnceLock<Mutex<OutputSlots>> = OnceLock::new();
+/// 调用方提供的输出缓冲区不足以容纳完整 JSON 文本。
+pub const MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL: MiresidianStatus = 4;
 
-/// 三种入口各自保留最近一次返回值，避免导出额外的释放函数。
-#[derive(Default)]
-struct OutputSlots {
-    combined: Option<OutputBlock>,
-    output: Option<OutputBlock>,
-    error: Option<OutputBlock>,
-}
-
-/// 同时持有字符串与其指针数组，确保交给平台的指针持续有效。
-struct OutputBlock {
-    _strings: Vec<CString>,
-    pointers: Vec<*mut c_char>,
-}
-
-// SAFETY: `OutputBlock` 创建后不再修改；所有替换与读取指针发布均受互斥锁保护。
-unsafe impl Send for OutputBlock {}
-
-#[derive(Clone, Copy)]
-enum OutputChannel {
-    Combined,
-    Output,
-    Error,
-}
-
-/// 使用合并结果入口。
+/// 调用唯一的 DLL 入口。
 ///
-/// `Config`、`Input` 与 `Output` 均为 NULL 结尾的 UTF-8 字符串数组。成功或失败时，
-/// `Output` 都依次返回 `[错误码, 错误信息, ..业务输出]`。
+/// 成功时 `output_json` 为 `{"output":[..业务输出],"error":null}`；失败时为
+/// `{"output":[],"error":"错误信息"}`。函数返回值是唯一的错误码来源。
+/// `config_json` 与 `input_json` 为 `NULL` 时按空数组处理。
 ///
 /// # Safety
-/// `Function` 必须指向有效 UTF-8 C 字符串；数组参数必须为 NULL 或以 NULL 结尾的有效
-/// C 字符串指针数组；`Output` 必须是可写的 `char***` 地址。
+/// `function` 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
+/// `output_json` 必须指向至少 `output_capacity` 字节的可写缓冲区。
 pub unsafe fn invoke<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    Function: *const c_char,
-    Config: *const *const c_char,
-    Input: *const *const c_char,
-    Output: *mut *mut *mut c_char,
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
+    output_json: *mut c_char,
+    output_capacity: u32,
 ) -> MiresidianStatus {
-    unsafe {
-        invoke_with_writer(
-            runtime,
-            Function,
-            Config,
-            Input,
-            |status, message, values| {
-                let mut all = vec![status.to_string(), message];
-                all.extend(values);
-                write_array(OutputChannel::Combined, Output, all)
-            },
-        )
+    let (status, message, values) =
+        unsafe { invoke_node(runtime, function, config_json, input_json) };
+    let error = (status != MIRESIDIAN_STATUS_OK).then_some(message);
+    match write_response(output_json, output_capacity, &values, error.as_deref()) {
+        Ok(()) => status,
+        Err(status) => status,
     }
 }
 
-/// 使用业务输出与错误输出分离的入口。
-///
-/// 成功时 `Output` 为业务输出、`Error` 为空数组；失败时反之，`Error` 为
-/// `[错误码, 错误信息]`。
-///
-/// # Safety
-/// 调用方必须满足 [`invoke`] 的字符串与数组约束，并为 `Output`、`Error` 提供可写地址。
-pub unsafe fn invoke_with_error<N: DeviceNode>(
+unsafe fn invoke_node<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    Function: *const c_char,
-    Config: *const *const c_char,
-    Input: *const *const c_char,
-    Output: *mut *mut *mut c_char,
-    Error: *mut *mut *mut c_char,
-) -> MiresidianStatus {
-    if Output.is_null() || Error.is_null() {
-        return MIRESIDIAN_STATUS_INVALID_ARGUMENT;
-    }
-    unsafe {
-        invoke_with_writer(
-            runtime,
-            Function,
-            Config,
-            Input,
-            |status, message, values| {
-                if status == MIRESIDIAN_STATUS_OK {
-                    write_array(OutputChannel::Output, Output, values)?;
-                    write_array(OutputChannel::Error, Error, Vec::new())
-                } else {
-                    write_array(OutputChannel::Output, Output, Vec::new())?;
-                    write_array(
-                        OutputChannel::Error,
-                        Error,
-                        vec![status.to_string(), message],
-                    )
-                }
-            },
-        )
-    }
-}
-
-/// 使用只返回业务输出的入口。
-///
-/// 成功时 `Output` 为业务输出；失败时 `Output` 为空数组，具体原因只由返回状态码表达。
-///
-/// # Safety
-/// 调用方必须满足 [`invoke`] 的字符串与数组约束。
-pub unsafe fn invoke_without_error<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    Function: *const c_char,
-    Config: *const *const c_char,
-    Input: *const *const c_char,
-    Output: *mut *mut *mut c_char,
-) -> MiresidianStatus {
-    unsafe {
-        invoke_with_writer(runtime, Function, Config, Input, |status, _, values| {
-            write_array(
-                OutputChannel::Output,
-                Output,
-                if status == MIRESIDIAN_STATUS_OK {
-                    values
-                } else {
-                    Vec::new()
-                },
-            )
-        })
-    }
-}
-
-unsafe fn invoke_with_writer<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    Function: *const c_char,
-    Config: *const *const c_char,
-    Input: *const *const c_char,
-    write: impl FnOnce(MiresidianStatus, String, Vec<String>) -> Result<(), String>,
-) -> MiresidianStatus {
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
+) -> (MiresidianStatus, String, Vec<String>) {
     match catch_unwind(AssertUnwindSafe(|| unsafe {
-        dispatch(runtime, Function, Config, Input)
+        dispatch(runtime, function, config_json, input_json)
     })) {
-        Ok(Ok(values)) => finish(write, MIRESIDIAN_STATUS_OK, String::new(), values),
-        Ok(Err((status, message))) => finish(write, status, message, Vec::new()),
-        Err(_) => finish(
-            write,
+        Ok(Ok(values)) => (MIRESIDIAN_STATUS_OK, String::new(), values),
+        Ok(Err((status, message))) => (status, message, Vec::new()),
+        Err(_) => (
             MIRESIDIAN_STATUS_INTERNAL_ERROR,
             "Miresidian 内部发生未预期错误".to_owned(),
             Vec::new(),
@@ -162,30 +62,17 @@ unsafe fn invoke_with_writer<N: DeviceNode>(
     }
 }
 
-fn finish(
-    write: impl FnOnce(MiresidianStatus, String, Vec<String>) -> Result<(), String>,
-    status: MiresidianStatus,
-    message: String,
-    values: Vec<String>,
-) -> MiresidianStatus {
-    if write(status, message, values).is_ok() {
-        status
-    } else {
-        MIRESIDIAN_STATUS_INTERNAL_ERROR
-    }
-}
-
 unsafe fn dispatch<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    Function: *const c_char,
-    Config: *const *const c_char,
-    Input: *const *const c_char,
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
 ) -> Result<Vec<String>, (MiresidianStatus, String)> {
-    let function = unsafe { copy_string(Function, "Function") }
+    let operation = unsafe { copy_required_text(function, "function") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
-    let config = unsafe { copy_array(Config, "Config") }
+    let config = unsafe { parse_json_array(config_json, "config_json") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
-    let input = unsafe { copy_array(Input, "Input") }
+    let input = unsafe { parse_json_array(input_json, "input_json") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
     runtime
         .get_or_init(|| Mutex::new(NodeRuntime::new()))
@@ -196,53 +83,45 @@ unsafe fn dispatch<N: DeviceNode>(
                 "节点状态锁已损坏".to_owned(),
             )
         })?
-        .invoke(&Invocation::new(function, config, input))
+        .invoke(&Invocation::new(operation, config, input))
         .map(|value| value.into_values())
         .map_err(|error| (MIRESIDIAN_STATUS_OPERATION_FAILED, error.to_string()))
 }
 
-fn write_array(
-    channel: OutputChannel,
-    target: *mut *mut *mut c_char,
-    values: Vec<String>,
-) -> Result<(), String> {
-    if target.is_null() {
-        return Err("Output 或 Error 不能为空".to_owned());
-    }
-    let strings = values
-        .into_iter()
-        .map(|value| CString::new(value).map_err(|_| "输出文本不能包含 NUL 字符".to_owned()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut pointers = strings
-        .iter()
-        .map(|value| value.as_ptr() as *mut c_char)
-        .collect::<Vec<_>>();
-    pointers.push(core::ptr::null_mut());
-
-    let mut slots = OUTPUT_SLOTS
-        .get_or_init(|| Mutex::new(OutputSlots::default()))
-        .lock()
-        .map_err(|_| "输出缓存锁已损坏".to_owned())?;
-    let slot = match channel {
-        OutputChannel::Combined => &mut slots.combined,
-        OutputChannel::Output => &mut slots.output,
-        OutputChannel::Error => &mut slots.error,
-    };
-    *slot = Some(OutputBlock {
-        _strings: strings,
-        pointers,
+fn write_response(
+    target: *mut c_char,
+    capacity: u32,
+    output: &[String],
+    error: Option<&str>,
+) -> Result<(), MiresidianStatus> {
+    let response = serde_json::json!({
+        "output": output,
+        "error": error,
     });
-    let pointer = slot
-        .as_mut()
-        .expect("输出缓存刚刚写入，必定存在")
-        .pointers
-        .as_mut_ptr();
-    // SAFETY: 调用方通过 C ABI 提供了可写的 `char***` 地址，非空检查已在本函数开头完成。
-    unsafe { *target = pointer };
+    let json = serde_json::to_vec(&response).map_err(|_| MIRESIDIAN_STATUS_INTERNAL_ERROR)?;
+    if target.is_null() || capacity == 0 {
+        return Err(MIRESIDIAN_STATUS_INVALID_ARGUMENT);
+    }
+    if json.len().saturating_add(1) > capacity as usize {
+        return Err(MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL);
+    }
+    // SAFETY: 调用方契约保证 `target` 指向至少 `capacity` 字节的可写缓冲区；长度检查已完成。
+    unsafe {
+        core::ptr::copy_nonoverlapping(json.as_ptr().cast::<c_char>(), target, json.len());
+        *target.add(json.len()) = 0;
+    }
     Ok(())
 }
 
-unsafe fn copy_string(value: *const c_char, field: &str) -> Result<String, String> {
+unsafe fn parse_json_array(value: *const c_char, field: &str) -> Result<Vec<String>, String> {
+    if value.is_null() {
+        return Ok(Vec::new());
+    }
+    let text = unsafe { copy_required_text(value, field) }?;
+    serde_json::from_str(&text).map_err(|_| format!("参数 {field} 必须是 JSON 字符串数组"))
+}
+
+unsafe fn copy_required_text(value: *const c_char, field: &str) -> Result<String, String> {
     if value.is_null() {
         return Err(format!("参数 {field} 不能为空"));
     }
@@ -251,20 +130,4 @@ unsafe fn copy_string(value: *const c_char, field: &str) -> Result<String, Strin
         .to_str()
         .map(str::to_owned)
         .map_err(|_| format!("参数 {field} 必须是有效 UTF-8 文本"))
-}
-
-unsafe fn copy_array(values: *const *const c_char, field: &str) -> Result<Vec<String>, String> {
-    if values.is_null() {
-        return Ok(Vec::new());
-    }
-    let mut result = Vec::new();
-    for index in 0..MAX_ARRAY_ITEMS {
-        // SAFETY: 调用方契约要求数组以 NULL 结尾；上限避免错误指针无限扫描。
-        let value = unsafe { *values.add(index) };
-        if value.is_null() {
-            return Ok(result);
-        }
-        result.push(unsafe { copy_string(value, field) }?);
-    }
-    Err(format!("参数 {field} 缺少 NULL 结尾标记"))
 }

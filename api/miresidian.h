@@ -15,17 +15,31 @@
 extern "C" {
 #endif
 
-enum { MIRESIDIAN_STATUS_OK = 0, MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1, MIRESIDIAN_STATUS_OPERATION_FAILED = 2, MIRESIDIAN_STATUS_INTERNAL_ERROR = 3 };
+enum {
+    MIRESIDIAN_STATUS_OK = 0,
+    MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1,
+    MIRESIDIAN_STATUS_OPERATION_FAILED = 2,
+    MIRESIDIAN_STATUS_INTERNAL_ERROR = 3,
+    MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL = 4
+};
 
 /*
- * Config、Input、Output 与 Error 均为以 NULL 结尾的 UTF-8 字符串数组。
- * Config、Input 可传 NULL 表示空数组。Output、Error 由 DLL 写入；调用方不得释放，
- * 应在下一次写入同一输出通道前读取并复制其中的文本。
+ * function 为 UTF-8 C 字符串；config_json、input_json 是 UTF-8 JSON 字符串数组。
+ * output_json 指向调用方分配的可写 UTF-8 缓冲区，容量包含末尾 NUL 字符。
+ * DLL 不分配、不持有、也不释放调用方内存。
+ *
+ * 返回值为状态码。成功时 output_json 为：
+ *   {"output":[..业务输出],"error":null}
+ * 失败时 output_json 为：
+ *   {"output":[],"error":"错误信息"}
  */
 MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke(const char *Function, const char *const *Config, const char *const *Input, char ***Output);
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_with_error(const char *Function, const char *const *Config, const char *const *Input, char ***Output, char ***Error);
-MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke_without_error(const char *Function, const char *const *Config, const char *const *Input, char ***Output);
+MIRESIDIAN_API int32_t MIRESIDIAN_CALL miresidian_invoke(
+    const char *function,
+    const char *config_json,
+    const char *input_json,
+    char *output_json,
+    uint32_t output_capacity);
 
 #ifdef __cplusplus
 }
