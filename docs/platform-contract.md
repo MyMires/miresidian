@@ -14,7 +14,7 @@ Function + Config[] + Input[] -> Output[]
 
 | C ABI 入口 | 结果形式 |
 | --- | --- |
-| `miresidian_invoke` | 返回状态码；`output_json` 固定为 `{ "output": [...], "error": null 或 错误信息 }`。 |
+| `miresidian_invoke` | 返回 DLL 持有的 JSON 文本，固定为 `{ "status": 状态码, "message": 消息, "output": [...] }`。 |
 
 三个 C ABI 入口均以 `function`、`config_json`、`input_json` 传入相同业务请求。`config_json`
 与 `input_json` 是 UTF-8 JSON 字符串数组；原生入口不会直接传递字符串指针数组。完整的参数

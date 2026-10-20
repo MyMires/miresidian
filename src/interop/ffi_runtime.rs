@@ -1,57 +1,80 @@
 //! JSON 文本 ABI 与 Rust 节点运行时之间的适配层。
 //!
-//! C ABI 只传递普通 UTF-8 C 字符串：`config_json`、`input_json` 与 `output_json` 的
-//! 内容均为 JSON。调用方持有输出缓冲区，DLL 不向调用方分配任何内存。
+//! C ABI 仅接收 UTF-8 C 字符串，并直接返回 DLL 持有的 JSON 响应文本。调用方不传递输出
+//! 缓冲区，也不参与响应内存的分配或释放。
 
-use serde::Serialize;
 use std::{
-    ffi::{CStr, c_char},
+    cell::RefCell,
+    ffi::{CStr, CString, c_char},
     panic::{AssertUnwindSafe, catch_unwind},
     sync::{Mutex, OnceLock},
 };
+
+use serde::Serialize;
 
 use crate::{
     DeviceNode, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
     MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus, NodeRuntime,
 };
 
-/// 调用方提供的输出缓冲区不足以容纳完整 JSON 文本。
-pub const MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL: MiresidianStatus = 4;
+const INTERNAL_ERROR_RESPONSE: &str =
+    r#"{"status":3,"message":"Miresidian 内部发生未预期错误","output":[]}"#;
 
-/// C ABI 写入输出缓冲区的固定 JSON 响应。
-///
-/// 字段声明顺序即 JSON 文本顺序：先业务输出，后错误信息。使用结构体而非通用 JSON 映射，
-/// 避免序列化器重排字段而造成平台侧文本预期漂移。
-#[derive(Serialize)]
-struct InvocationResponse<'a> {
-    output: &'a [String],
-    error: Option<&'a str>,
+thread_local! {
+    /// 当前线程最近一次 ABI 调用的响应文本。
+    ///
+    /// 指针仅在同一线程下一次调用 miresidian_invoke 前有效；外部平台应在调用返回后立即
+    /// 复制文本，而不需要也不得释放该指针。
+    static LAST_RESPONSE: RefCell<CString> = RefCell::new(
+        CString::new(INTERNAL_ERROR_RESPONSE).expect("固定 JSON 响应不含 NUL"),
+    );
 }
 
-/// 调用唯一的 DLL 入口。
+/// DLL 返回的固定 JSON 响应。
 ///
-/// 成功时 `output_json` 为 `{"output":[..业务输出],"error":null}`；失败时为
-/// `{"output":[],"error":"错误信息"}`。函数返回值是唯一的错误码来源。
-/// `config_json` 与 `input_json` 为 `NULL` 时按空数组处理。
+/// 字段顺序是平台契约的一部分：状态码、消息、业务输出。
+#[derive(Serialize)]
+struct InvocationResponse {
+    status: MiresidianStatus,
+    message: String,
+    output: Vec<String>,
+}
+
+/// 调用唯一的 DLL 入口并返回 JSON C 字符串指针。
+///
+/// 返回指针由 DLL 持有，在同一线程下一次调用此函数前有效。调用方应立即复制文本，且不得
+/// 释放该指针。JSON 始终包含 status、message 与 output。
+/// config_json 与 input_json 为 NULL 时按空数组处理。
 ///
 /// # Safety
-/// `function` 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
-/// `output_json` 必须指向至少 `output_capacity` 字节的可写缓冲区。
+/// function 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
 pub unsafe fn invoke<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
-    output_json: *mut c_char,
-    output_capacity: u32,
-) -> MiresidianStatus {
-    let (status, message, values) =
+) -> *const c_char {
+    let (status, message, output) =
         unsafe { invoke_node(runtime, function, config_json, input_json) };
-    let error = (status != MIRESIDIAN_STATUS_OK).then_some(message);
-    match write_response(output_json, output_capacity, &values, error.as_deref()) {
-        Ok(()) => status,
-        Err(status) => status,
-    }
+    store_response(InvocationResponse {
+        status,
+        message,
+        output,
+    })
+}
+
+fn store_response(response: InvocationResponse) -> *const c_char {
+    let json = serde_json::to_string(&response)
+        .ok()
+        .and_then(|text| CString::new(text).ok());
+
+    LAST_RESPONSE.with(|last_response| {
+        let mut last_response = last_response.borrow_mut();
+        *last_response = json.unwrap_or_else(|| {
+            CString::new(INTERNAL_ERROR_RESPONSE).expect("固定 JSON 响应不含 NUL")
+        });
+        last_response.as_ptr()
+    })
 }
 
 unsafe fn invoke_node<N: DeviceNode>(
@@ -99,28 +122,6 @@ unsafe fn dispatch<N: DeviceNode>(
         .map_err(|error| (MIRESIDIAN_STATUS_OPERATION_FAILED, error.to_string()))
 }
 
-fn write_response(
-    target: *mut c_char,
-    capacity: u32,
-    output: &[String],
-    error: Option<&str>,
-) -> Result<(), MiresidianStatus> {
-    let response = InvocationResponse { output, error };
-    let json = serde_json::to_vec(&response).map_err(|_| MIRESIDIAN_STATUS_INTERNAL_ERROR)?;
-    if target.is_null() || capacity == 0 {
-        return Err(MIRESIDIAN_STATUS_INVALID_ARGUMENT);
-    }
-    if json.len().saturating_add(1) > capacity as usize {
-        return Err(MIRESIDIAN_STATUS_OUTPUT_BUFFER_TOO_SMALL);
-    }
-    // SAFETY: 调用方契约保证 `target` 指向至少 `capacity` 字节的可写缓冲区；长度检查已完成。
-    unsafe {
-        core::ptr::copy_nonoverlapping(json.as_ptr().cast::<c_char>(), target, json.len());
-        *target.add(json.len()) = 0;
-    }
-    Ok(())
-}
-
 unsafe fn parse_json_array(value: *const c_char, field: &str) -> Result<Vec<String>, String> {
     if value.is_null() {
         return Ok(Vec::new());
@@ -133,7 +134,7 @@ unsafe fn copy_required_text(value: *const c_char, field: &str) -> Result<String
     if value.is_null() {
         return Err(format!("参数 {field} 不能为空"));
     }
-    // SAFETY: 调用方契约要求 `value` 指向以 NUL 结尾的有效 C 字符串。
+    // SAFETY: 调用方契约要求 value 指向以 NUL 结尾的有效 C 字符串。
     unsafe { CStr::from_ptr(value) }
         .to_str()
         .map(str::to_owned)

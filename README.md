@@ -14,7 +14,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 - 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
 - 提供基于成熟 `serialport` crate 的串口通信节点 `SerialNode`，包含串口参数验证、端口探测和 UTF-8 文本收发。
 
-已导出 C ABI v4：`miresidian_invoke` 与 `miresidian_abi_version`。唯一入口使用 `function + config_json + input_json`；字符串数组统一编码为 UTF-8 JSON 文本，返回值表达状态码，`output_json` 固定返回包含 `output` 与 `error` 的 JSON 响应对象。调用方提供输出缓冲区，DLL 不分配或释放跨语言内存。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
+已导出 C ABI v5：`miresidian_invoke` 与 `miresidian_abi_version`。唯一入口使用 `function + config_json + input_json`；字符串数组统一编码为 UTF-8 JSON 文本，DLL 返回内部持有的 JSON 响应文本，固定包含 `status`、`message` 与 `output`。调用方不提供输出缓冲区、不传容量，也不得释放返回指针。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
 
 ## 运行时源码结构
 
