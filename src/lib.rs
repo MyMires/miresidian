@@ -37,6 +37,14 @@ mod foundation;
 pub mod interop;
 mod runtime;
 
+/// 当前编译进节点 DLL 的 Miresidian 框架版本。
+pub const FRAMEWORK_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// 当前固定 C ABI 的版本号。
+///
+/// 仅在导出符号、参数、返回值或内存所有权发生不兼容变更时递增。
+pub const MIRESIDIAN_ABI_VERSION: u32 = 5;
+
 /// 框架级数据编解码 API。
 ///
 /// 属性宏生成的节点调度代码直接调用此模块，因此全部节点共用同一套类型、数组、字节和字符
@@ -61,7 +69,8 @@ pub use interop::{ffi, ffi_runtime};
 /// 供具体节点使用的属性宏。
 pub use miresidian_macros::{config, input, node, node_impl, operation, output};
 pub use runtime::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput, NodeDescriptor,
-    NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
+    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
+    INIT_DEVICE_OPERATION, Invocation, InvocationOutput, NodeDescriptor, NodeRuntime,
+    OperationDescriptor, ParameterDescriptor,
 };

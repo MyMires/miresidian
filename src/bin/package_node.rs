@@ -7,11 +7,15 @@
 
 use std::{
     env, fs,
+    io::Read,
     path::{Path, PathBuf},
     process::{Command, ExitCode},
 };
 
-use cargo_metadata::{MetadataCommand, TargetKind};
+use cargo_metadata::{MetadataCommand, Package, TargetKind};
+use miresidian::MIRESIDIAN_ABI_VERSION;
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use syn::{Attribute, Item, LitStr};
 
 /// 一个可发布的 Windows 目标。
@@ -36,10 +40,25 @@ struct PackageRequest {
 struct NodeRelease {
     /// 交给 Cargo 构建的包名称。
     package: String,
+    /// 实例项目 Cargo.toml 所在目录，用于收集发布随附文档。
+    project_directory: PathBuf,
     /// 节点的发布目录与命令筛选名称。
     node_name: String,
     /// cdylib 编译完成后的 DLL 文件名。
     dll_name: String,
+    /// 实例项目的语义化版本。
+    project_version: String,
+    /// 实例声明且经打包器校验的框架版本。
+    framework_version: String,
+    /// 实例声明且经打包器校验的 ABI 版本。
+    abi_version: u32,
+}
+
+/// 已复制到发布目录的单个 DLL 及其校验和。
+struct ReleaseArtifact {
+    platform: &'static str,
+    file: String,
+    sha256: String,
 }
 
 fn main() -> ExitCode {
@@ -60,11 +79,13 @@ fn package() -> Result<(), String> {
     let nodes = select_nodes(discovered_nodes, request.node_name.as_deref())?;
 
     for node in nodes {
+        let mut artifacts = Vec::with_capacity(request.targets.len());
         for target in &request.targets {
             build_node(&root, *target, &node)?;
-            copy_target_files(&root, *target, &node)?;
+            artifacts.push(copy_target_files(&root, *target, &node)?);
         }
-        copy_node_documentation(&root, &node)?;
+        copy_node_release_documents(&root, &node)?;
+        write_release_manifest(&root, &node, &artifacts)?;
 
         println!(
             "已生成可交付的 {} 节点：{}",
@@ -138,6 +159,11 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         .no_deps()
         .exec()
         .map_err(|error| format!("无法读取 Cargo 工作区元数据：{error}"))?;
+    let framework_version = metadata
+        .root_package()
+        .ok_or_else(|| "无法确定框架根包版本".to_owned())?
+        .version
+        .to_string();
     let mut nodes = Vec::new();
 
     for member in &metadata.workspace_members {
@@ -171,10 +197,16 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         {
             return Err(format!("发现重复的节点显示名：{node_name}"));
         }
+        let (declared_framework_version, abi_version) =
+            release_versions(package, &framework_version)?;
         nodes.push(NodeRelease {
             package: package.name.clone(),
+            project_directory: PathBuf::from(manifest_directory.as_str()),
             node_name,
             dll_name: format!("{}.dll", cdylib.name.replace('-', "_")),
+            project_version: package.version.to_string(),
+            framework_version: declared_framework_version,
+            abi_version,
         });
     }
 
@@ -183,6 +215,40 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
     }
     nodes.sort_by(|left, right| left.node_name.cmp(&right.node_name));
     Ok(nodes)
+}
+
+/// 读取节点发布声明，并拒绝与当前框架不一致的版本组合。
+fn release_versions(package: &Package, framework_version: &str) -> Result<(String, u32), String> {
+    let metadata = package
+        .metadata
+        .get("miresidian")
+        .and_then(Value::as_object)
+        .ok_or_else(|| format!("节点 {} 缺少 package.metadata.miresidian", package.name))?;
+
+    let declared_framework_version = metadata
+        .get("framework_version")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("节点 {} 缺少 framework_version", package.name))?;
+    if declared_framework_version != framework_version {
+        return Err(format!(
+            "节点 {} 声明的框架版本 {} 与当前框架版本 {} 不一致",
+            package.name, declared_framework_version, framework_version
+        ));
+    }
+
+    let abi_version = metadata
+        .get("abi_version")
+        .and_then(Value::as_u64)
+        .and_then(|version| u32::try_from(version).ok())
+        .ok_or_else(|| format!("节点 {} 缺少有效的 abi_version", package.name))?;
+    if abi_version != MIRESIDIAN_ABI_VERSION {
+        return Err(format!(
+            "节点 {} 声明的 ABI 版本 {} 与当前 ABI 版本 {} 不一致",
+            package.name, abi_version, MIRESIDIAN_ABI_VERSION
+        ));
+    }
+
+    Ok((declared_framework_version.to_owned(), abi_version))
 }
 
 /// 按节点显示名筛选；没有筛选条件时保留全部发现的节点。
@@ -235,7 +301,11 @@ fn build_node(root: &Path, target: WindowsTarget, node: &NodeRelease) -> Result<
 }
 
 /// 复制某个位数测试平台所需的 DLL 和 C 头文件。
-fn copy_target_files(root: &Path, target: WindowsTarget, node: &NodeRelease) -> Result<(), String> {
+fn copy_target_files(
+    root: &Path,
+    target: WindowsTarget,
+    node: &NodeRelease,
+) -> Result<ReleaseArtifact, String> {
     let release_dir = root.join("target").join(target.triple).join("release");
     let source_dll = release_dir.join(&node.dll_name);
     let destination = root
@@ -249,11 +319,78 @@ fn copy_target_files(root: &Path, target: WindowsTarget, node: &NodeRelease) -> 
 
     fs::create_dir_all(&destination).map_err(|error| format!("无法创建发布目录：{error}"))?;
     remove_legacy_documentation(&destination, &node.node_name)?;
-    copy_file(&source_dll, &destination.join(&node.dll_name))?;
+    let destination_dll = destination.join(&node.dll_name);
+    copy_file(&source_dll, &destination_dll)?;
     copy_file(
         &root.join("api/miresidian.h"),
         &destination.join("miresidian.h"),
-    )
+    )?;
+    Ok(ReleaseArtifact {
+        platform: target.package_name,
+        file: node.dll_name.clone(),
+        sha256: sha256_file(&destination_dll)?,
+    })
+}
+
+/// 计算发布 DLL 的 SHA-256，供部署端校验文件完整性。
+fn sha256_file(path: &Path) -> Result<String, String> {
+    let mut file =
+        fs::File::open(path).map_err(|error| format!("无法读取 {}：{error}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let bytes = file
+            .read(&mut buffer)
+            .map_err(|error| format!("无法读取 {}：{error}", path.display()))?;
+        if bytes == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// 生成与当前 DLL 集合对应的发布元数据。
+fn write_release_manifest(
+    root: &Path,
+    node: &NodeRelease,
+    artifacts: &[ReleaseArtifact],
+) -> Result<(), String> {
+    let destination = root.join("dist").join(&node.node_name);
+    let document = json!({
+        "format_version": 1,
+        "node": {
+            "name": node.node_name,
+            "package": node.package,
+            "version": node.project_version,
+        },
+        "framework": { "version": node.framework_version },
+        "abi": { "version": node.abi_version },
+        "source": { "git_revision": git_revision(root) },
+        "artifacts": artifacts.iter().map(|artifact| json!({
+            "platform": artifact.platform,
+            "file": artifact.file,
+            "sha256": artifact.sha256,
+        })).collect::<Vec<_>>(),
+    });
+    let content = serde_json::to_string_pretty(&document)
+        .map_err(|error| format!("无法序列化发布清单：{error}"))?;
+    fs::write(destination.join("manifest.json"), format!("{content}\n"))
+        .map_err(|error| format!("无法写入发布清单：{error}"))
+}
+
+/// 读取发布时的 Git 提交；非 Git 工作区仍可打包，但会明确标为 unknown。
+fn git_revision(root: &Path) -> String {
+    Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "--verify", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|revision| revision.trim().to_owned())
+        .filter(|revision| !revision.is_empty())
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// 清理旧版位数目录中的说明，确保发布包只保留根目录的一份说明文件。
@@ -270,8 +407,8 @@ fn remove_legacy_documentation(destination: &Path, node_name: &str) -> Result<()
     Ok(())
 }
 
-/// 复制一次节点说明，避免在位数目录中出现重复文档。
-fn copy_node_documentation(root: &Path, node: &NodeRelease) -> Result<(), String> {
+/// 复制节点部署说明与修订记录，避免在位数目录中出现重复文档。
+fn copy_node_release_documents(root: &Path, node: &NodeRelease) -> Result<(), String> {
     let destination = root.join("dist").join(&node.node_name);
     fs::create_dir_all(&destination).map_err(|error| format!("无法创建发布目录：{error}"))?;
     copy_file(
@@ -279,6 +416,10 @@ fn copy_node_documentation(root: &Path, node: &NodeRelease) -> Result<(), String
             .join("docs/drivers")
             .join(format!("{}.md", node.node_name)),
         &destination.join(format!("{}.md", node.node_name)),
+    )?;
+    copy_file(
+        &node.project_directory.join("CHANGELOG.md"),
+        &destination.join("CHANGELOG.md"),
     )
 }
 

@@ -10,6 +10,14 @@ pub trait DeviceNode: Default + Send + 'static {
     /// 返回此节点类型的编译期元数据。
     fn descriptor() -> &'static NodeDescriptor;
 
+    /// 返回构建当前节点 DLL 的项目版本。
+    ///
+    /// 宏生成的节点实现会返回其 crate 的 `CARGO_PKG_VERSION`。手写实现若未覆盖
+    /// 本方法，则显式表明其版本未声明。
+    fn project_version() -> &'static str {
+        "未声明"
+    }
+
     /// 使用初始化调用建立设备连接。
     ///
     /// `config` 与 `input` 保留外部调用的两个独立参数通道。通常初始化参数来自

@@ -224,4 +224,30 @@ mod ffi_tests {
         assert!(response.contains("GetFunctions()(函数列表)"));
         assert!(response.ends_with(r#"]}"#));
     }
+
+    #[test]
+    fn version_queries_通过_c_abi_返回编译期版本() {
+        let framework = unsafe {
+            CStr::from_ptr(super::miresidian_invoke(
+                c"GetFrameworkVersion".as_ptr(),
+                c"[]".as_ptr(),
+                c"[]".as_ptr(),
+            ))
+        }
+        .to_str()
+        .expect("框架版本响应必须是 UTF-8")
+        .to_owned();
+        assert_eq!(framework, r#"{"status":0,"message":"","output":["0.1.0"]}"#);
+
+        let project = unsafe {
+            CStr::from_ptr(super::miresidian_invoke(
+                c"GetProjectVersion".as_ptr(),
+                c"[]".as_ptr(),
+                c"[]".as_ptr(),
+            ))
+        }
+        .to_str()
+        .expect("项目版本响应必须是 UTF-8");
+        assert_eq!(project, r#"{"status":0,"message":"","output":["0.1.0"]}"#);
+    }
 }

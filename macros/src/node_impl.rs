@@ -61,6 +61,7 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
             fn descriptor() -> &'static ::miresidian::NodeDescriptor { &#descriptor }
             fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
             fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> { #close_call }
+            fn project_version() -> &'static str { env!("CARGO_PKG_VERSION") }
             fn invoke(&mut self, operation: &str, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> {
                 match operation { #(#operation_calls)* other => Err(::miresidian::MiresidianError::InvalidOperation(other.to_owned())), }
             }

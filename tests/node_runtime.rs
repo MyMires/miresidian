@@ -1,7 +1,9 @@
 use miresidian::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MiresidianError,
-    MiresidianResult, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    CLOSE_DEVICE_OPERATION, DeviceNode, FRAMEWORK_VERSION, GET_FRAMEWORK_VERSION_OPERATION,
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
+    GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    MiresidianError, MiresidianResult, NodeDescriptor, NodeRuntime, OperationDescriptor,
+    ParameterDescriptor,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -41,6 +43,9 @@ impl DeviceNode for MemoryNode {
         &DESCRIPTOR
     }
 
+    fn project_version() -> &'static str {
+        "9.8.7"
+    }
     fn init_device(
         &mut self,
         config: &[String],
@@ -125,6 +130,22 @@ fn fixed_operations_publish_compatible_metadata() {
         .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
         .unwrap();
     assert_eq!(config.as_slice(), ["地址:127.0.0.1"]);
+}
+
+#[test]
+fn version_queries_are_persistent() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+
+    let framework = runtime
+        .invoke(&request(GET_FRAMEWORK_VERSION_OPERATION, &[], &[]))
+        .unwrap();
+    assert_eq!(framework.as_slice(), [FRAMEWORK_VERSION]);
+
+    let project = runtime
+        .invoke(&request(GET_PROJECT_VERSION_OPERATION, &[], &[]))
+        .unwrap();
+    assert_eq!(project.as_slice(), ["9.8.7"]);
+    assert!(!runtime.is_initialized());
 }
 
 #[test]

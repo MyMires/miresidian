@@ -7,7 +7,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 当前实现已经具备可编译、可测试的运行时：
 
 - 使用 `operation + config + input -> output` 的统一文本调用契约；
-- 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
+- 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
 - 通过 `DeviceNode` 定义节点生命周期与自定义操作的扩展点；
 - 通过 `NodeRuntime` 管理初始化状态、临时端口探测和资源关闭；
 - 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
@@ -105,3 +105,4 @@ cargo build --release
 串口通信节点的配置与操作说明见 [docs/drivers/串口通信.md](docs/drivers/串口通信.md)。
 C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
 构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。
+框架、实例项目与 ABI 的版本、修订记录和发布流程见 [docs/versioning.md](docs/versioning.md)。

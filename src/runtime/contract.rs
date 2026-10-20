@@ -2,6 +2,10 @@
 
 /// 返回可调用操作签名的兼容操作。
 pub const GET_FUNCTIONS_OPERATION: &str = "GetFunctions";
+/// 返回当前 DLL 所使用框架版本的常驻查询。
+pub const GET_FRAMEWORK_VERSION_OPERATION: &str = "GetFrameworkVersion";
+/// 返回当前 DLL 项目版本的常驻查询。
+pub const GET_PROJECT_VERSION_OPERATION: &str = "GetProjectVersion";
 /// 返回初始化配置元数据的兼容操作。
 pub const GET_INIT_CONFIG_OPERATION: &str = "GetInitConfig";
 /// 探测节点端口、但不保留节点实例的兼容操作。

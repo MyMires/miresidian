@@ -27,7 +27,7 @@ constellation/serial/tests/
 
 `tests/node.rs` 仅依赖 `miresidian_serial::SerialNode` 的公开接口，用集成测试确认属性宏
 生成的函数列表与固定操作契约。为使该测试能以外部调用方的方式链接，串口 crate 同时声明
-`cdylib`（发布 DLL）和 `rlib`（仅供 Rust 测试链接）产物；发布目录仍只交付 DLL 及其说明文件。
+`cdylib`（发布 DLL）和 `rlib`（仅供 Rust 测试链接）产物；发布目录交付 DLL、C 头文件、部署说明、修订记录与发布清单。
 
 ## 扩展边界
 

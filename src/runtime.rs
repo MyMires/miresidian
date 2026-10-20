@@ -8,8 +8,9 @@ mod lifecycle;
 mod node;
 
 pub use contract::{
-    CLOSE_DEVICE_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    CLOSE_DEVICE_OPERATION, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
+    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
+    INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
 };
 pub use descriptor::{NodeDescriptor, OperationDescriptor, ParameterDescriptor};
 pub use lifecycle::NodeRuntime;

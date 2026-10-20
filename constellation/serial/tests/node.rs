@@ -1,6 +1,6 @@
 //! 串口通信节点面向测试平台的节点契约测试。
 
-use miresidian::{DeviceNode, Invocation, NodeRuntime};
+use miresidian::{DeviceNode, FRAMEWORK_VERSION, Invocation, NodeRuntime};
 use miresidian_serial::SerialNode;
 
 #[test]
@@ -33,4 +33,28 @@ fn 固定操作由宏生成且无需初始化() {
         output.as_slice()[3],
         "校验位:None-无校验/Odd-奇校验/Even-偶校验"
     );
+}
+
+#[test]
+fn 版本查询由宏生成且无需初始化() {
+    let mut runtime = NodeRuntime::<SerialNode>::new();
+
+    let framework = runtime
+        .invoke(&Invocation::new(
+            "GetFrameworkVersion",
+            Vec::new(),
+            Vec::new(),
+        ))
+        .expect("GetFrameworkVersion 应由框架处理");
+    assert_eq!(framework.as_slice(), [FRAMEWORK_VERSION]);
+
+    let project = runtime
+        .invoke(&Invocation::new(
+            "GetProjectVersion",
+            Vec::new(),
+            Vec::new(),
+        ))
+        .expect("GetProjectVersion 应由宏生成");
+    assert_eq!(project.as_slice(), ["0.1.0"]);
+    assert!(!runtime.is_initialized());
 }

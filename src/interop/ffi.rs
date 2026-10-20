@@ -17,10 +17,10 @@ pub const MIRESIDIAN_STATUS_INTERNAL_ERROR: MiresidianStatus = 3;
 /// C ABI 函数返回的状态码。
 pub type MiresidianStatus = i32;
 
-/// C ABI 中传递 UTF-8 文本数组的通用结构。
+/// 旧版 Rust 源码兼容保留的 UTF-8 文本数组结构。
 ///
-/// `miresidian_invoke` 同时用它承载业务 `output` 与错误 `error`。调用方必须将结构体
-/// 零初始化，并在调用后以同一 DLL 的 `miresidian_free_text_array` 释放。
+/// C ABI v5 的 `miresidian_invoke` 不使用此结构，也不导出 `miresidian_free_text_array`；
+/// v5 调用方应读取其返回的 `result_json`，且不得释放该指针。
 #[repr(C)]
 #[derive(Debug)]
 pub struct MiresidianTextArray {

@@ -16,9 +16,9 @@ const char *miresidian_invoke(
     const char *input_json);
 ~~~
 
-- function：UTF-8 C 字符串，例如 GetFunctions、InitDevice 或节点操作名。
+- function：UTF-8 C 字符串，例如 GetFunctions、GetFrameworkVersion、GetProjectVersion、InitDevice 或节点操作名。
 - config_json、input_json：JSON 字符串数组，例如 ["COM3","9600"]；传 NULL 等同于 []。数组元素不能是数值、布尔值或对象。
-- 返回值：DLL 内部保存的 UTF-8 JSON C 字符串指针。
+- 返回值 `result_json`：DLL 内部保存的 UTF-8 JSON C 字符串指针。
 
 DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区、无需传容量、也不得释放返回指针；
 应在同一线程下一次调用前将文本复制到自己的内存。
@@ -26,7 +26,7 @@ DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区�
 例如，调用 GetFunctions：
 
 ~~~c
-const char *response = miresidian_invoke(
+const char *result_json = miresidian_invoke(
     "GetFunctions", "[]", "[]");
 ~~~
 
@@ -57,7 +57,9 @@ const char *response = miresidian_invoke(
 status 为状态码，message 为成功时的空字符串或失败诊断，output 始终为业务字符串数组。
 JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
 
-GetFunctions、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。
+GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。
+GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；GetProjectVersion 的 output 为当前 DLL 项目的语义化版本。
+这两个值来自 DLL 的编译期元数据，可用于与发布包 `manifest.json` 交叉核对。
 只有节点定义的设备操作才会在未初始化时返回“设备尚未初始化”。
 
 ## 状态码

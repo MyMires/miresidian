@@ -10,22 +10,23 @@
 Function + Config[] + Input[] -> Output[]
 ```
 
-原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出以下三种入口：
+原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出 ABI 版本查询与唯一业务入口：
 
 | C ABI 入口 | 结果形式 |
 | --- | --- |
-| `miresidian_invoke` | 返回 DLL 持有的 JSON 文本，固定为 `{ "status": 状态码, "message": 消息, "output": [...] }`。 |
+| `miresidian_abi_version` | 返回当前 ABI 版本号。 |
+| `miresidian_invoke` | 返回 DLL 持有的 `result_json`，固定为 `{ "status": 状态码, "message": 消息, "output": [...] }`。 |
 
-三个 C ABI 入口均以 `function`、`config_json`、`input_json` 传入相同业务请求。`config_json`
+`miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求。`config_json`
 与 `input_json` 是 UTF-8 JSON 字符串数组；原生入口不会直接传递字符串指针数组。完整的参数
-顺序、调用方输出缓冲区与状态码见 [C ABI](c-abi.md)。
+顺序、返回文本生命周期与状态码见 [C ABI](c-abi.md)。
 
 - `Function` 是平台调用入口中的函数名称。
 - `Config[]` 与 `Input[]` 都是字符串数组，是相互独立的参数通道。
 - `Output[]` 是有序字符串数组；无业务输出的方法返回空数组。
 - Rust 运行时内部仍使用 `operation` 表示节点调度语义。不得将内部名称反向暴露为平台契约，也不得把平台的 `Function` 擅自改称为其他名称。
 
-固定入口的外部名称为 `GetFunctions`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`。普通节点方法使用 `operation` 标注发布名称。
+固定入口的外部名称为 `GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`。其中两个版本查询不依赖设备初始化。普通节点方法使用 `operation` 标注发布名称。
 
 ## 参数通道
 

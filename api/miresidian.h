@@ -24,7 +24,9 @@ enum {
 
 /*
  * function 为 UTF-8 C 字符串；config_json、input_json 是 UTF-8 JSON 字符串数组。
- * 返回的 C 字符串由 DLL 在当前线程中持有；调用方应在下一次调用前复制文本，且不得释放指针。
+ * 返回值 result_json 由 DLL 在当前线程中持有；调用方应在下一次调用前复制文本，且不得释放指针。
+ * 保留的常驻查询包括 GetFrameworkVersion（框架版本）与 GetProjectVersion（项目版本）。
+ * 二者都通过 miresidian_invoke 返回 result_json 的 output[0]。
  *
  * JSON 字段顺序固定为 status、message、output。成功时为：
  *   {"status":0,"message":"","output":[..业务输出]}

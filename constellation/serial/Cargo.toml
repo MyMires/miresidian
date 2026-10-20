@@ -9,6 +9,11 @@ license = "MIT OR Apache-2.0"
 # `cdylib` 是发布给测试平台的 DLL；`rlib` 仅供集成测试链接节点公开接口。
 crate-type = ["cdylib", "rlib"]
 
+[package.metadata.miresidian]
+# 节点在本次发布中实际使用的框架与 C ABI 版本；打包前会自动校验。
+framework_version = "0.1.0"
+abi_version = 5
+
 [dependencies]
 miresidian = { path = "../.." }
 serialport = { version = "4.10.1", default-features = false }

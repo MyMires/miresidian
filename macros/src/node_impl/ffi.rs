@@ -28,7 +28,7 @@ pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::To
         /// 返回当前固定 C ABI 的版本号。
         #[unsafe(no_mangle)]
         pub extern "C" fn miresidian_abi_version() -> u32 {
-            5
+            ::miresidian::MIRESIDIAN_ABI_VERSION
         }
     }
 }

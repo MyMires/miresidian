@@ -1,9 +1,10 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 
 use crate::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MiresidianError,
-    MiresidianResult,
+    CLOSE_DEVICE_OPERATION, DeviceNode, FRAMEWORK_VERSION, GET_FRAMEWORK_VERSION_OPERATION,
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
+    GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    MiresidianError, MiresidianResult,
 };
 
 /// 持有当前已初始化节点，并执行平台生命周期规则。
@@ -22,6 +23,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
         match invocation.operation.as_str() {
             GET_FUNCTIONS_OPERATION => {
                 Ok(InvocationOutput::new(N::descriptor().function_signatures()))
+            }
+            GET_FRAMEWORK_VERSION_OPERATION => {
+                Ok(InvocationOutput::new(vec![FRAMEWORK_VERSION.to_owned()]))
+            }
+            GET_PROJECT_VERSION_OPERATION => {
+                Ok(InvocationOutput::new(vec![N::project_version().to_owned()]))
             }
             GET_INIT_CONFIG_OPERATION => Ok(InvocationOutput::new(
                 N::descriptor().init_config_definitions(),

@@ -53,6 +53,22 @@ cargo dll64 串口通信
 dist/串口通信/windows-x64/miresidian_serial.dll
 dist/串口通信/windows-x86/miresidian_serial.dll
 dist/串口通信/串口通信.md
+dist/串口通信/CHANGELOG.md
+dist/串口通信/manifest.json
 ```
 
 `dist/` 及其子目录均由构建命令自动创建，无需预先准备。发布目录的名称取自驱动结构体上的 `#[miresidian::node("串口通信")]`；每个位数目录包含对应 DLL 和 C 头文件，同名中文部署说明固定放在驱动根目录。Cargo 配置已记录两个 MinGW 链接器，因此无需再在命令行设置链接器环境变量。如需明确执行所有工作区检查，可使用 `cargo check-all` 与 `cargo test-all`。
+
+## 手动验证 C ABI
+
+串口实例的手动脚本为 `tools/test_serial_dll.py`。在脚本顶部设置 `function`、`config`、`input` 后运行：
+
+```powershell
+py tools/test_serial_dll.py
+```
+
+脚本会将 `result_json` 原样输出；共享的 C ABI 装载与 JSON 编码逻辑位于 `tools/c_abi_shared.py`。
+Windows Python 的位数必须与目标 DLL 一致。
+
+纯 Linux 的 `python3` 不能直接加载 Windows PE DLL。要在 Linux 中执行 `dist` 下的实际 DLL，
+需要 Wine 与同位数的 Windows Python，并通过 Wine 运行该脚本；若验证物理串口，还需映射 Wine 的 `COMx`。

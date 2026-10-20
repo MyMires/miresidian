@@ -60,8 +60,10 @@ pub struct NodeDescriptor {
 impl NodeDescriptor {
     /// 返回固定操作和节点自定义操作的全部签名。
     pub fn function_signatures(&self) -> Vec<String> {
-        let mut signatures = Vec::with_capacity(self.operations.len() + 5);
+        let mut signatures = Vec::with_capacity(self.operations.len() + 7);
         signatures.push(format!("GetFunctions()({})", "函数列表"));
+        signatures.push(format!("GetFrameworkVersion()({})", "框架版本"));
+        signatures.push(format!("GetProjectVersion()({})", "项目版本"));
         signatures.push(format!(
             "GetInitConfig()({})",
             definitions(self.init_config)
