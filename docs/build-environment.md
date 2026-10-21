@@ -61,14 +61,21 @@ dist/串口通信/manifest.json
 
 ## 手动验证 C ABI
 
-串口实例的手动脚本为 `tools/test_serial_dll.py`。在脚本顶部设置 `function`、`config`、`input` 后运行：
+`tools/common/invoke_miresidian_dll.ps1` 是首选的通用调用工具。Windows 自带的 PowerShell/.NET 即可运行，因此将 `tools` 文件夹复制到部署机后，不需要安装 Python、pip 或第三方包；DLL 也不必保留项目中的目录结构。传入 DLL 路径即可调用，省略操作名时默认调用 `GetFunctions`：
 
 ```powershell
-py tools/test_serial_dll.py
+powershell -ExecutionPolicy Bypass -File .\tools\common\invoke_miresidian_dll.ps1 .\miresidian_serial.dll
+powershell -ExecutionPolicy Bypass -File .\tools\common\invoke_miresidian_dll.ps1 .\miresidian_serial.dll InitDevice '["COM3","9600","8","None","1","None","1000","1000"]' '[]'
+powershell -ExecutionPolicy Bypass -File .\tools\common\invoke_miresidian_dll.ps1 .\miresidian_serial.dll -AbiVersion
 ```
 
-脚本会将 `result_json` 原样输出；共享的 C ABI 装载与 JSON 编码逻辑位于 `tools/c_abi_shared.py`。
-Windows Python 的位数必须与目标 DLL 一致。
+脚本默认原样输出 `result_json`；加 `-Pretty` 会反序列化响应，并将状态、消息和每条业务输出整理为易读的编号清单。PowerShell 进程位数必须与目标 DLL 一致：64 位 DLL 用 Windows x64 PowerShell，32 位 DLL 用 `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`。
+
+不想使用命令行时，可双击 `tools/test_serial_dll.bat`。在本项目中，它默认从 `dist` 目录自动选择与 PowerShell 位数相同的 DLL。BAT 顶部可编辑区只包含 `FUNCTION`、`CONFIG`、`INPUT`；`CONFIG` 和 `INPUT` 使用 JSON 字符串数组填写。DLL 定位为节点脚本内部固定配置。BAT 支持从网络共享（UNC 路径）启动，并会在结束时暂停，方便查看调用结果或错误信息。
+
+`common/invoke_miresidian_dll.ps1` 是通用的 Miresidian C ABI 调用器，并不包含串口业务逻辑。新增节点测试时复制一个 BAT，仅修改 `FUNCTION`、`CONFIG`、`INPUT`，并在固定节点配置中替换 DLL 文件名；共用的 PowerShell 调用器不需要再复制或修改。
+
+BAT 中字符串数组的 JSON 写法、转义规则、返回输出格式及新增节点入口的约定见 [DLL 测试工具说明](../tools/README.md)。
 
 纯 Linux 的 `python3` 不能直接加载 Windows PE DLL。要在 Linux 中执行 `dist` 下的实际 DLL，
 需要 Wine 与同位数的 Windows Python，并通过 Wine 运行该脚本；若验证物理串口，还需映射 Wine 的 `COMx`。
