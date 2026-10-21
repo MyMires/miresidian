@@ -237,7 +237,7 @@ mod ffi_tests {
         .to_str()
         .expect("框架版本响应必须是 UTF-8")
         .to_owned();
-        assert_eq!(framework, r#"{"status":0,"message":"","output":["0.1.0"]}"#);
+        assert_eq!(framework, r#"{"status":0,"message":"","output":["0.2.0"]}"#);
 
         let project = unsafe {
             CStr::from_ptr(super::miresidian_invoke(
@@ -248,6 +248,6 @@ mod ffi_tests {
         }
         .to_str()
         .expect("项目版本响应必须是 UTF-8");
-        assert_eq!(project, r#"{"status":0,"message":"","output":["0.1.0"]}"#);
+        assert_eq!(project, r#"{"status":0,"message":"","output":["0.2.0"]}"#);
     }
 }

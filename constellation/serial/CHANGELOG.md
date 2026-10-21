@@ -6,6 +6,10 @@
 
 尚未发布的串口节点变更必须先记录在本节，发布时移动到对应版本与日期下。
 
+### Changed
+
+- 更新至 Miresidian 0.2.0，并采用 `miresidian_version` 与 `miresidian_abi_version` 发布元数据键。
+
 ## [0.1.0] - 2026-10-21
 
 ### Added

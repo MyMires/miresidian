@@ -38,7 +38,7 @@ pub mod interop;
 mod runtime;
 
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
-pub const FRAMEWORK_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// 当前固定 C ABI 的版本号。
 ///
@@ -69,8 +69,9 @@ pub use interop::{ffi, ffi_runtime};
 /// 供具体节点使用的属性宏。
 pub use miresidian_macros::{config, input, node, node_impl, operation, output};
 pub use runtime::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
-    INIT_DEVICE_OPERATION, Invocation, InvocationOutput, NodeDescriptor, NodeRuntime,
-    OperationDescriptor, ParameterDescriptor,
+    CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
+    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
+    InvocationOutput, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    SHARED_INVOCATION_MARKER,
 };

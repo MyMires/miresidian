@@ -46,7 +46,7 @@ fn 属性宏生成的调度复用根框架编解码规则() {
     let output = runtime
         .invoke(&Invocation::new(
             "编解码回显",
-            Vec::new(),
+            vec!["初始化格式:ASCII".to_owned()],
             vec!["base64:AP8K".to_owned(), "HEX".to_owned()],
         ))
         .expect("宏生成的 Input 调度应解析 Vec<u8> 与 ByteTextFormat");

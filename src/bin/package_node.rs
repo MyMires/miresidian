@@ -48,8 +48,8 @@ struct NodeRelease {
     dll_name: String,
     /// 实例项目的语义化版本。
     project_version: String,
-    /// 实例声明且经打包器校验的框架版本。
-    framework_version: String,
+    /// 实例声明且经打包器校验的Miresidian 版本。
+    miresidian_version: String,
     /// 实例声明且经打包器校验的 ABI 版本。
     abi_version: u32,
 }
@@ -159,7 +159,7 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         .no_deps()
         .exec()
         .map_err(|error| format!("无法读取 Cargo 工作区元数据：{error}"))?;
-    let framework_version = metadata
+    let miresidian_version = metadata
         .root_package()
         .ok_or_else(|| "无法确定框架根包版本".to_owned())?
         .version
@@ -197,15 +197,15 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         {
             return Err(format!("发现重复的节点显示名：{node_name}"));
         }
-        let (declared_framework_version, abi_version) =
-            release_versions(package, &framework_version)?;
+        let (declared_miresidian_version, abi_version) =
+            release_versions(package, &miresidian_version)?;
         nodes.push(NodeRelease {
             package: package.name.clone(),
             project_directory: PathBuf::from(manifest_directory.as_str()),
             node_name,
             dll_name: format!("{}.dll", cdylib.name.replace('-', "_")),
             project_version: package.version.to_string(),
-            framework_version: declared_framework_version,
+            miresidian_version: declared_miresidian_version,
             abi_version,
         });
     }
@@ -217,30 +217,30 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
     Ok(nodes)
 }
 
-/// 读取节点发布声明，并拒绝与当前框架不一致的版本组合。
-fn release_versions(package: &Package, framework_version: &str) -> Result<(String, u32), String> {
+/// 读取节点发布声明，并拒绝与当前 Miresidian不一致的版本组合。
+fn release_versions(package: &Package, miresidian_version: &str) -> Result<(String, u32), String> {
     let metadata = package
         .metadata
         .get("miresidian")
         .and_then(Value::as_object)
         .ok_or_else(|| format!("节点 {} 缺少 package.metadata.miresidian", package.name))?;
 
-    let declared_framework_version = metadata
-        .get("framework_version")
+    let declared_miresidian_version = metadata
+        .get("miresidian_version")
         .and_then(Value::as_str)
-        .ok_or_else(|| format!("节点 {} 缺少 framework_version", package.name))?;
-    if declared_framework_version != framework_version {
+        .ok_or_else(|| format!("节点 {} 缺少 miresidian_version", package.name))?;
+    if declared_miresidian_version != miresidian_version {
         return Err(format!(
-            "节点 {} 声明的框架版本 {} 与当前框架版本 {} 不一致",
-            package.name, declared_framework_version, framework_version
+            "节点 {} 声明的Miresidian 版本 {} 与当前Miresidian 版本 {} 不一致",
+            package.name, declared_miresidian_version, miresidian_version
         ));
     }
 
     let abi_version = metadata
-        .get("abi_version")
+        .get("miresidian_abi_version")
         .and_then(Value::as_u64)
         .and_then(|version| u32::try_from(version).ok())
-        .ok_or_else(|| format!("节点 {} 缺少有效的 abi_version", package.name))?;
+        .ok_or_else(|| format!("节点 {} 缺少有效的 miresidian_abi_version", package.name))?;
     if abi_version != MIRESIDIAN_ABI_VERSION {
         return Err(format!(
             "节点 {} 声明的 ABI 版本 {} 与当前 ABI 版本 {} 不一致",
@@ -248,7 +248,7 @@ fn release_versions(package: &Package, framework_version: &str) -> Result<(Strin
         ));
     }
 
-    Ok((declared_framework_version.to_owned(), abi_version))
+    Ok((declared_miresidian_version.to_owned(), abi_version))
 }
 
 /// 按节点显示名筛选；没有筛选条件时保留全部发现的节点。
@@ -364,7 +364,7 @@ fn write_release_manifest(
             "package": node.package,
             "version": node.project_version,
         },
-        "framework": { "version": node.framework_version },
+        "miresidian": { "version": node.miresidian_version },
         "abi": { "version": node.abi_version },
         "source": { "git_revision": git_revision(root) },
         "artifacts": artifacts.iter().map(|artifact| json!({

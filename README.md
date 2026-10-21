@@ -9,7 +9,8 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 - 使用 `operation + config + input -> output` 的统一文本调用契约；
 - 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
 - 通过 `DeviceNode` 定义节点生命周期与自定义操作的扩展点；
-- 通过 `NodeRuntime` 管理初始化状态、临时端口探测和资源关闭；
+- 通过 `NodeRuntime` 按完整 Config 管理多通道对象、临时端口探测和资源关闭；
+- 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由操作标注选择顺序或并行分发；
 - 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
 - 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
 - 提供基于成熟 `serialport` crate 的串口通信节点 `SerialNode`，包含串口参数验证、端口探测和 UTF-8 文本收发。
@@ -33,7 +34,8 @@ src/
 ├── runtime/
 │   ├── contract.rs        # 调用契约与固定操作名称
 │   ├── descriptor.rs      # 节点与操作描述信息
-│   ├── lifecycle.rs       # 初始化、关闭与调用调度
+│   ├── lifecycle.rs       # 多通道初始化、关闭与调用调度
+│   ├── shared.rs          # 共享调用的参数校验与顺序/并行分发
 │   └── node.rs            # 节点实现接口
 ├── interop.rs             # C ABI 入口
 ├── interop/
@@ -42,9 +44,10 @@ src/
 └── bin/package_node.rs     # 节点发布包整理工具
 ```
 
+普通自定义操作必须传入创建该对象时完全相同的 `Config[]`；运行时据此定位通道。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
+
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
-`miresidian::ffi_runtime::invoke`，已有节点和
-宏无需修改。
+`miresidian::ffi_runtime::invoke`。节点需将普通调用的 Config 调整为通道键；其余宏生成代码无需手写。
 
 具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自身目录；
 例如串口通信节点使用以下结构：

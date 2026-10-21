@@ -14,6 +14,8 @@ pub enum MiresidianError {
     InvalidArgument { field: String, message: String },
     /// 在成功初始化前请求了节点自定义操作。
     NotInitialized,
+    /// 调用方传入的 Config 未对应任何已创建的通道对象。
+    UnknownChannel(String),
     /// 节点未实现某项可选能力。
     NotSupported(String),
     /// 驱动特有的运行失败。
@@ -28,6 +30,9 @@ impl Display for MiresidianError {
                 write!(formatter, "参数 {field} 无效: {message}")
             }
             Self::NotInitialized => formatter.write_str("设备尚未初始化"),
+            Self::UnknownChannel(config) => {
+                write!(formatter, "未找到 Config 对应的通道: [{config}]")
+            }
             Self::NotSupported(capability) => write!(formatter, "不支持的能力: {capability}"),
             Self::Failure(message) => formatter.write_str(message),
         }

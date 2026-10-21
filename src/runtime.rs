@@ -6,12 +6,14 @@ mod contract;
 mod descriptor;
 mod lifecycle;
 mod node;
+mod shared;
 
 pub use contract::{
-    CLOSE_DEVICE_OPERATION, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
-    INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, GET_FRAMEWORK_VERSION_OPERATION,
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
+    GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    SHARED_INVOCATION_MARKER,
 };
-pub use descriptor::{NodeDescriptor, OperationDescriptor, ParameterDescriptor};
+pub use descriptor::{ExecutionMode, NodeDescriptor, OperationDescriptor, ParameterDescriptor};
 pub use lifecycle::NodeRuntime;
 pub use node::DeviceNode;

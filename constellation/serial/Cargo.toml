@@ -1,6 +1,6 @@
 [package]
 name = "miresidian-serial"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Miresidian 串口通信节点。"
 license = "MIT OR Apache-2.0"
@@ -11,8 +11,8 @@ crate-type = ["cdylib", "rlib"]
 
 [package.metadata.miresidian]
 # 节点在本次发布中实际使用的框架与 C ABI 版本；打包前会自动校验。
-framework_version = "0.1.0"
-abi_version = 5
+miresidian_version = "0.2.0"
+miresidian_abi_version = 5
 
 [dependencies]
 miresidian = { path = "../.." }

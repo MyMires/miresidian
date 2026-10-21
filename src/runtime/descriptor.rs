@@ -1,5 +1,24 @@
 //! 节点与操作的编译期元数据。
 
+/// 共享调用中一个操作在多通道上的预设执行方式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionMode {
+    /// 在当前线程上按通道顺序依次执行。
+    Sequential,
+    /// 为各通道分发独立线程执行；同一对象仍互斥执行。
+    Parallel,
+}
+
+impl ExecutionMode {
+    /// 生成 C# 兼容的元数据形式。
+    pub fn definition(&self) -> &'static str {
+        match self {
+            Self::Sequential => "sequential",
+            Self::Parallel => "parallel",
+        }
+    }
+}
+
 /// 配置值、输入值或输出值的元数据。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParameterDescriptor {
@@ -28,6 +47,10 @@ pub struct OperationDescriptor {
     pub inputs: &'static [ParameterDescriptor],
     /// 该操作返回的有序输出。
     pub outputs: &'static [ParameterDescriptor],
+    /// 共享调用时该操作在多通道上的预设执行方式。
+    pub execution: ExecutionMode,
+    /// 共享调用时用于判定通道参数串合法性的 Input 来源参数；不含 `config` 标注参数。
+    pub channel_inputs: &'static [ParameterDescriptor],
 }
 
 impl OperationDescriptor {

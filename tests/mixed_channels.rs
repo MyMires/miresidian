@@ -11,9 +11,10 @@ impl MixedChannelNode {
     fn init_device(
         &mut self,
         #[miresidian::config("设备地址")] address: String,
+        #[miresidian::config("超时毫秒")] timeout_ms: u64,
         #[miresidian::input("初始化令牌")] token: String,
     ) -> MiresidianResult<String> {
-        Ok(format!("{address}:{token}"))
+        Ok(format!("{address}:{timeout_ms}:{token}"))
     }
 
     fn close_device(&mut self) -> MiresidianResult<()> {
@@ -24,6 +25,7 @@ impl MixedChannelNode {
     fn query(
         &mut self,
         #[miresidian::input("命令")] command: String,
+        #[miresidian::config("设备地址")] _address: String,
         #[miresidian::config("超时毫秒")] timeout_ms: u64,
     ) -> MiresidianResult<String> {
         Ok(format!("{command}:{timeout_ms}"))
@@ -36,16 +38,16 @@ fn 手动标注决定每个参数的外部来源通道() {
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
-            vec!["COM9".to_owned()],
+            vec!["COM9".to_owned(), "2500".to_owned()],
             vec!["令牌".to_owned()],
         ))
         .unwrap();
-    assert_eq!(initialized.as_slice(), ["COM9:令牌"]);
+    assert_eq!(initialized.as_slice(), ["COM9:2500:令牌"]);
 
     let result = runtime
         .invoke(&Invocation::new(
             "混合查询",
-            vec!["2500".to_owned()],
+            vec!["COM9".to_owned(), "2500".to_owned()],
             vec!["*IDN?".to_owned()],
         ))
         .unwrap();

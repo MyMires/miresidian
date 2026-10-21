@@ -34,7 +34,8 @@ pub fn node_impl(_attribute: TokenStream, item: TokenStream) -> TokenStream {
 /// 标记可由测试平台调用的节点方法；由 `node_impl` 消费。
 ///
 /// 不带参数时，方法名会从 `snake_case` 自动转换为平台的 PascalCase；带一个字符串参数时，
-/// 该字符串就是平台可见操作名称。
+/// 该字符串就是平台可见操作名称。可选第二个参数 `parallel` 或 `sequential` 预设共享调用
+/// 时该操作在多通道上的执行方式；未声明时默认 `sequential`。
 #[proc_macro_attribute]
 pub fn operation(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item

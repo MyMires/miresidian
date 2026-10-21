@@ -42,8 +42,16 @@ pub(super) struct InitMethod {
 pub(super) struct OperationMethod {
     pub(super) method: syn::Ident,
     pub(super) name: LitStr,
+    /// 共享调用时该操作在多通道上的预设执行方式。
+    pub(super) execution: ExecutionMode,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
+}
+/// 共享调用中一个操作在多通道上的预设执行方式。
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExecutionMode {
+    Sequential,
+    Parallel,
 }
 /// 固定入口方法；其参数在平台侧属于 Input。
 pub(super) struct FixedMethod {
@@ -72,8 +80,8 @@ pub(super) fn parse(item_impl: &mut ItemImpl) -> Result<NodeDefinition> {
     for item in &mut item_impl.items {
         let ImplItem::Fn(method) = item else { continue };
         if let Some(attribute) = take_attribute(&mut method.attrs, "operation") {
-            let name = operation_name(&attribute, &method.sig.ident)?;
-            operation_methods.push(parse_operation(method, name)?);
+            let (name, execution) = operation_name(&attribute, &method.sig.ident)?;
+            operation_methods.push(parse_operation(method, name, execution)?);
             continue;
         }
         match method.sig.ident.to_string().as_str() {
@@ -115,11 +123,16 @@ fn parse_init(method: &mut ImplItemFn) -> Result<InitMethod> {
         outputs: take_output(&mut method.attrs, &method.sig.output)?,
     })
 }
-fn parse_operation(method: &mut ImplItemFn, name: LitStr) -> Result<OperationMethod> {
+fn parse_operation(
+    method: &mut ImplItemFn,
+    name: LitStr,
+    execution: ExecutionMode,
+) -> Result<OperationMethod> {
     require_mut_receiver(method)?;
     Ok(OperationMethod {
         method: method.sig.ident.clone(),
         name,
+        execution,
         parameters: parse_parameters(method, ParameterSource::Input)?,
         outputs: take_output(&mut method.attrs, &method.sig.output)?,
     })
