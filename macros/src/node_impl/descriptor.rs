@@ -9,11 +9,12 @@ pub(super) fn parameters(
 ) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     parameters.iter().map(|parameter| {
         let name = &parameter.name;
+        let definition = &parameter.definition;
         let default = match &parameter.default {
             Some(value) => quote!(Some(#value)),
             None => quote!(None),
         };
-        quote!(::miresidian::ParameterDescriptor { name: #name, default_value: #default })
+        quote!(::miresidian::ParameterDescriptor { name: #name, definition: #definition, default_value: #default })
     })
 }
 /// 生成 Output 的平台描述项；输出没有默认值。
@@ -22,7 +23,7 @@ pub(super) fn outputs(
 ) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     outputs
         .iter()
-        .map(|name| quote!(::miresidian::ParameterDescriptor { name: #name, default_value: None }))
+        .map(|name| quote!(::miresidian::ParameterDescriptor { name: #name, definition: #name, default_value: None }))
 }
 /// 生成一个完整的平台操作描述。
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {

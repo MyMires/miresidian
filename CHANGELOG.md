@@ -10,7 +10,9 @@
 
 - `NodeRuntime` 按完整 Config 创建、复用、定位和关闭多个通道对象。
 - 支持以 `Input[0] = "共享"` 对全部已创建通道执行自定义操作；空白或参数不符合的通道会跳过。
-- `#[operation("名称", parallel)]` 可声明共享调用的并行分发；默认顺序执行。
+- 共享执行方式作为框架自动追加的初始化配置，支持 `Sequential-顺序`、`Parallel-并行` 与 `Broadcast-广播`；缺失、空白或无效值回退顺序执行。
+- `Broadcast` 复用并校验一致的通道参数计划，仍为每个目标通道保留独立 Output 槽位。
+- 参数描述中的 `实际值-显示值` 同时接受实际值与显示值；框架在 `DeviceInput` 前将显示值规范化为实际值。
 - 版本标识统一为 `miresidian_version`、`miresidian_abi_version` 与 `miresidian` 发布清单键。
 
 ## [0.1.0] - 2026-10-21

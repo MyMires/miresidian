@@ -52,7 +52,8 @@ pub const MIRESIDIAN_ABI_VERSION: u32 = 5;
 pub mod codec {
     pub use crate::foundation::{
         ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
-        decode_value, encode_bytes_to_text, encode_value, parse_byte_text_format, transcode_text,
+        decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
+        parse_byte_text_format, transcode_text,
     };
 }
 
@@ -62,8 +63,9 @@ pub use ffi::{
 };
 pub use foundation::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
-    MiresidianError, MiresidianResult, decode_text_to_bytes, decode_value, encode_bytes_to_text,
-    encode_value, parse_byte_text_format, transcode_text,
+    MiresidianError, MiresidianResult, decode_text_to_bytes, decode_value,
+    decode_value_with_definition, encode_bytes_to_text, encode_value, parse_byte_text_format,
+    transcode_text,
 };
 pub use interop::{ffi, ffi_runtime};
 /// 供具体节点使用的属性宏。

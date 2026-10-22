@@ -2,30 +2,40 @@
 
 ```text
 tools/
-├── test_serial_dll.bat             # 串口节点的可双击测试入口
-└── common/
-    └── invoke_miresidian_dll.ps1   # 所有节点共享的 C ABI 调用器
+├── common/
+│   └── invoke_miresidian_dll.ps1       # 所有 DLL 项目共享的调用器
+└── miresidian-serial/                  # miresidian-serial DLL 测试项目
+    ├── test_serial_dll.bat             # 双击测试入口
+    └── serial_smoke.flow                # 与入口同目录的流程文件
 ```
 
 Windows 不需要安装 Python。双击节点对应的 `test_<node>_dll.bat` 即可；BAT 会调用公共 PowerShell 脚本、实际加载 DLL，并在结束后暂停显示结果。
 
-## 编辑节点测试
+## 编辑流程测试
 
-BAT 顶部只有三个业务输入，其他 DLL 定位和显示设置都是节点脚本内部配置：
+每个 DLL 项目目录都同时保存 BAT 入口和流程文件。BAT 顶部的 `FLOW_FILE` 指向可编辑的 UTF-8 流程文件。流程使用通用的 `方法名("字符串参数", ...)` 语法。除流程保留指令 `Config(...)` 与 `Delay("毫秒数")` 外，方法名必须由 DLL 的 `GetFunctions()` 返回：
 
-| 变量 | 类型 | 示例 |
-| --- | --- | --- |
-| `FUNCTION` | 字符串 | `GetFunctions`、`InitDevice` |
-| `CONFIG` | JSON 字符串数组 | `[]`、`["COM3","9600"]` |
-| `INPUT` | JSON 字符串数组 | `[]`、`["测试,数据","中文"]` |
+```text
+Config("COM3", "9600")
+InitDevice()
+Delay("500")
+任意业务方法("输入一", "输入二")
+CloseDevice()
+```
 
-`CONFIG` 和 `INPUT` 不是逗号分隔文本：它们必须是合法的 JSON 字符串数组。公共调用器先反序列化并确认每项都是字符串，再将原始 JSON 用 UTF-8 编码传给 DLL；数值、布尔值、对象或非法 JSON 会在调用前报错。
+调用器在同一个 PowerShell/DLL 进程中执行整个流程。`Config(...)` 是流程指令，不调用 DLL；它设置后续真实方法使用的 C ABI `config` 数组。`Delay("毫秒数")` 仅在流程步骤间等待指定毫秒数，不调用 DLL。真实 DLL 方法括号中的参数全部传入 C ABI `input` 数组，因此 `InitDevice()` 也可传入节点声明的 Input 参数。`Config(...)` 可以省略具有默认值的**尾部**配置参数，默认值取自 `GetInitConfig()`；枚举描述 `实际值-显示值` 会补入首个实际值。再次调用 `Config(...)` 可切换到另一个已初始化设备；`CloseDevice()` 关闭当前选择的设备。
 
-JSON 字符串本身含双引号时用 JSON 转义，例如 `["He said \"OK\""]`。若 BAT 中的内容包含百分号 `%`，请写成 `%%`，避免被 `cmd.exe` 当作环境变量展开。
+流程参数必须是 JSON 字符串；共享执行方式可作为第九个 `Config` 参数传入 `Sequential` / `Parallel` / `Broadcast` 或对应中文显示值；双引号本身用 JSON 转义，例如 `任意业务方法("He said \"OK\"")`。空行、以 `#` 或 `//` 开头的行会被忽略。流程中任一步失败会停止，调用器会在退出时自动尝试关闭本流程成功初始化、但尚未关闭的每个 Config。业务方法的 Config/Input 参数来源由 DLL 自身校验。
+
+对于需要直接定位 DLL 操作的场景，公共脚本仍保留单次调用模式：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\common\invoke_miresidian_dll.ps1 .\miresidian_serial.dll GetFunctions '[]' '[]' -Pretty
+```
 
 ## 新增节点入口
 
-复制 `test_serial_dll.bat` 并重命名为 `test_<node>_dll.bat`。在新 BAT 的“Fixed node configuration”区域替换 `MIRESIDIAN_DLL_NAME`；如果节点不在默认发布目录，也在该区域调整 `MIRESIDIAN_DLL_PATH`。日常测试仅编辑顶部的三个业务输入，不修改 `common/`。
+复制整个 `miresidian-serial/` 目录并改名为目标 DLL 项目名；BAT 与 `.flow` 始终放在该目录的同一级。随后在 BAT 中设置 `FLOW_FILE`，并在“Fixed node configuration”区域替换 `MIRESIDIAN_DLL_NAME`；如果节点不在默认发布目录，也调整 `MIRESIDIAN_DLL_PATH`。所有项目共用上一级 `common/` 调用器，不需要复制或修改。
 
 ## 输出和位数
 

@@ -7,18 +7,22 @@ use miresidian::{
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "地址",
+    definition: "地址:127.0.0.1",
     default_value: Some("127.0.0.1"),
 }];
 const INIT_OUTPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "状态",
+    definition: "状态",
     default_value: None,
 }];
 const QUERY_INPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "发送数据",
+    definition: "发送数据",
     default_value: None,
 }];
 const QUERY_OUTPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "接收数据",
+    definition: "接收数据",
     default_value: None,
 }];
 const OPERATIONS: [OperationDescriptor; 1] = [OperationDescriptor {
@@ -120,7 +124,7 @@ fn fixed_operations_publish_compatible_metadata() {
     assert!(
         functions
             .as_slice()
-            .contains(&"InitDevice(地址:127.0.0.1)(状态)".to_owned())
+            .contains(&"InitDevice(地址:127.0.0.1,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播)(状态)".to_owned())
     );
     assert!(
         functions
@@ -136,7 +140,13 @@ fn fixed_operations_publish_compatible_metadata() {
     let config = runtime
         .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
         .unwrap();
-    assert_eq!(config.as_slice(), ["地址:127.0.0.1"]);
+    assert_eq!(
+        config.as_slice(),
+        [
+            "地址:127.0.0.1",
+            "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
+        ]
+    );
 }
 
 #[test]
@@ -222,4 +232,45 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
         .invoke(&request("Query", &[], &["共享", "one", "  ", "three"]))
         .unwrap();
     assert_eq!(output.as_slice(), ["A:one", "", ""]);
+}
+
+#[test]
+fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Broadcast"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B", "广播"], &[]))
+        .unwrap();
+
+    let output = runtime
+        .invoke(&request("Query", &[], &["共享", "*IDN?", "*IDN?"]))
+        .unwrap();
+    assert_eq!(output.as_slice(), ["A:*IDN?", "B:*IDN?"]);
+
+    let error = runtime
+        .invoke(&request("Query", &[], &["共享", "first", "second"]))
+        .expect_err("广播输入不一致必须拒绝");
+    assert!(
+        error
+            .to_string()
+            .contains("广播执行要求各通道 Input 参数完全一致")
+    );
+}
+
+#[test]
+fn invalid_or_blank_shared_execution_defaults_to_sequential() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A", "未知方式"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B", ""], &[]))
+        .unwrap();
+
+    let output = runtime
+        .invoke(&request("Query", &[], &["共享", "first", "second"]))
+        .unwrap();
+    assert_eq!(output.as_slice(), ["A:first", "B:second"]);
 }

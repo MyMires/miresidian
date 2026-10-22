@@ -20,6 +20,8 @@ pub(super) struct NodeDefinition {
 pub(super) struct Parameter {
     pub(super) ty: Type,
     pub(super) name: LitStr,
+    /// 平台参数完整描述，用于将显示值规范化为实际值。
+    pub(super) definition: LitStr,
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
 }
@@ -178,30 +180,42 @@ fn parse_parameters(
                     "同一参数不能同时标注 #[config] 和 #[input]",
                 ));
             }
-            let (source, name, default) = match (config, input) {
+            let (source, name, definition, default) = match (config, input) {
                 (Some(attribute), None) => {
-                    let (name, default) = split_definition(&one_name(&attribute, "config")?);
-                    (ParameterSource::Config, name, default)
+                    let definition = one_name(&attribute, "config")?;
+                    let (name, default) = split_definition(&definition);
+                    (ParameterSource::Config, name, definition, default)
                 }
                 (None, Some(attribute)) => {
-                    let (name, default) = split_definition(&one_name(&attribute, "input")?);
-                    (ParameterSource::Input, name, default)
+                    let definition = one_name(&attribute, "input")?;
+                    let (name, default) = split_definition(&definition);
+                    (ParameterSource::Input, name, definition, default)
                 }
                 (None, None) => {
-                    let (name, default) = (parameter_name(argument)?, None);
-                    (default_source, name, default)
+                    let name = parameter_name(argument)?;
+                    (default_source, name.clone(), name, None)
                 }
                 (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
             Ok(Parameter {
                 ty: (*argument.ty).clone(),
                 name,
+                definition,
                 default,
                 source,
             })
         })
         .collect()
 }
+fn contains_option_pairs(value: &str) -> bool {
+    value.split('/').any(|choice| {
+        let Some((actual, display)) = choice.split_once('-') else {
+            return false;
+        };
+        !actual.trim().is_empty() && !display.trim().is_empty()
+    })
+}
+
 fn take_output(attributes: &mut Vec<Attribute>, return_type: &ReturnType) -> Result<Vec<LitStr>> {
     let expected_count = output_count(return_type);
     match take_attribute(attributes, "output") {
@@ -296,7 +310,10 @@ fn split_definition(value: &LitStr) -> (LitStr, Option<LitStr>) {
     let span = value.span();
     let text = value.value();
     let (name, default) = match text.split_once(':') {
-        Some((name, default)) => (name.trim(), Some(default.trim())),
+        Some((name, suffix)) if !contains_option_pairs(suffix) => {
+            (name.trim(), Some(suffix.trim()))
+        }
+        Some((name, _)) => (name.trim(), None),
         None => (text.trim(), None),
     };
     (

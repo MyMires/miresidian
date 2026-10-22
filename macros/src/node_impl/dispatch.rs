@@ -49,6 +49,7 @@ fn parse_arguments(
             let variable = format_ident!("__miresidian_argument_{index}");
             let ty = &parameter.ty;
             let name = &parameter.name;
+            let definition = &parameter.definition;
             let default = match &parameter.default {
                 Some(value) => quote!(Some(#value)),
                 None => quote!(None),
@@ -71,7 +72,7 @@ fn parse_arguments(
                     )
                 }
             };
-            quote! { let #variable: #ty = ::miresidian::codec::decode_value(#values, #source_index, #name, #default)?; }
+            quote! { let #variable: #ty = ::miresidian::codec::decode_value_with_definition(#values, #source_index, #name, #definition, #default)?; }
         })
 }
 

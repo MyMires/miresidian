@@ -71,9 +71,9 @@ powershell -ExecutionPolicy Bypass -File .\tools\common\invoke_miresidian_dll.ps
 
 脚本默认原样输出 `result_json`；加 `-Pretty` 会反序列化响应，并将状态、消息和每条业务输出整理为易读的编号清单。PowerShell 进程位数必须与目标 DLL 一致：64 位 DLL 用 Windows x64 PowerShell，32 位 DLL 用 `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`。
 
-不想使用命令行时，可双击 `tools/test_serial_dll.bat`。在本项目中，它默认从 `dist` 目录自动选择与 PowerShell 位数相同的 DLL。BAT 顶部可编辑区只包含 `FUNCTION`、`CONFIG`、`INPUT`；`CONFIG` 和 `INPUT` 使用 JSON 字符串数组填写。DLL 定位为节点脚本内部固定配置。BAT 支持从网络共享（UNC 路径）启动，并会在结束时暂停，方便查看调用结果或错误信息。
+不想使用命令行时，可双击 `tools/miresidian-serial/test_serial_dll.bat`。在本项目中，它默认从 `dist` 目录自动选择与 PowerShell 位数相同的 DLL，并运行 BAT 顶部 `FLOW_FILE` 指向的 UTF-8 流程文件。流程以 `Config("...")`、`InitDevice()`、`Delay("500")`、`业务方法("...")`、`CloseDevice()` 的形式顺序调用；`Config` 显式指定 C ABI Config，`Delay("毫秒数")` 可在步骤间等待，真实 DLL 方法的参数进入 Input；执行器从 `GetFunctions()` 读取并验证方法存在性，在同一个 DLL 进程中保留初始化状态。DLL 定位为节点脚本内部固定配置。BAT 支持从网络共享（UNC 路径）启动，并会在结束时暂停，方便查看调用结果或错误信息。
 
-`common/invoke_miresidian_dll.ps1` 是通用的 Miresidian C ABI 调用器，并不包含串口业务逻辑。新增节点测试时复制一个 BAT，仅修改 `FUNCTION`、`CONFIG`、`INPUT`，并在固定节点配置中替换 DLL 文件名；共用的 PowerShell 调用器不需要再复制或修改。
+`common/invoke_miresidian_dll.ps1` 是通用的 Miresidian C ABI 调用器，并不包含串口业务逻辑。新增节点测试时复制整个 DLL 项目测试目录（例如 `tools/miresidian-serial/`），使 BAT 与 `.flow` 保持同级；修改 BAT 的 `FLOW_FILE`、固定 DLL 文件名及流程中的真实 DLL 方法。所有项目共用 `tools/common/` 内的 PowerShell 调用器，不需要复制或修改。
 
 BAT 中字符串数组的 JSON 写法、转义规则、返回输出格式及新增节点入口的约定见 [DLL 测试工具说明](../tools/README.md)。
 

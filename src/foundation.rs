@@ -9,7 +9,8 @@ mod value;
 
 pub use codec::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
-    decode_value, encode_bytes_to_text, encode_value, parse_byte_text_format, transcode_text,
+    decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
+    parse_byte_text_format, transcode_text,
 };
 pub use error::{MiresidianError, MiresidianResult};
 pub use value::{DeviceScalar, DeviceValue};

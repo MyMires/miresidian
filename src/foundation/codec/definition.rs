@@ -29,6 +29,52 @@ pub(super) fn value_at(
     Ok(value.to_owned())
 }
 
+/// 将参数描述中的“实际值-显示值”映射为稳定的实际值。
+///
+/// 标量直接匹配；包含 `|` 的数组文本会逐项映射，随后交给既有集合 codec 继续处理。
+pub(super) fn normalize_option_value(value: String, definition: &str) -> String {
+    let options = option_pairs(definition);
+    if options.is_empty() {
+        return value;
+    }
+    if value.contains('|') {
+        return value
+            .split('|')
+            .map(|item| normalize_option_item(item, &options))
+            .collect::<Vec<_>>()
+            .join("|");
+    }
+    normalize_option_item(&value, &options)
+}
+
+pub(super) fn has_option_pairs(definition: &str) -> bool {
+    !option_pairs(definition).is_empty()
+}
+
+fn normalize_option_item(value: &str, options: &[(&str, &str)]) -> String {
+    let trimmed = value.trim();
+    options
+        .iter()
+        .find(|(actual, display)| trimmed == *actual || trimmed == *display)
+        .map(|(actual, _)| (*actual).to_owned())
+        .unwrap_or_else(|| value.to_owned())
+}
+
+fn option_pairs(definition: &str) -> Vec<(&str, &str)> {
+    let Some((_, choices)) = definition.split_once(':') else {
+        return Vec::new();
+    };
+    choices
+        .split('/')
+        .filter_map(|choice| {
+            let (actual, display) = choice.split_once('-')?;
+            let actual = actual.trim();
+            let display = display.trim();
+            (!actual.is_empty() && !display.is_empty()).then_some((actual, display))
+        })
+        .collect()
+}
+
 fn remove_name_prefix<'a>(value: &'a str, field: &str) -> &'a str {
     let leading_trimmed = value.trim_start();
     let Some(rest) = leading_trimmed.strip_prefix(field) else {

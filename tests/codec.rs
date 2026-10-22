@@ -2,7 +2,7 @@
 
 use miresidian::{
     ByteTextFormat, DeviceInput, DeviceOutput, decode_text_to_bytes, decode_value,
-    encode_bytes_to_text, transcode_text,
+    decode_value_with_definition, encode_bytes_to_text, transcode_text,
 };
 
 #[test]
@@ -88,5 +88,34 @@ fn 字节数组始终以_base64_输出() {
     assert_eq!(
         bytes.into_device_output().expect("字节输出").as_slice(),
         ["base64:AP8K"]
+    );
+}
+
+#[test]
+fn 选项显示值会在标量与数组解析前规范化为实际值() {
+    let scalar = vec!["奇校验".to_owned()];
+    assert_eq!(
+        decode_value_with_definition::<String>(
+            &scalar,
+            0,
+            "校验位",
+            "校验位:None-无校验/Odd-奇校验/Even-偶校验",
+            None,
+        )
+        .expect("显示值应映射为实际值"),
+        "Odd"
+    );
+
+    let array = vec!["无校验|偶校验".to_owned()];
+    assert_eq!(
+        decode_value_with_definition::<Vec<String>>(
+            &array,
+            0,
+            "校验位",
+            "校验位:None-无校验/Odd-奇校验/Even-偶校验",
+            None,
+        )
+        .expect("数组显示值应逐项映射"),
+        vec!["None", "Even"]
     );
 }

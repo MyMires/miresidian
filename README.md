@@ -35,7 +35,7 @@ src/
 │   ├── contract.rs        # 调用契约与固定操作名称
 │   ├── descriptor.rs      # 节点与操作描述信息
 │   ├── lifecycle.rs       # 多通道初始化、关闭与调用调度
-│   ├── shared.rs          # 共享调用的参数校验与顺序/并行分发
+│   ├── shared.rs          # 共享调用的参数校验与顺序/并行/广播分发
 │   └── node.rs            # 节点实现接口
 ├── interop.rs             # C ABI 入口
 ├── interop/

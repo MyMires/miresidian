@@ -6,7 +6,7 @@ HEX、Base64、字符编码或竖线数组语法。
 
 本规范只覆盖平台文本与原始字节之间的转换。串口租约协议中的数据位、校验位等内部字段编码不属于本模块，也不会使用本模块的公开 API。
 
-属性宏 crate 不实现这些规则。它只展开为对 `miresidian::codec::decode_value` 与
+属性宏 crate 不实现这些规则。它只展开为对 `miresidian::codec::decode_value_with_definition` 与
 `miresidian::codec::encode_value` 的调用；前者统一处理 `Config[]` 与 `Input[]`，因此每个
 使用 `#[node_impl]` 的节点在运行时自动复用本规范。
 
@@ -51,6 +51,13 @@ assert_eq!(hex, "B2 E2 CA D4");
 
 平台参数允许传入裸值或 `名称:值`。当属性声明了默认值时，缺失或空白参数会采用默认值；这对
 Config 与 Input 通道完全一致。
+
+## 选项实际值与显示值
+
+参数描述的候选项可写为 `实际值-显示值`，例如
+`校验位:None-无校验/Odd-奇校验/Even-偶校验`。平台可传入 `Odd` 或 `奇校验`；属性宏会在
+`DeviceInput` 前把显示值规范化为实际值。数组值按 `|` 逐项规范化。完整的 `Odd-奇校验` 是描述文本，
+不是业务输入；候选项实际值和显示值的唯一性由 DLL 项目保证。
 
 ## 一维数组
 

@@ -25,15 +25,25 @@ pub(super) fn invoke_shared<N: DeviceNode>(
     operation: &str,
     channels: &[String],
     descriptor: &OperationDescriptor,
+    execution: ExecutionMode,
 ) -> MiresidianResult<InvocationOutput> {
     let plans = channel_plans(channels, descriptor.channel_inputs);
-    let outputs = match descriptor.execution {
+    let plans = match execution {
+        ExecutionMode::Broadcast => broadcast_plans(plans)?,
+        ExecutionMode::Sequential | ExecutionMode::Parallel => plans,
+    };
+    let outputs = match execution {
         ExecutionMode::Sequential => plans
             .iter()
             .enumerate()
             .map(|(index, plan)| execute_channel(nodes.get(index), operation, plan, index))
             .collect::<Result<Vec<_>, _>>(),
         ExecutionMode::Parallel => run_parallel(nodes, operation, &plans),
+        ExecutionMode::Broadcast => plans
+            .iter()
+            .enumerate()
+            .map(|(index, plan)| execute_channel(nodes.get(index), operation, plan, index))
+            .collect::<Result<Vec<_>, _>>(),
     }?;
     Ok(InvocationOutput::new(
         outputs
@@ -41,6 +51,27 @@ pub(super) fn invoke_shared<N: DeviceNode>(
             .map(|output| output.join(","))
             .collect::<Vec<_>>(),
     ))
+}
+
+/// 将全部有效通道参数计划收敛为第一份计划，并拒绝不一致的广播输入。
+fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>> {
+    let Some(arguments) = plans.iter().flatten().next().cloned() else {
+        return Ok(plans);
+    };
+    if plans
+        .iter()
+        .flatten()
+        .any(|candidate| candidate != &arguments)
+    {
+        return Err(MiresidianError::InvalidArgument {
+            field: "共享输入".to_owned(),
+            message: "广播执行要求各通道 Input 参数完全一致".to_owned(),
+        });
+    }
+    Ok(plans
+        .into_iter()
+        .map(|plan| plan.map(|_| arguments.clone()))
+        .collect())
 }
 
 /// 单个通道的执行计划；`None` 表示该通道被跳过。

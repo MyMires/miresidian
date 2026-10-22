@@ -154,6 +154,26 @@ pub fn decode_value<T: DeviceInput>(
     T::parse_device_text(&definition::value_at(values, index, field, default)?, field)
 }
 
+/// 从平台参数通道解码带完整平台描述的强类型值。
+///
+/// 属性宏使用此入口，使选项描述中的显示值在进入 `DeviceInput` 前规范化为实际值。
+pub fn decode_value_with_definition<T: DeviceInput>(
+    values: &[String],
+    index: usize,
+    field: &str,
+    definition: &str,
+    default: Option<&str>,
+) -> MiresidianResult<T> {
+    let default = (!definition::has_option_pairs(definition))
+        .then_some(default)
+        .flatten();
+    let value = definition::value_at(values, index, field, default)?;
+    T::parse_device_text(
+        &definition::normalize_option_value(value, definition),
+        field,
+    )
+}
+
 /// 将驱动方法的强类型返回值编码为平台 ABI 输出。
 pub fn encode_value<T: DeviceOutput>(value: T) -> MiresidianResult<InvocationOutput> {
     value.into_device_output()

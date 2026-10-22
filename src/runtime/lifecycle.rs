@@ -6,10 +6,10 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, GET_FRAMEWORK_VERSION_OPERATION,
-    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
-    GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
-    MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
+    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
+    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -23,12 +23,17 @@ pub(super) struct Channel<N> {
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
 pub struct NodeRuntime<N: DeviceNode> {
     channels: Vec<Channel<N>>,
+    /// 首个成功初始化的通道决定当前驱动运行时的共享调度方式。
+    shared_execution: Option<ExecutionMode>,
 }
 
 impl<N: DeviceNode> NodeRuntime<N> {
     /// 创建尚未初始化节点的运行时。
     pub fn new() -> Self {
-        Self { channels: vec![] }
+        Self {
+            channels: vec![],
+            shared_execution: None,
+        }
     }
 
     /// 处理固定操作或节点自定义操作的调用。
@@ -70,7 +75,20 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        if self.find_channel(config).is_some() {
+        let (node_config, execution) = self.split_init_config(config)?;
+        if let Some(active) = self.shared_execution
+            && active != execution
+        {
+            return Err(MiresidianError::InvalidArgument {
+                field: "共享执行方式".to_owned(),
+                message: format!(
+                    "当前驱动运行时已使用 {}，不能改为 {}",
+                    active.definition(),
+                    execution.definition()
+                ),
+            });
+        }
+        if self.find_channel(node_config).is_some() {
             return Ok(InvocationOutput::new(vec![
                 CHANNEL_REUSED_MESSAGE.to_owned(),
             ]));
@@ -78,12 +96,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
         // 仅在初始化成功后登记对象；失败的候选对象仍尝试关闭，以释放部分建立的资源。
         let mut candidate = N::default();
-        match candidate.init_device(config, input) {
+        match candidate.init_device(node_config, input) {
             Ok(output) => {
                 self.channels.push(Channel {
-                    config: config.to_vec(),
+                    config: node_config.to_vec(),
                     node: Arc::new(Mutex::new(candidate)),
                 });
+                self.shared_execution = Some(execution);
                 Ok(output)
             }
             Err(error) => {
@@ -98,6 +117,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
+        let config = self.node_config(config)?;
         let index = self
             .channels
             .iter()
@@ -112,6 +132,9 @@ impl<N: DeviceNode> NodeRuntime<N> {
             node.close_device(config, input)?;
         }
         self.channels.remove(index);
+        if self.channels.is_empty() {
+            self.shared_execution = None;
+        }
         Ok(InvocationOutput::empty())
     }
 
@@ -149,12 +172,14 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 operation,
                 &input[1..],
                 descriptor,
+                self.shared_execution.unwrap_or(ExecutionMode::Sequential),
             );
         }
 
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
+        let config = self.node_config(config)?;
         let channel = self
             .find_channel(config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
@@ -164,6 +189,28 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .lock()
             .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
         node.invoke(operation, config, input)
+    }
+
+    /// 将框架保留的共享执行方式从初始化或后续定位 Config 中剥离。
+    fn node_config<'a>(&self, config: &'a [String]) -> MiresidianResult<&'a [String]> {
+        let count = N::descriptor().init_config.len();
+        if config.len() > count + 1 {
+            return Err(MiresidianError::InvalidArgument {
+                field: "Config".to_owned(),
+                message: "配置参数数量超出初始化配置定义".to_owned(),
+            });
+        }
+        Ok(&config[..config.len().min(count)])
+    }
+
+    fn split_init_config<'a>(
+        &self,
+        config: &'a [String],
+    ) -> MiresidianResult<(&'a [String], ExecutionMode)> {
+        let node_config = self.node_config(config)?;
+        let execution =
+            ExecutionMode::parse_platform_value(config.get(node_config.len()).map(String::as_str));
+        Ok((node_config, execution))
     }
 
     /// 返回操作的共享调度描述；未知操作返回 `None`。

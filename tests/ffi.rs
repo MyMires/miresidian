@@ -74,7 +74,10 @@ fn get_init_config_无需调用方输出缓冲区() {
     let output = call("GetInitConfig", "[]");
     assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
     assert_eq!(output["message"], "");
-    assert_eq!(output["output"], serde_json::json!([]));
+    assert_eq!(
+        output["output"],
+        serde_json::json!(["共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"])
+    );
 }
 
 #[test]

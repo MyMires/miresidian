@@ -3,7 +3,7 @@
 use super::definition::ExecutionMode;
 use syn::{Attribute, Ident, LitStr, Result, Token, parse::Parse, punctuated::Punctuated};
 
-/// `#[operation]` 属性的完整参数：名称与可选执行方式。
+/// `#[operation]` 属性的完整参数：名称与兼容保留的执行方式。
 pub(super) struct OperationAttribute {
     values: Punctuated<OperationArgument, Token![,]>,
 }
@@ -31,7 +31,7 @@ impl OperationArgument {
     }
 }
 
-/// 解析 `#[operation]` 的名称与可选执行方式。
+/// 解析 `#[operation]` 的名称与兼容保留的执行方式；运行时实际策略由初始化配置决定。
 ///
 /// 形式为 `#[operation]`、`#[operation("名称")]` 或 `#[operation("名称", parallel|sequential)]`；
 /// 未声明执行方式时默认顺序执行。

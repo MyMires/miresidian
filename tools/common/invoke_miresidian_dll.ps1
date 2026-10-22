@@ -5,6 +5,7 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\invoke_miresidian_dll.ps1 .\miresidian_serial.dll
   powershell -ExecutionPolicy Bypass -File .\invoke_miresidian_dll.ps1 .\miresidian_serial.dll InitDevice '["COM3","9600","8","None","1","None","1000","1000"]' '[]'
+  powershell -ExecutionPolicy Bypass -File .\invoke_miresidian_dll.ps1 .\miresidian_serial.dll -FlowFile .\serial_smoke.flow -Pretty
   powershell -ExecutionPolicy Bypass -File .\invoke_miresidian_dll.ps1 .\miresidian_serial.dll -AbiVersion
 #>
 [CmdletBinding()]
@@ -24,6 +25,7 @@ param(
     [switch]$AbiVersion,
     [switch]$Pretty,
     [switch]$FromEnvironment,
+    [string]$FlowFile,
     [string]$DllName = 'miresidian_serial.dll'
 )
 
@@ -38,6 +40,7 @@ if ($FromEnvironment) {
     $Config = $env:MIRESIDIAN_CONFIG_JSON
     $Input = $env:MIRESIDIAN_INPUT_JSON
     $DllName = $env:MIRESIDIAN_DLL_NAME
+    $FlowFile = $env:MIRESIDIAN_FLOW_FILE
 }
 
 if ([string]::IsNullOrWhiteSpace($DllPath)) {
@@ -169,10 +172,183 @@ function Format-Response([string]$Response) {
     Write-Output '========================================================'
 }
 
+function Get-SuccessPayload([string]$Response, [string]$Context) {
+    try { $payload = $Response | ConvertFrom-Json } catch { throw "$Context 返回了无法解析的 JSON：$($_.Exception.Message)" }
+    if ($null -eq $payload.status) { throw "$Context 返回 JSON 中缺少 status。" }
+    if ([int]$payload.status -ne 0) {
+        $message = [string]$payload.message
+        if ([string]::IsNullOrWhiteSpace($message)) { $message = '（无错误说明）' }
+        throw "$Context 失败（status=$($payload.status)）：$message"
+    }
+    return $payload
+}
+
+function Get-Definitions([string]$Definitions) {
+    if ([string]::IsNullOrWhiteSpace($Definitions)) { return @() }
+    return @($Definitions.Split(',') | ForEach-Object { $_.Trim() })
+}
+
+function Get-FlowMethodDefinitions {
+    $response = [MiresidianDllCaller]::Invoke('GetFunctions', '[]', '[]')
+    $payload = Get-SuccessPayload $response 'GetFunctions'
+    $methods = @{}
+    foreach ($signature in @($payload.output)) {
+        if ([string]$signature -notmatch '^(?<name>[^()]+)\((?<input>.*)\)\((?<output>.*)\)$') { continue }
+        $methods[$matches.name] = Get-Definitions $matches.input
+    }
+    if ($methods.Count -eq 0) { throw 'GetFunctions 未返回可识别的方法签名。' }
+    return $methods
+}
+
+function Parse-FlowLine([string]$Line, [int]$LineNumber) {
+    $statement = $Line.Trim()
+    if ([string]::IsNullOrWhiteSpace($statement) -or $statement.StartsWith('#') -or $statement.StartsWith('//')) { return $null }
+    if ($statement -notmatch '^(?<name>[^()\s]+)\s*\((?<arguments>.*)\)\s*$') { throw "流程第 $LineNumber 行不是有效的方法调用：$Line" }
+    $arguments = $matches.arguments.Trim()
+    try { $values = if ([string]::IsNullOrWhiteSpace($arguments)) { @() } else { @(ConvertFrom-Json -InputObject "[$arguments]") } }
+    catch { throw "流程第 $LineNumber 行的参数必须是 JSON 字符串：$($_.Exception.Message)" }
+    foreach ($value in $values) {
+        if ($value -isnot [string]) { throw "流程第 $LineNumber 行的参数必须全部是字符串。" }
+    }
+    return [PSCustomObject]@{ Name = $matches.name; Arguments = @($values); LineNumber = $LineNumber }
+}
+
+function Get-DefaultConfigValue([string]$Definition) {
+    $separator = $Definition.IndexOf(':')
+    if ($separator -lt 0) { return $null }
+    $suffix = $Definition.Substring($separator + 1)
+    foreach ($choice in $suffix.Split('/')) {
+        $dash = $choice.IndexOf('-')
+        if ($dash -gt 0 -and $dash -lt ($choice.Length - 1)) {
+            return $choice.Substring(0, $dash).Trim()
+        }
+    }
+    return $suffix
+}
+
+function Complete-ConfigArguments([object[]]$Arguments, [string[]]$Definitions, [int]$LineNumber) {
+    if ($Arguments.Count -gt $Definitions.Count) { throw "流程第 $LineNumber 行 Config 参数过多：期望至多 $($Definitions.Count) 个，实际 $($Arguments.Count) 个。" }
+    $completed = [System.Collections.Generic.List[string]]::new()
+    foreach ($argument in $Arguments) { $completed.Add($argument) }
+    for ($index = $Arguments.Count; $index -lt $Definitions.Count; $index++) {
+        $definition = $Definitions[$index]
+        $defaultValue = Get-DefaultConfigValue $definition
+        if ($null -eq $defaultValue) { throw "流程第 $LineNumber 行 Config 缺少必填参数：$definition" }
+        $completed.Add($defaultValue)
+    }
+    return @($completed)
+}
+
+function Invoke-Flow([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "找不到流程文件：$Path" }
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $methods = Get-FlowMethodDefinitions
+    $configResponse = [MiresidianDllCaller]::Invoke('GetInitConfig', '[]', '[]')
+    $configDefinitions = @((Get-SuccessPayload $configResponse 'GetInitConfig').output)
+    $selectedConfig = $null
+    $initializedConfigs = @{}
+    $lines = [System.IO.File]::ReadAllLines($resolvedPath, [System.Text.UTF8Encoding]::new($false))
+
+    try {
+        for ($index = 0; $index -lt $lines.Length; $index++) {
+            $call = Parse-FlowLine $lines[$index] ($index + 1)
+            if ($null -eq $call) { continue }
+            if ($call.Name -ieq 'Delay') {
+                if ($call.Arguments.Count -ne 1) {
+                    throw ('流程第 {0} 行 Delay 必须接收一个毫秒数字符串，例如 Delay("500")。' -f $call.LineNumber)
+                }
+                $delayText = [string]$call.Arguments[0]
+                if ($delayText -notmatch '^\d+$') {
+                    throw "流程第 $($call.LineNumber) 行 Delay 的毫秒数必须是非负整数：$delayText"
+                }
+                try {
+                    $milliseconds = [Convert]::ToInt32($delayText, [Globalization.CultureInfo]::InvariantCulture)
+                } catch {
+                    throw "流程第 $($call.LineNumber) 行 Delay 的毫秒数超出支持范围：$delayText"
+                }
+                Write-Output ''
+                Write-Output ('-------------------- 流程第 {0} 行：Delay --------------------' -f $call.LineNumber)
+                Write-Output ("等待 {0} ms。" -f $milliseconds)
+                Start-Sleep -Milliseconds $milliseconds
+                continue
+            }
+            if ($call.Name -ieq 'Config') {
+                $selectedConfig = Complete-ConfigArguments $call.Arguments $configDefinitions $call.LineNumber
+                Write-Output ''
+                Write-Output ('-------------------- 流程第 {0} 行：Config --------------------' -f $call.LineNumber)
+                Write-Output ('已选择 Config：{0}' -f (ConvertTo-Json -InputObject $selectedConfig -Compress))
+                continue
+            }
+            if (-not $methods.ContainsKey($call.Name)) {
+                throw "流程第 $($call.LineNumber) 行调用了 DLL 未声明的方法：$($call.Name)"
+            }
+
+            $expected = @($methods[$call.Name])
+            $config = @()
+            $input = @($call.Arguments)
+            $configKey = $null
+            if ($call.Name -eq 'InitDevice') {
+                if ($null -eq $selectedConfig) {
+                    throw "流程第 $($call.LineNumber) 行 InitDevice 前必须先使用 Config(...) 选择配置。"
+                }
+                $config = @($selectedConfig)
+                $configKey = ConvertTo-Json -InputObject $config -Compress
+            } elseif ($call.Name -in @('GetFunctions', 'GetFrameworkVersion', 'GetProjectVersion', 'GetInitConfig', 'GetPortNO')) {
+                if ($input.Count -ne $expected.Count) {
+                    throw "流程第 $($call.LineNumber) 行 $($call.Name) 参数数量不匹配：期望 $($expected.Count) 个，实际 $($input.Count) 个。"
+                }
+            } else {
+                if ($null -eq $selectedConfig) {
+                    throw "流程第 $($call.LineNumber) 行 $($call.Name) 前必须先使用 Config(...) 选择配置。"
+                }
+                $config = @($selectedConfig)
+                $configKey = ConvertTo-Json -InputObject $config -Compress
+                if ($call.Name -ne 'CloseDevice' -and -not $initializedConfigs.ContainsKey($configKey)) {
+                    throw "流程第 $($call.LineNumber) 行 $($call.Name) 所选 Config 尚未成功 InitDevice。"
+                }
+            }
+
+            Write-Output ''
+            Write-Output ('-------------------- 流程第 {0} 行：{1} --------------------' -f $call.LineNumber, $call.Name)
+            $response = [MiresidianDllCaller]::Invoke(
+                $call.Name,
+                (ConvertTo-Json -InputObject $config -Compress),
+                (ConvertTo-Json -InputObject $input -Compress)
+            )
+            Get-SuccessPayload $response ("流程第 {0} 行 {1}" -f $call.LineNumber, $call.Name) | Out-Null
+            Format-Response $response
+
+            if ($call.Name -eq 'InitDevice') {
+                $initializedConfigs[$configKey] = @($config)
+            } elseif ($call.Name -eq 'CloseDevice') {
+                $initializedConfigs.Remove($configKey)
+            }
+        }
+    } finally {
+        foreach ($entry in $initializedConfigs.GetEnumerator()) {
+            try {
+                $config = @($entry.Value)
+                Write-Output ''
+                Write-Output '流程结束时自动调用 CloseDevice。'
+                $response = [MiresidianDllCaller]::Invoke('CloseDevice', (ConvertTo-Json -InputObject $config -Compress), '[]')
+                Get-SuccessPayload $response '自动 CloseDevice' | Out-Null
+                Format-Response $response
+            } catch {
+                [Console]::Error.WriteLine("自动 CloseDevice 失败：$($_.Exception.Message)")
+            }
+        }
+    }
+}
+
 try {
     Add-Type -TypeDefinition $source -ErrorAction Stop
     if ($AbiVersion) {
         [MiresidianDllCaller]::miresidian_abi_version()
+        exit 0
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($FlowFile)) {
+        Invoke-Flow $FlowFile
         exit 0
     }
 

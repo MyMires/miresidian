@@ -25,7 +25,7 @@ impl CodecMacroNode {
     fn codec_echo(
         &mut self,
         #[miresidian::input("数据")] data: Vec<u8>,
-        #[miresidian::input("数据格式")] format: ByteTextFormat,
+        #[miresidian::input("数据格式:HEX-十六进制/ASCII-文本")] format: ByteTextFormat,
     ) -> MiresidianResult<(String, String)> {
         Ok((format.to_string(), encode_bytes_to_text(&data, format)?))
     }
@@ -47,7 +47,7 @@ fn 属性宏生成的调度复用根框架编解码规则() {
         .invoke(&Invocation::new(
             "编解码回显",
             vec!["初始化格式:ASCII".to_owned()],
-            vec!["base64:AP8K".to_owned(), "HEX".to_owned()],
+            vec!["base64:AP8K".to_owned(), "十六进制".to_owned()],
         ))
         .expect("宏生成的 Input 调度应解析 Vec<u8> 与 ByteTextFormat");
     assert_eq!(output.as_slice(), ["HEX", "00 FF 0A"]);
