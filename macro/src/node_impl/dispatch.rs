@@ -5,23 +5,17 @@ use syn::Type;
 
 use super::definition::{FixedMethod, InitMethod, OperationMethod, Parameter, ParameterSource};
 
-/// 生成初始化方法的双通道参数解析和调用。
+/// 生成初始化方法的双通道参数解析、结构体级租约钩子和调用。
 pub(super) fn with_config(self_type: &Type, method: &InitMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let method = &method.method;
-    quote! { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) }
-}
-
-/// 生成带租约生命周期的初始化调用。
-pub(super) fn leased_with_config(
-    self_type: &Type,
-    method: &InitMethod,
-) -> proc_macro2::TokenStream {
-    let arguments = parse_arguments(&method.parameters);
-    let variables = argument_variables(method.parameters.len());
-    let method = &method.method;
-    quote! { #(#arguments)* ::miresidian::lease::LeaseParticipant::acquire_lease(self, config, input)?; let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) }
+    quote! {
+        #(#arguments)*
+        <#self_type>::__miresidian_lease_acquire(self, config, input)?;
+        let value = <#self_type>::#method(self, #(#variables),*);
+        ::miresidian::codec::encode_value(value?)
+    }
 }
 
 /// 生成固定入口的双通道参数解析和调用。
@@ -32,15 +26,48 @@ pub(super) fn with_input(self_type: &Type, method: &FixedMethod) -> proc_macro2:
     quote! { #(#arguments)* <#self_type>::#method(self, #(#variables),*) }
 }
 
-/// 生成带租约释放的固定关闭入口。
-pub(super) fn leased_with_input(
-    self_type: &Type,
-    method: &FixedMethod,
-) -> proc_macro2::TokenStream {
+/// 生成关闭入口；结构体未标记 lease 时隐藏钩子为空操作。
+pub(super) fn close_with_lease(self_type: &Type, method: &FixedMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let method = &method.method;
-    quote! { #(#arguments)* <#self_type>::#method(self, #(#variables),*)?; ::miresidian::lease::LeaseParticipant::release_lease(self) }
+    quote! {
+        #(#arguments)*
+        <#self_type>::#method(self, #(#variables),*)?;
+        <#self_type>::__miresidian_lease_release(self)
+    }
+}
+
+/// 生成所有初始化 Config 的 Rust 名称与规范化值，供结构体级 lease 声明筛选。
+pub(super) fn lease_parameters(method: &InitMethod) -> proc_macro2::TokenStream {
+    let mut config_index = 0usize;
+    let parameters = method.parameters.iter().filter_map(|parameter| {
+        if parameter.source != ParameterSource::Config {
+            return None;
+        }
+        let source_index = config_index;
+        config_index += 1;
+        let rust_name = &parameter.rust_name;
+        let name = &parameter.name;
+        let definition = &parameter.definition;
+        let default = match &parameter.default {
+            Some(value) => quote!(Some(#value)),
+            None => quote!(None),
+        };
+        Some(quote! {
+            values.push((
+                #rust_name.to_owned(),
+                ::miresidian::codec::decode_value_with_definition::<::std::string::String>(
+                    config, #source_index, #name, #definition, #default,
+                )?,
+            ));
+        })
+    });
+    quote! {
+        let mut values = ::std::vec::Vec::new();
+        #(#parameters)*
+        Ok(values)
+    }
 }
 
 /// 生成 `DeviceNode::invoke` 中的一个双通道操作分支。

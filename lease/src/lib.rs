@@ -60,6 +60,91 @@ impl LeaseConfiguration {
     }
 }
 
+/// 一个规范化初始化参数；结构体级 lease 标记以 Rust 参数名引用这些值。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LeaseParameter {
+    name: String,
+    value: String,
+}
+
+impl LeaseParameter {
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+}
+
+/// 由结构体级 lease 声明生成、交给通信链路实现的通用租约请求。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LeaseRequest {
+    resource: ResourceKey,
+    configuration: LeaseConfiguration,
+    parameters: Vec<LeaseParameter>,
+}
+
+impl LeaseRequest {
+    pub fn from_parameters(
+        parameters: Vec<LeaseParameter>,
+        resource_field: &str,
+        configuration_fields: &[&str],
+    ) -> Result<Self, LeaseError> {
+        let value = |field: &str| {
+            parameters
+                .iter()
+                .find(|parameter| parameter.name == field)
+                .map(|parameter| parameter.value.as_str())
+                .ok_or_else(|| LeaseError::UnknownParameter(field.to_owned()))
+        };
+        let resource = ResourceKey::new(value(resource_field)?.to_owned())?;
+        let mut encoded = Vec::new();
+        for field in configuration_fields {
+            let parameter = value(field)?;
+            push_length_prefixed(&mut encoded, field.as_bytes())?;
+            push_length_prefixed(&mut encoded, parameter.as_bytes())?;
+        }
+        Ok(Self {
+            resource,
+            configuration: LeaseConfiguration::new(encoded)?,
+            parameters,
+        })
+    }
+
+    pub fn resource(&self) -> &ResourceKey {
+        &self.resource
+    }
+
+    pub fn configuration(&self) -> &LeaseConfiguration {
+        &self.configuration
+    }
+
+    pub fn value(&self, name: &str) -> Option<&str> {
+        self.parameters
+            .iter()
+            .find(|parameter| parameter.name == name)
+            .map(LeaseParameter::value)
+    }
+}
+
+fn push_length_prefixed(target: &mut Vec<u8>, value: &[u8]) -> Result<(), LeaseError> {
+    let length = u32::try_from(value.len()).map_err(|_| LeaseError::ConfigurationTooLarge)?;
+    target.extend_from_slice(&length.to_le_bytes());
+    target.extend_from_slice(value);
+    if target.len() > MAX_LEASE_CONFIGURATION_BYTES {
+        return Err(LeaseError::ConfigurationTooLarge);
+    }
+    Ok(())
+}
+
 /// 由操作系统随机源生成的、不透明租约标识。
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct LeaseId([u8; 32]);
@@ -87,6 +172,7 @@ pub enum LeaseError {
     Randomness,
     IncompatibleConfiguration,
     UnknownLease,
+    UnknownParameter(String),
 }
 
 impl fmt::Display for LeaseError {
@@ -98,6 +184,9 @@ impl fmt::Display for LeaseError {
             Self::Randomness => "无法从操作系统随机源生成租约标识",
             Self::IncompatibleConfiguration => "资源已由不兼容配置持有",
             Self::UnknownLease => "租约不存在或已释放",
+            Self::UnknownParameter(name) => {
+                return write!(formatter, "租约声明引用了不存在的初始化参数 {name}");
+            }
         };
         formatter.write_str(message)
     }
@@ -206,8 +295,8 @@ impl LeaseRegistry {
 /// 本地服务或 broker 取得实际租约；`release_lease` 在节点关闭时释放它。未标记 `lease`
 /// 的节点不会调用这些方法。
 pub trait LeaseParticipant {
-    /// 获取当前节点实例所需的设备专属资源租约。
-    fn acquire_lease(&mut self, config: &[String], input: &[String]) -> MiresidianResult<()>;
+    /// 获取当前节点实例所需的设备专属资源租约，以及由框架规范化的资源与配置声明。
+    fn acquire_lease(&mut self, request: LeaseRequest) -> MiresidianResult<()>;
 
     /// 释放当前节点实例此前取得的租约。
     fn release_lease(&mut self) -> MiresidianResult<()>;

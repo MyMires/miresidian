@@ -105,27 +105,36 @@ cargo install miresidian_testflow_windows
 miresidian = { version = "0.3.1", features = ["lease"] }
 ```
 
-随后只在需要跨进程协调资源的节点实现上标记租约；未标记的节点仍使用原有的普通调用路径：
+仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：
 
 ```rust
+#[miresidian::node("CAN 通信")]
+#[miresidian::lease(
+    resource = "channel_name",
+    configuration = ["bit_rate", "data_bit_rate"]
+)]
+struct CanNode {
+    // ...
+}
+
 #[miresidian::node_impl]
-#[miresidian::lease]
-impl NetworkOrCanNode {
-    fn lease_acquire(&mut self, config: &[String], input: &[String]) -> miresidian::MiresidianResult<()> {
-        // 将设备专属配置映射为通用 ResourceKey，并请求/续持租约。
+impl CanNode {
+    fn lease_acquire(
+        &mut self,
+        request: miresidian::lease::LeaseRequest,
+    ) -> miresidian::MiresidianResult<()> {
+        // request.resource() 与 request.configuration() 已由框架规范化；
+        // request.value("bit_rate") 可读取完整初始化参数。
         todo!()
     }
 
     fn lease_release(&mut self) -> miresidian::MiresidianResult<()> {
-        // 释放该节点持有的租约。
         todo!()
     }
-
-    // init_device、close_device 和 operation 与普通节点相同。
 }
 ```
 
-属性顺序固定为 `#[node_impl]` 在外、`#[lease]` 紧随其后。宏在初始化前调用 `lease_acquire`，在成功关闭后调用 `lease_release`；具体串口、TCP、CAN 或 USB 的资源键、配置一致性和 IPC 服务端均由节点实现。
+属性顺序固定为 `#[node(...)]` 在外、`#[lease(...)]` 紧随其后。`resource` 与 `configuration` 使用 `init_device` 的 Rust 参数名。宏会在初始化前构造 `LeaseRequest` 并调用 `lease_acquire`，在成功关闭后调用 `lease_release`；具体串口、TCP、CAN 或 USB 的通信实现仍由节点提供。
 
 ## 属性宏与节点扩展
 

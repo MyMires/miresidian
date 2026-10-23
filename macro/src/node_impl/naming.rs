@@ -83,13 +83,28 @@ fn parse_execution(value: &Ident) -> Result<ExecutionMode> {
 }
 /// 自动生成参数名称。
 pub(super) fn parameter_name(argument: &syn::PatType) -> Result<LitStr> {
+    Ok(platform_identifier_name(
+        &rust_parameter_identifier(argument)?.ident,
+    ))
+}
+
+/// 返回方法参数在 Rust 源码中的标识符，用于结构体级 lease 声明引用。
+pub(super) fn rust_parameter_name(argument: &syn::PatType) -> Result<LitStr> {
+    let identifier = rust_parameter_identifier(argument)?;
+    Ok(LitStr::new(
+        &identifier.ident.to_string(),
+        identifier.ident.span(),
+    ))
+}
+
+fn rust_parameter_identifier(argument: &syn::PatType) -> Result<&syn::PatIdent> {
     let syn::Pat::Ident(identifier) = argument.pat.as_ref() else {
         return Err(syn::Error::new_spanned(
             argument,
-            "自动生成参数名称时，参数必须使用普通标识符",
+            "节点参数必须使用普通 Rust 标识符",
         ));
     };
-    Ok(platform_identifier_name(&identifier.ident))
+    Ok(identifier)
 }
 pub(super) fn platform_method_name(method: &syn::Ident) -> LitStr {
     platform_identifier_name(method)

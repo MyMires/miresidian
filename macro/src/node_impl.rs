@@ -70,29 +70,9 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         .flat_map(|method| descriptor::parameters(&method.parameters))
         .collect::<Vec<_>>();
     let operation_descriptors = definition.operations.iter().map(descriptor::operation);
-    let init_call = if definition.lease {
-        dispatch::leased_with_config(&self_type, &definition.init)
-    } else {
-        dispatch::with_config(&self_type, &definition.init)
-    };
-    let close_call = if definition.lease {
-        dispatch::leased_with_input(&self_type, &definition.close)
-    } else {
-        dispatch::with_input(&self_type, &definition.close)
-    };
-    let lease_participant = definition.lease.then(|| {
-        quote! {
-            impl ::miresidian::lease::LeaseParticipant for #self_type {
-                fn acquire_lease(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
-                    <#self_type>::lease_acquire(self, config, input)
-                }
-
-                fn release_lease(&mut self) -> ::miresidian::MiresidianResult<()> {
-                    <#self_type>::lease_release(self)
-                }
-            }
-        }
-    });
+    let init_call = dispatch::with_config(&self_type, &definition.init);
+    let close_call = dispatch::close_with_lease(&self_type, &definition.close);
+    let lease_parameters = dispatch::lease_parameters(&definition.init);
     let operation_calls = definition
         .operations
         .iter()
@@ -113,6 +93,12 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
             name: <#self_type>::__MIRESIDIAN_NODE_NAME, init_config: #init_config,
             init_outputs: #init_outputs, port_probe_inputs: #port_probe_inputs, operations: #operations,
         };
+        impl #self_type {
+            #[doc(hidden)]
+            fn __miresidian_lease_parameters(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::std::vec::Vec<(::std::string::String, ::std::string::String)>> {
+                #lease_parameters
+            }
+        }
         impl ::miresidian::DeviceNode for #self_type {
             fn descriptor() -> &'static ::miresidian::NodeDescriptor { &#descriptor }
             fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
@@ -123,7 +109,6 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
             }
             #port_probe
         }
-        #lease_participant
         #abi_exports
     };
     rewrite_framework_paths(expanded)

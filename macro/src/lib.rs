@@ -59,14 +59,18 @@ pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-/// 为节点启用租约感知生命周期；必须紧邻并位于 `#[node_impl]` 之后。
+/// 声明节点的通用租约资源与配置字段。
 ///
-/// 被标记节点须在同一 `impl` 中提供 `lease_acquire(&mut self, &[String], &[String])`
-/// 与 `lease_release(&mut self)` 方法。宏会生成 `LeaseParticipant` 适配，并在初始化和关闭
-/// 时自动调用这两个方法。节点依赖必须显式启用 `miresidian` 的 `lease` feature。
+/// 此标记必须紧随并位于 `#[node(...)]` 之后；外层 `node` 宏会消费该标记。资源与配置名称
+/// 对应 `init_device` 的 Rust 参数名，例如 `resource = "port_name"`。
 #[proc_macro_attribute]
-pub fn lease(_attribute: TokenStream, item: TokenStream) -> TokenStream {
-    item
+pub fn lease(_attribute: TokenStream, _item: TokenStream) -> TokenStream {
+    syn::Error::new(
+        proc_macro2::Span::call_site(),
+        "#[miresidian::lease(...)] 必须标记在结构体上，并紧随 #[miresidian::node(...)]",
+    )
+    .into_compile_error()
+    .into()
 }
 
 /// 标记节点方法输出；由 `node_impl` 消费。
