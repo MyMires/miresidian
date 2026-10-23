@@ -9,12 +9,11 @@ use miresidian::{
 static DECLARATIVE_ACQUIRE_COUNT: AtomicUsize = AtomicUsize::new(0);
 static DECLARATIVE_RELEASE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[miresidian::node("声明式租约节点")]
-#[miresidian::lease(
+#[miresidian::node("声明式租约节点", lease(
     activation = required,
     resource = "port_name",
     configuration = ["baud_rate", "data_bits"]
-)]
+))]
 #[derive(Default)]
 struct DeclarativeLeaseNode {
     held: bool,

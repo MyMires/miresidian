@@ -4,8 +4,11 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Attribute, Error, Expr, ExprArray, ExprLit, ItemStruct, Lit, LitStr, Meta, Result, Token,
-    parse_macro_input, punctuated::Punctuated,
+    Error, Expr, ExprArray, ExprLit, Ident, ItemStruct, Lit, LitStr, Meta, Result, Token,
+    parenthesized,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    punctuated::Punctuated,
 };
 
 struct LeaseDeclaration {
@@ -14,14 +17,54 @@ struct LeaseDeclaration {
     activation: proc_macro2::TokenStream,
 }
 
+struct NodeArguments {
+    name: LitStr,
+    lease: Option<LeaseDeclaration>,
+}
+
+impl Parse for NodeArguments {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let name = input.parse()?;
+        if input.is_empty() {
+            return Ok(Self { name, lease: None });
+        }
+        input.parse::<Token![,]>()?;
+        let keyword: Ident = input.parse()?;
+        if keyword != "lease" {
+            return Err(Error::new_spanned(keyword, "node 子配置仅支持 lease(...)"));
+        }
+        let content;
+        parenthesized!(content in input);
+        let values = content.parse_terminated(Meta::parse, Token![,])?;
+        if !input.is_empty() {
+            return Err(input.error("node 只允许一个 lease(...) 子配置"));
+        }
+        Ok(Self {
+            name,
+            lease: Some(parse_lease_declaration(values)?),
+        })
+    }
+}
 /// 生成节点展示名称与租约生命周期桥接代码，供 node_impl 调度读取。
 pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
-    let name = parse_macro_input!(attribute as LitStr);
-    let mut item_struct = parse_macro_input!(item as ItemStruct);
-    let lease = match take_lease_attribute(&mut item_struct.attrs) {
-        Ok(lease) => lease,
-        Err(error) => return error.into_compile_error().into(),
-    };
+    let arguments = parse_macro_input!(attribute as NodeArguments);
+    let name = arguments.name;
+    let item_struct = parse_macro_input!(item as ItemStruct);
+    if item_struct.attrs.iter().any(|attribute| {
+        attribute
+            .path()
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "lease")
+    }) {
+        return Error::new_spanned(
+            &item_struct,
+            "lease 必须写为 #[node(\"名称\", lease(...))] 的子配置",
+        )
+        .into_compile_error()
+        .into();
+    }
+    let lease = arguments.lease;
     let identifier = &item_struct.ident;
 
     let activation = lease
@@ -94,18 +137,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
-fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseDeclaration>> {
-    let Some(index) = attributes.iter().position(|attribute| {
-        attribute
-            .path()
-            .segments
-            .last()
-            .is_some_and(|segment| segment.ident == "lease")
-    }) else {
-        return Ok(None);
-    };
-    let attribute = attributes.remove(index);
-    let values = attribute.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+fn parse_lease_declaration(values: Punctuated<Meta, Token![,]>) -> Result<LeaseDeclaration> {
     let mut resource = None;
     let mut configuration = None;
     let mut activation = None;
@@ -132,7 +164,7 @@ fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseD
                 if configuration.is_some() {
                     return Err(Error::new_spanned(value, "configuration 只能声明一次"));
                 }
-                let Expr::Array(ExprArray { elems, .. }) = value.value else {
+                let Expr::Array(ExprArray { ref elems, .. }) = value.value else {
                     return Err(Error::new_spanned(value, "configuration 必须是字符串数组"));
                 };
                 let values = elems
@@ -140,10 +172,7 @@ fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseD
                     .map(|value| string_literal(value, "configuration"))
                     .collect::<Result<Vec<_>>>()?;
                 if values.is_empty() {
-                    return Err(Error::new_spanned(
-                        attribute,
-                        "configuration 至少需要一个字段",
-                    ));
+                    return Err(Error::new_spanned(value, "configuration 至少需要一个字段"));
                 }
                 configuration = Some(values);
             }
@@ -161,13 +190,15 @@ fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseD
             }
         }
     }
-    Ok(Some(LeaseDeclaration {
+    Ok(LeaseDeclaration {
         activation: activation
-            .ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 activation"))?,
-        resource: resource.ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 resource"))?,
-        configuration: configuration
-            .ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 configuration"))?,
-    }))
+            .ok_or_else(|| Error::new(proc_macro2::Span::call_site(), "lease 缺少 activation"))?,
+        resource: resource
+            .ok_or_else(|| Error::new(proc_macro2::Span::call_site(), "lease 缺少 resource"))?,
+        configuration: configuration.ok_or_else(|| {
+            Error::new(proc_macro2::Span::call_site(), "lease 缺少 configuration")
+        })?,
+    })
 }
 
 fn string_literal(value: &Expr, label: &str) -> Result<LitStr> {

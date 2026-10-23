@@ -22,14 +22,14 @@ resolver = "3"
 lease = ["dep:miresidian_lease", "miresidian_lease/local-ipc"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 [dependencies]
-miresidian_abi = { version = "=0.4.0", path = "abi" }
-miresidian_codec = { version = "=0.4.0", path = "codec" }
-miresidian_macro = { version = "=0.4.0", path = "macro" }
+miresidian_abi = { version = "=0.4.1", path = "abi" }
+miresidian_codec = { version = "=0.4.1", path = "codec" }
+miresidian_macro = { version = "=0.4.1", path = "macro" }
 serde_json = "1.0"
-miresidian_lease = { version = "=0.4.0", path = "lease", optional = true }
+miresidian_lease = { version = "=0.4.1", path = "lease", optional = true }
 serde = { version = "1.0", features = ["derive"] }
