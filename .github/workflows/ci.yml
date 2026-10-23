@@ -10,6 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: 校验版本与变更记录
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          test -n "$version"
+          grep -F "## [$version]" CHANGELOG.md
+
         with:
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
