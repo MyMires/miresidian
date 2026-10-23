@@ -15,7 +15,10 @@ use std::{
 use cargo_metadata::{MetadataCommand, TargetKind};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use syn::{Attribute, Item, LitStr};
+use syn::{
+    Attribute, Expr, Item, LitStr, Token,
+    parse::{Parse, ParseStream},
+};
 
 /// 一个可发布的 Windows 目标。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -487,8 +490,27 @@ fn item_attributes(item: &Item) -> &[Attribute] {
     }
 }
 
-/// 识别 `#[miresidian::node("名称")]`，其他属性一律忽略。
+/// `node` 属性的参数。发布工具只需要节点名称，但必须接受框架扩展的子配置。
+struct NodeAttributeArguments {
+    name: LitStr,
+}
+
+impl Parse for NodeAttributeArguments {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let name = input.parse()?;
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+            let _: Expr = input.parse()?;
+        }
+        Ok(Self { name })
+    }
+}
+
 fn node_name_in_attributes(attributes: &[Attribute]) -> Result<Option<String>, String> {
+    // 识别 `#[miresidian::node("名称", ...)]`，其他属性一律忽略。
     for attribute in attributes {
         let Some(segment) = attribute.path().segments.last() else {
             continue;
@@ -497,9 +519,9 @@ fn node_name_in_attributes(attributes: &[Attribute]) -> Result<Option<String>, S
             continue;
         }
         let name = attribute
-            .parse_args::<LitStr>()
+            .parse_args::<NodeAttributeArguments>()
             .map_err(|error| format!("无法解析 node 属性的名称参数：{error}"))?;
-        return Ok(Some(name.value()));
+        return Ok(Some(name.name.value()));
     }
     Ok(None)
 }
@@ -560,4 +582,26 @@ mod tests {
         assert_eq!(request.node_name.as_deref(), Some("串口通信"));
         assert_eq!(request.targets, vec![windows_x86()]);
     }
+}
+
+#[test]
+fn 节点名称解析兼容租约子配置() {
+    let item: Item = syn::parse_str(
+        r#"
+                #[miresidian::node("串口通信", lease(
+                    activation = selectable,
+                    resource = "port_name",
+                    configuration = ["baud_rate", "data_bits"]
+                ))]
+                struct SerialNode;
+            "#,
+    )
+    .expect("测试属性应符合 Rust 语法");
+
+    assert_eq!(
+        node_name_in_attributes(item_attributes(&item))
+            .unwrap()
+            .as_deref(),
+        Some("串口通信")
+    );
 }
