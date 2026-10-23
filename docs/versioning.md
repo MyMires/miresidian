@@ -5,38 +5,38 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.3.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `<node package> 0.3.0` | 每个节点独立使用语义化版本。 |
+| 框架版本 | `miresidian 0.3.1` | 管理运行时与过程宏，使用语义化版本。 |
+| 实例项目版本 | `<node package> 0.3.1` | 每个节点独立使用语义化版本。 |
 | ABI 版本 | `5` | 仅在 C ABI 不兼容时递增。 |
-| crate 发布版本 | `miresidian_abi 0.3.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| crate 发布版本 | `miresidian_abi 0.3.1` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
 ## 唯一版本来源
 
 - 框架版本定义在根 `Cargo.toml` 的 `[workspace.package]`。
 - 实例版本定义在各实例项目的 `Cargo.toml` 的 `[package]`。
-- 实例的 `package.metadata.miresidian` 必须声明其构建所用的框架版本与 ABI 版本。
+- 节点 `Cargo.toml` 的依赖图是其框架与 ABI 版本的唯一来源；`miresidian_pack` 从实际解析到的 `miresidian` 与 `miresidian_abi` 自动写入发布清单。
 
 ```toml
 # 根 Cargo.toml
 [workspace.package]
-version = "0.3.0"
+version = "0.3.1"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.3.0"
+version = "0.3.1"
 
-[package.metadata.miresidian]
-miresidian_version = "0.3.0"
-miresidian_abi_version = 5
+[dependencies]
+miresidian = { version = "0.3.1" }
+
 ```
 
 ## 更新与发布
 
 1. 将未发布变更先写入对应的 `CHANGELOG.md`。
 2. 判断变更是 `MAJOR`、`MINOR` 还是 `PATCH`，并更新框架或实例的版本号。
-3. 变更框架版本时，同步更新每个待发布实例的 `miresidian_version`；重新构建的实例必须提升自身版本。
-4. 变更 C ABI 时递增 ABI 版本，并同步更新实例元数据、头文件、ABI 文档和兼容性测试。
-5. 运行全部测试；进入对应节点项目后运行 `cargo miresidian-pack` 打包；打包器会拒绝框架或 ABI 版本不匹配的实例。
+3. 变更框架版本时，更新待发布实例的 `miresidian` 依赖版本约束；重新构建的实例必须提升自身版本。
+4. 变更 C ABI 时递增 ABI 版本，并同步更新 ABI crate 元数据、头文件、ABI 文档和兼容性测试。
+5. 运行全部测试；进入对应节点项目后运行 `cargo miresidian-pack` 打包；打包器从已解析依赖自动记录框架与 ABI 版本。
 6. 将 `Unreleased` 条目移动到带日期的版本条目。
 7. 提交后创建不可移动的 Git 标签：框架用 `miresidian-vX.Y.Z`，实例用 `miresidian_serial-vX.Y.Z`。
 

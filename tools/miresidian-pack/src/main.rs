@@ -12,7 +12,7 @@ use std::{
     process::{Command, ExitCode},
 };
 
-use cargo_metadata::{MetadataCommand, Package, TargetKind};
+use cargo_metadata::{MetadataCommand, TargetKind};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use syn::{Attribute, Item, LitStr};
@@ -49,9 +49,9 @@ struct NodeRelease {
     dll_name: String,
     /// 实例项目的语义化版本。
     project_version: String,
-    /// 实例声明且经打包器校验的Miresidian 版本。
+    /// 从已解析的根框架依赖自动取得的 Miresidian 版本。
     miresidian_version: String,
-    /// 实例声明且经打包器校验的 ABI 版本。
+    /// 从已解析的 ABI 契约自动取得的 ABI 版本。
     abi_version: u32,
 }
 
@@ -229,8 +229,6 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         {
             return Err(format!("发现重复的节点显示名：{node_name}"));
         }
-        let (declared_miresidian_version, abi_version) =
-            release_versions(package, &miresidian_version, framework_abi_version)?;
         nodes.push(NodeRelease {
             package: package.name.clone(),
             project_directory: PathBuf::from(manifest_directory.as_str()),
@@ -238,8 +236,8 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
             node_name,
             dll_name: format!("{}.dll", cdylib.name.replace('-', "_")),
             project_version: package.version.to_string(),
-            miresidian_version: declared_miresidian_version,
-            abi_version,
+            miresidian_version: miresidian_version.clone(),
+            abi_version: framework_abi_version,
         });
     }
 
@@ -248,44 +246,6 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
     }
     nodes.sort_by(|left, right| left.node_name.cmp(&right.node_name));
     Ok(nodes)
-}
-
-/// 读取节点发布声明，并拒绝与当前 Miresidian不一致的版本组合。
-fn release_versions(
-    package: &Package,
-    miresidian_version: &str,
-    framework_abi_version: u32,
-) -> Result<(String, u32), String> {
-    let metadata = package
-        .metadata
-        .get("miresidian")
-        .and_then(Value::as_object)
-        .ok_or_else(|| format!("节点 {} 缺少 package.metadata.miresidian", package.name))?;
-
-    let declared_miresidian_version = metadata
-        .get("miresidian_version")
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("节点 {} 缺少 miresidian_version", package.name))?;
-    if declared_miresidian_version != miresidian_version {
-        return Err(format!(
-            "节点 {} 声明的Miresidian 版本 {} 与当前Miresidian 版本 {} 不一致",
-            package.name, declared_miresidian_version, miresidian_version
-        ));
-    }
-
-    let abi_version = metadata
-        .get("miresidian_abi_version")
-        .and_then(Value::as_u64)
-        .and_then(|version| u32::try_from(version).ok())
-        .ok_or_else(|| format!("节点 {} 缺少有效的 miresidian_abi_version", package.name))?;
-    if abi_version != framework_abi_version {
-        return Err(format!(
-            "节点 {} 声明的 ABI 版本 {} 与当前 ABI 版本 {} 不一致",
-            package.name, abi_version, framework_abi_version
-        ));
-    }
-
-    Ok((declared_miresidian_version.to_owned(), abi_version))
 }
 
 /// 按节点显示名筛选；没有筛选条件时保留全部发现的节点。

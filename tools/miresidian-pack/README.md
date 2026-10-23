@@ -25,7 +25,7 @@ cargo install miresidian_pack
 
 - 节点项目是 Cargo 工作区，且工作区解析到 `miresidian` 和 `miresidian_abi`。
 - 节点 crate 声明 `cdylib`，并以 `#[miresidian::node("节点名称")]` 标注节点。
-- 节点 `Cargo.toml` 的 `package.metadata.miresidian` 声明框架版本与 ABI 版本。
+- 打包器从 Cargo 实际解析到的 `miresidian` 与 `miresidian_abi` 自动读取框架与 ABI 版本；节点不重复声明。
 - Windows 交叉编译所需 target、链接器及 `.cargo/config.toml` 由节点项目自行配置。
 
 ## 输出
