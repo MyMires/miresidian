@@ -3,14 +3,20 @@
 //! 运行时按 Config 键管理多个通道对象：`InitDevice` 以 Config 精确匹配复用或创建对象，
 //! 其余方法以 Config 定位唯一对象执行。共享调用由 `shared` 模块在全部已创建通道上批量执行。
 
+#[cfg(feature = "lease")]
+use crate::lease::local_ipc::LocalLease;
 use std::sync::{Arc, Mutex};
+
+#[cfg(feature = "lease")]
+type ActiveLease = LocalLease;
+#[cfg(not(feature = "lease"))]
+type ActiveLease = ();
 
 use crate::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
-    lease::{LeaseId, LeaseRegistry},
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -20,7 +26,7 @@ pub(super) struct Channel<N> {
     /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
     pub(super) node: Arc<Mutex<N>>,
     /// 框架持有的通用租约；业务节点不感知该令牌。
-    pub(super) lease: Option<LeaseId>,
+    pub(super) lease: Option<ActiveLease>,
 }
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
@@ -28,7 +34,6 @@ pub struct NodeRuntime<N: DeviceNode> {
     channels: Vec<Channel<N>>,
     /// 首个成功初始化的通道决定当前驱动运行时的共享调度方式。
     shared_execution: Option<ExecutionMode>,
-    leases: LeaseRegistry,
 }
 
 impl<N: DeviceNode> NodeRuntime<N> {
@@ -37,7 +42,6 @@ impl<N: DeviceNode> NodeRuntime<N> {
         Self {
             channels: vec![],
             shared_execution: None,
-            leases: LeaseRegistry::default(),
         }
     }
 
@@ -101,17 +105,21 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
         // 仅在初始化成功后登记对象；失败的候选对象仍尝试关闭，以释放部分建立的资源。
         let mut candidate = N::default();
+        #[cfg(feature = "lease")]
         let lease = if matches!(access, LeaseAccess::Lease) {
             candidate
                 .lease_request(node_config)?
                 .map(|request| {
-                    self.leases
-                        .acquire(request.resource().clone(), request.configuration().clone())
-                        .map(|grant| grant.lease)
+                    LocalLease::acquire(request.resource().clone(), request.configuration().clone())
                         .map_err(|error| MiresidianError::Failure(error.to_string()))
                 })
                 .transpose()?
         } else {
+            None
+        };
+        #[cfg(not(feature = "lease"))]
+        let lease: Option<ActiveLease> = {
+            let _ = access;
             None
         };
         match candidate.init_device(node_config, input) {
@@ -126,8 +134,9 @@ impl<N: DeviceNode> NodeRuntime<N> {
             }
             Err(error) => {
                 let _ = candidate.close_device(&[], &[]);
-                if let Some(lease) = lease {
-                    let _ = self.leases.release(lease);
+                #[cfg(feature = "lease")]
+                if let Some(mut lease) = lease {
+                    let _ = lease.release();
                 }
                 Err(error)
             }
@@ -145,18 +154,18 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .iter()
             .position(|channel| channel.config.as_slice() == config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
-        // 关闭失败时保留登记项，使调用方能够修正条件后重试关闭。
         {
             let mut node = self.channels[index]
                 .node
                 .lock()
                 .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
             node.close_device(config, input)?;
-            if let Some(lease) = self.channels[index].lease {
-                self.leases
-                    .release(lease)
-                    .map_err(|error| MiresidianError::Failure(error.to_string()))?;
-            }
+        }
+        #[cfg(feature = "lease")]
+        if let Some(mut lease) = self.channels[index].lease.take() {
+            lease
+                .release()
+                .map_err(|error| MiresidianError::Failure(error.to_string()))?;
         }
         self.channels.remove(index);
         if self.channels.is_empty() {

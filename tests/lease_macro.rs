@@ -32,30 +32,48 @@ impl DeclarativeLeaseNode {
 
 #[test]
 fn struct_lease_declaration_derives_resource_and_configuration() {
+    let compatible = vec!["COM7".to_owned(), "9600".to_owned(), "8".to_owned()];
+    let incompatible = vec!["COM7".to_owned(), "4800".to_owned(), "8".to_owned()];
     let mut runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
     runtime
         .invoke(&Invocation::new(
             INIT_DEVICE_OPERATION,
-            vec!["COM7".to_owned(), "9600".to_owned(), "8".to_owned()],
+            compatible.clone(),
             Vec::new(),
         ))
         .expect("声明式租约应先获取再初始化");
+
+    let mut independent_runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
+    independent_runtime
+        .invoke(&Invocation::new(
+            INIT_DEVICE_OPERATION,
+            compatible.clone(),
+            Vec::new(),
+        ))
+        .expect("独立运行时应取得兼容的共享租约");
     assert!(
-        runtime
+        independent_runtime
             .invoke(&Invocation::new(
                 INIT_DEVICE_OPERATION,
-                vec!["COM7".to_owned(), "4800".to_owned(), "8".to_owned()],
+                incompatible.clone(),
                 Vec::new(),
             ))
             .is_err(),
-        "框架必须拒绝同资源的不兼容租约配置"
+        "独立运行时也必须看到已存在的不兼容租约"
     );
 
     runtime
         .invoke(&Invocation::new(
             CLOSE_DEVICE_OPERATION,
-            vec!["COM7".to_owned(), "9600".to_owned(), "8".to_owned()],
+            compatible.clone(),
             Vec::new(),
         ))
-        .expect("关闭后应释放声明式租约");
+        .expect("关闭后应释放首个租约");
+    independent_runtime
+        .invoke(&Invocation::new(
+            CLOSE_DEVICE_OPERATION,
+            compatible,
+            Vec::new(),
+        ))
+        .expect("独立运行时关闭后应释放共享租约");
 }
