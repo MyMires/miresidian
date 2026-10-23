@@ -1,13 +1,11 @@
 //! 设备类型无关的资源租约协议。
 //!
-//! 协议将“资源身份”“配置一致性”和“租约所有权”分离；节点负责把设备专属配置规范化为字节。
+//! 协议将“资源身份”“配置一致性”和“租约所有权”分离；框架宏负责规范化节点初始化参数。
 
 use std::{
     collections::{HashMap, HashSet},
     fmt,
 };
-
-use miresidian_codec::MiresidianResult;
 
 /// 此租约协议的当前版本。
 pub const LEASE_PROTOCOL_VERSION: u16 = 1;
@@ -287,19 +285,6 @@ impl LeaseRegistry {
     pub fn active_resource_count(&self) -> usize {
         self.resources.len()
     }
-}
-
-/// 由 `#[miresidian::lease]` 生成适配实现所调用的设备专属租约后端。
-///
-/// 该 trait 不假设任何通信类型。实现者将初始化参数映射为资源键与规范化配置，通过自己的
-/// 本地服务或 broker 取得实际租约；`release_lease` 在节点关闭时释放它。未标记 `lease`
-/// 的节点不会调用这些方法。
-pub trait LeaseParticipant {
-    /// 获取当前节点实例所需的设备专属资源租约，以及由框架规范化的资源与配置声明。
-    fn acquire_lease(&mut self, request: LeaseRequest) -> MiresidianResult<()>;
-
-    /// 释放当前节点实例此前取得的租约。
-    fn release_lease(&mut self) -> MiresidianResult<()>;
 }
 
 /// 平台映射为 Windows Named Pipe 或 Unix domain socket 的同步本地 IPC 原语。

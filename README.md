@@ -108,33 +108,24 @@ miresidian = { version = "0.3.1", features = ["lease"] }
 仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：
 
 ```rust
-#[miresidian::node("CAN 通信")]
-#[miresidian::lease(
+#[miresidian::node("CAN 通信", lease(
+    activation = selectable,
     resource = "channel_name",
     configuration = ["bit_rate", "data_bit_rate"]
-)]
+))]
 struct CanNode {
     // ...
 }
 
 #[miresidian::node_impl]
 impl CanNode {
-    fn lease_acquire(
-        &mut self,
-        request: miresidian::lease::LeaseRequest,
-    ) -> miresidian::MiresidianResult<()> {
-        // request.resource() 与 request.configuration() 已由框架规范化；
-        // request.value("bit_rate") 可读取完整初始化参数。
-        todo!()
-    }
-
-    fn lease_release(&mut self) -> miresidian::MiresidianResult<()> {
+    fn init_device(&mut self, /* 正常的链路初始化参数 */) -> miresidian::MiresidianResult<String> {
         todo!()
     }
 }
 ```
 
-属性顺序固定为 `#[node(...)]` 在外、`#[lease(...)]` 紧随其后。`resource` 与 `configuration` 使用 `init_device` 的 Rust 参数名。宏会在初始化前构造 `LeaseRequest` 并调用 `lease_acquire`，在成功关闭后调用 `lease_release`；具体串口、TCP、CAN 或 USB 的通信实现仍由节点提供。
+`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 使用 `init_device` 的 Rust 参数名；宏规范化这些值，运行时持有 LeaseToken、处理初始化回滚和关闭释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。
 
 ## 属性宏与节点扩展
 

@@ -5,6 +5,13 @@
 ## [Unreleased]
 
 尚未发布的变更必须先记录在本节，发布时移动到对应版本与日期下。
+## [0.5.0] - 2026-10-24
+
+### Changed
+
+- 租约令牌与兼容性校验完全收敛至 `NodeRuntime`；删除业务节点的 `lease_acquire`、`lease_release` 和 `LeaseParticipant` 回调接口。
+- `init_device` 与 `close_device` 恢复为纯通信生命周期方法；宏负责从其初始化参数生成租约请求，框架负责获取、失败回滚与释放。
+
 ## [0.4.1] - 2026-10-24
 
 ### Changed

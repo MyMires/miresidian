@@ -40,8 +40,12 @@ mod runtime;
 ///
 /// 启用 Cargo feature `lease` 后可用。它不定义具体设备的租约协议，也不替代节点对访问控制、
 /// 身份验证和资源一致性的责任。
-#[cfg(feature = "lease")]
 pub use miresidian_lease as lease;
+
+/// 仅当 Cargo feature `lease` 启用时由租约节点引用；缺失该符号会使误用的租约声明在编译期失败。
+#[cfg(feature = "lease")]
+#[doc(hidden)]
+pub fn __lease_feature_required() {}
 
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
 pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");

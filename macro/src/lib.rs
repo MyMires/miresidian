@@ -59,15 +59,12 @@ pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-/// 声明节点的通用租约资源与配置字段。
-///
-/// 此标记必须紧随并位于 `#[node(...)]` 之后；外层 `node` 宏会消费该标记。资源与配置名称
-/// 对应 `init_device` 的 Rust 参数名，例如 `resource = "port_name"`。
+/// 已废弃：租约必须写为 `#[node("名称", lease(...))]` 子配置。
 #[proc_macro_attribute]
 pub fn lease(_attribute: TokenStream, _item: TokenStream) -> TokenStream {
     syn::Error::new(
         proc_macro2::Span::call_site(),
-        "#[miresidian::lease(...)] 必须标记在结构体上，并紧随 #[miresidian::node(...)]",
+        "租约必须写为 #[miresidian::node(\"名称\", lease(...))]",
     )
     .into_compile_error()
     .into()

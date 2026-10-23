@@ -71,54 +71,19 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
         .as_ref()
         .map(|lease| lease.activation.clone())
         .unwrap_or_else(|| quote!(::miresidian::LeaseActivation::Disabled));
-    let (acquire, release, participant) = match lease {
+    let lease_request = match lease {
         Some(lease) => {
             let resource = lease.resource;
             let configuration = lease.configuration;
-            (
-                quote! {
-                    #[doc(hidden)]
-                    fn __miresidian_lease_acquire(&mut self, config: &[::std::string::String], _input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
-                        let values = Self::__miresidian_lease_parameters(config)?;
-                        let parameters = values.into_iter().map(|(name, value)| ::miresidian::lease::LeaseParameter::new(name, value)).collect();
-                        let request = ::miresidian::lease::LeaseRequest::from_parameters(parameters, #resource, &[#(#configuration),*]).map_err(|error| ::miresidian::MiresidianError::Failure(error.to_string()))?;
-                        ::miresidian::lease::LeaseParticipant::acquire_lease(self, request)
-                    }
-                },
-                quote! {
-                    #[doc(hidden)]
-                    fn __miresidian_lease_release(&mut self) -> ::miresidian::MiresidianResult<()> {
-                        ::miresidian::lease::LeaseParticipant::release_lease(self)
-                    }
-                },
-                quote! {
-                    impl ::miresidian::lease::LeaseParticipant for #identifier {
-                        fn acquire_lease(&mut self, request: ::miresidian::lease::LeaseRequest) -> ::miresidian::MiresidianResult<()> {
-                            <#identifier>::lease_acquire(self, request)
-                        }
-
-                        fn release_lease(&mut self) -> ::miresidian::MiresidianResult<()> {
-                            <#identifier>::lease_release(self)
-                        }
-                    }
-                },
-            )
+            quote! {
+                ::miresidian::__lease_feature_required();
+                let values = Self::__miresidian_lease_parameters(config)?;
+                let parameters = values.into_iter().map(|(name, value)| ::miresidian::lease::LeaseParameter::new(name, value)).collect();
+                let request = ::miresidian::lease::LeaseRequest::from_parameters(parameters, #resource, &[#(#configuration),*]).map_err(|error| ::miresidian::MiresidianError::Failure(error.to_string()))?;
+                Ok(Some(request))
+            }
         }
-        None => (
-            quote! {
-                #[doc(hidden)]
-                fn __miresidian_lease_acquire(&mut self, _config: &[::std::string::String], _input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
-                    Ok(())
-                }
-            },
-            quote! {
-                #[doc(hidden)]
-                fn __miresidian_lease_release(&mut self) -> ::miresidian::MiresidianResult<()> {
-                    Ok(())
-                }
-            },
-            quote! {},
-        ),
+        None => quote!(Ok(None)),
     };
 
     quote! {
@@ -126,13 +91,13 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
         impl #identifier {
             #[doc(hidden)]
             pub const __MIRESIDIAN_NODE_NAME: &'static str = #name;
-            #acquire
-            #release
+            #[doc(hidden)]
+            fn __miresidian_lease_request(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::miresidian::lease::LeaseRequest>> {
+                #lease_request
+            }
             #[doc(hidden)]
             pub const __MIRESIDIAN_LEASE_ACTIVATION: ::miresidian::LeaseActivation = #activation;
         }
-
-        #participant
     }
     .into()
 }

@@ -12,9 +12,6 @@ pub(super) fn with_config(self_type: &Type, method: &InitMethod) -> proc_macro2:
     let method = &method.method;
     quote! {
         #(#arguments)*
-        if matches!(access, ::miresidian::LeaseAccess::Lease) {
-            <#self_type>::__miresidian_lease_acquire(self, config, input)?;
-        }
         let value = <#self_type>::#method(self, #(#variables),*);
         ::miresidian::codec::encode_value(value?)
     }
@@ -36,9 +33,6 @@ pub(super) fn close_with_lease(self_type: &Type, method: &FixedMethod) -> proc_m
     quote! {
         #(#arguments)*
         <#self_type>::#method(self, #(#variables),*)?;
-        if matches!(access, ::miresidian::LeaseAccess::Lease) {
-            <#self_type>::__miresidian_lease_release(self)?;
-        }
         Ok(())
     }
 }

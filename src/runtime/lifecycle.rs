@@ -10,6 +10,7 @@ use crate::{
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    lease::{LeaseId, LeaseRegistry},
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -18,8 +19,8 @@ pub(super) struct Channel<N> {
     pub(super) config: Vec<String>,
     /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
     pub(super) node: Arc<Mutex<N>>,
-    /// 建立此通道时选定的资源访问路径。
-    pub(super) access: LeaseAccess,
+    /// 框架持有的通用租约；业务节点不感知该令牌。
+    pub(super) lease: Option<LeaseId>,
 }
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
@@ -27,6 +28,7 @@ pub struct NodeRuntime<N: DeviceNode> {
     channels: Vec<Channel<N>>,
     /// 首个成功初始化的通道决定当前驱动运行时的共享调度方式。
     shared_execution: Option<ExecutionMode>,
+    leases: LeaseRegistry,
 }
 
 impl<N: DeviceNode> NodeRuntime<N> {
@@ -35,6 +37,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         Self {
             channels: vec![],
             shared_execution: None,
+            leases: LeaseRegistry::default(),
         }
     }
 
@@ -98,18 +101,34 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
         // 仅在初始化成功后登记对象；失败的候选对象仍尝试关闭，以释放部分建立的资源。
         let mut candidate = N::default();
-        match candidate.init_device_with_access(node_config, input, access) {
+        let lease = if matches!(access, LeaseAccess::Lease) {
+            candidate
+                .lease_request(node_config)?
+                .map(|request| {
+                    self.leases
+                        .acquire(request.resource().clone(), request.configuration().clone())
+                        .map(|grant| grant.lease)
+                        .map_err(|error| MiresidianError::Failure(error.to_string()))
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        match candidate.init_device(node_config, input) {
             Ok(output) => {
                 self.channels.push(Channel {
                     config: node_config.to_vec(),
                     node: Arc::new(Mutex::new(candidate)),
-                    access,
+                    lease,
                 });
                 self.shared_execution = Some(execution);
                 Ok(output)
             }
             Err(error) => {
-                let _ = candidate.close_device_with_access(&[], &[], access);
+                let _ = candidate.close_device(&[], &[]);
+                if let Some(lease) = lease {
+                    let _ = self.leases.release(lease);
+                }
                 Err(error)
             }
         }
@@ -132,7 +151,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 .node
                 .lock()
                 .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-            node.close_device_with_access(config, input, self.channels[index].access)?;
+            node.close_device(config, input)?;
+            if let Some(lease) = self.channels[index].lease {
+                self.leases
+                    .release(lease)
+                    .map_err(|error| MiresidianError::Failure(error.to_string()))?;
+            }
         }
         self.channels.remove(index);
         if self.channels.is_empty() {
