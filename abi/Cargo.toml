@@ -1,0 +1,13 @@
+[package]
+name = "miresidian_abi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Miresidian 的稳定 C ABI 契约、状态码与公共 FFI 类型。"
+license = "MIT OR Apache-2.0"
+
+[package.metadata.miresidian]
+abi_version = 5
+
+[lib]
+path = "src/lib.rs"

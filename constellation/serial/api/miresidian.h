@@ -11,6 +11,8 @@
 #define MIRESIDIAN_CALL
 #endif
 
+#define MIRESIDIAN_ABI_VERSION 5
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,6 +40,8 @@ MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke(
     const char *function,
     const char *config_json,
     const char *input_json);
+
+#define MIRESIDIAN_ABI_VERSION 5
 
 #ifdef __cplusplus
 }

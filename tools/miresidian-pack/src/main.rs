@@ -162,14 +162,19 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         .find(|package| package.name == "miresidian")
         .ok_or_else(|| "当前节点项目未解析到 miresidian 依赖".to_owned())?;
     let miresidian_version = framework.version.to_string();
-    let framework_abi_version = framework
+    let abi = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "miresidian_abi")
+        .ok_or_else(|| "当前节点项目未解析到 miresidian_abi 依赖".to_owned())?;
+    let framework_abi_version = abi
         .metadata
         .get("miresidian")
         .and_then(Value::as_object)
         .and_then(|metadata| metadata.get("abi_version"))
         .and_then(Value::as_u64)
         .and_then(|version| u32::try_from(version).ok())
-        .ok_or_else(|| "miresidian 包缺少有效的 ABI 元数据".to_owned())?;
+        .ok_or_else(|| "miresidian_abi 包缺少有效的 ABI 元数据".to_owned())?;
     let mut nodes = Vec::new();
 
     for member in &metadata.workspace_members {

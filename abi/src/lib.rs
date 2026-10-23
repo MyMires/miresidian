@@ -5,6 +5,9 @@
 
 use std::{ffi::c_char, ptr};
 
+/// 当前固定 C ABI 的版本号。仅在 C 导出契约不兼容时递增。
+pub const MIRESIDIAN_ABI_VERSION: u32 = 5;
+
 /// C ABI 调用成功。
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
 /// C ABI 参数为空、格式错误或不是有效 UTF-8。
@@ -36,5 +39,31 @@ impl Default for MiresidianTextArray {
             values: ptr::null_mut(),
             count: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn checked_in_c_header_matches_the_abi_contract() {
+        let header = include_str!("../api/miresidian.h");
+        assert!(header.contains(&format!(
+            "#define MIRESIDIAN_ABI_VERSION {MIRESIDIAN_ABI_VERSION}"
+        )));
+        assert!(header.contains("MIRESIDIAN_STATUS_OK = 0"));
+        assert!(header.contains("MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1"));
+        assert!(header.contains("MIRESIDIAN_STATUS_OPERATION_FAILED = 2"));
+        assert!(header.contains("MIRESIDIAN_STATUS_INTERNAL_ERROR = 3"));
+        assert!(header.contains("miresidian_abi_version(void)"));
+        assert!(header.contains("miresidian_invoke("));
+        assert_eq!(header, include_str!("../../api/miresidian.h"));
+    }
+
+    #[test]
+    fn package_metadata_matches_the_abi_version() {
+        let manifest = include_str!("../Cargo.toml");
+        assert!(manifest.contains(&format!("abi_version = {MIRESIDIAN_ABI_VERSION}")));
     }
 }

@@ -39,11 +39,6 @@ mod runtime;
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
 pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// 当前固定 C ABI 的版本号。
-///
-/// 仅在导出符号、参数、返回值或内存所有权发生不兼容变更时递增。
-pub const MIRESIDIAN_ABI_VERSION: u32 = 5;
-
 /// 框架级数据编解码 API。
 ///
 /// 属性宏生成的节点调度代码直接调用此模块，因此全部节点共用同一套类型、数组、字节和字符
@@ -56,11 +51,12 @@ pub mod codec {
     };
 }
 
-pub use ffi::{
-    MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
-    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus, MiresidianTextArray,
-};
 pub use interop::{ffi, ffi_runtime};
+pub use miresidian_abi::{
+    MIRESIDIAN_ABI_VERSION, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
+    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus,
+    MiresidianTextArray,
+};
 pub use miresidian_codec::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
     InvocationOutput, MiresidianError, MiresidianResult, decode_text_to_bytes, decode_value,
