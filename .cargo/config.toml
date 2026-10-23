@@ -1,21 +1,2 @@
-# 构建入口统一由 Cargo 管理：开发时保持本机可运行，发布时用 `cargo dll`。
-
 [alias]
-# 构建默认的串口通信动态库（本机开发目标）。
-driver = "build --package miresidian-serial"
-# 同时生成 Windows x86 与 x64 DLL，并整理到根目录 dist/。
-# 名称参数会转发给发布工具，例如：`cargo dll 串口通信`。
-dll = "run --quiet --package miresidian --bin package_node --"
-dll32 = "run --quiet --package miresidian --bin package_node -- x86"
-dll64 = "run --quiet --package miresidian --bin package_node -- x64"
-# 工作区完整校验、测试与静态检查。
-check-all = "check --workspace"
-test-all = "test --workspace"
-lint = "clippy --workspace -- -D warnings"
-
-# 让交叉编译不再需要在命令前手写 CARGO_TARGET_*_LINKER 环境变量。
-[target.x86_64-pc-windows-gnu]
-linker = "x86_64-w64-mingw32-gcc"
-
-[target.i686-pc-windows-gnu]
-linker = "i686-w64-mingw32-gcc"
+# 框架自身不包含可交付节点；请在具体节点项目中运行此命令。

@@ -1,0 +1,12 @@
+[package]
+name = "miresidian_codec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Miresidian 数据编解码、参数解析与跨语言值模型。"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+base64 = "0.22"
+encoding_rs = "0.8"
+hex = "0.4"

@@ -1,15 +1,13 @@
 # DLL 测试工具
 
 ```text
-tools/
-├── common/
-│   └── invoke_miresidian_dll.ps1       # 所有 DLL 项目共享的调用器
-└── miresidian-serial/                  # miresidian-serial DLL 测试项目
-    ├── test_serial_dll.bat             # 双击测试入口
-    └── serial_smoke.flow                # 与入口同目录的流程文件
+constellation/serial/tools/
+├── invoke_miresidian_dll.ps1             # 串口节点的 DLL 调用器
+├── test_serial_dll.bat                   # 双击测试入口
+└── serial_smoke.flow                      # 与入口同目录的流程文件
 ```
 
-Windows 不需要安装 Python。双击节点对应的 `test_<node>_dll.bat` 即可；BAT 会调用公共 PowerShell 脚本、实际加载 DLL，并在结束后暂停显示结果。
+Windows 不需要安装 Python。双击节点对应的 `test_<node>_dll.bat` 即可；BAT 会调用同目录的 PowerShell 脚本、实际加载 DLL，并在结束后暂停显示结果。
 
 ## 编辑流程测试
 
@@ -27,18 +25,18 @@ CloseDevice()
 
 流程参数必须是 JSON 字符串；共享执行方式可作为第九个 `Config` 参数传入 `Sequential` / `Parallel` / `Broadcast` 或对应中文显示值；双引号本身用 JSON 转义，例如 `任意业务方法("He said \"OK\"")`。空行、以 `#` 或 `//` 开头的行会被忽略。流程中任一步失败会停止，调用器会在退出时自动尝试关闭本流程成功初始化、但尚未关闭的每个 Config。业务方法的 Config/Input 参数来源由 DLL 自身校验。
 
-对于需要直接定位 DLL 操作的场景，公共脚本仍保留单次调用模式：
+对于需要直接定位 DLL 操作的场景，同目录脚本也支持单次调用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\common\invoke_miresidian_dll.ps1 .\miresidian_serial.dll GetFunctions '[]' '[]' -Pretty
+powershell -ExecutionPolicy Bypass -File .\invoke_miresidian_dll.ps1 .\miresidian_serial.dll GetFunctions '[]' '[]' -Pretty
 ```
 
 ## 新增节点入口
 
-复制整个 `miresidian-serial/` 目录并改名为目标 DLL 项目名；BAT 与 `.flow` 始终放在该目录的同一级。随后在 BAT 中设置 `FLOW_FILE`，并在“Fixed node configuration”区域替换 `MIRESIDIAN_DLL_NAME`；如果节点不在默认发布目录，也调整 `MIRESIDIAN_DLL_PATH`。所有项目共用上一级 `common/` 调用器，不需要复制或修改。
+复制整个节点项目的 `tools/` 目录并改名为目标 DLL 项目名；BAT 与 `.flow` 始终放在该目录的同一级。随后在 BAT 中设置 `FLOW_FILE`，并在“Fixed node configuration”区域替换 `MIRESIDIAN_DLL_NAME`；如果节点不在默认发布目录，也调整 `MIRESIDIAN_DLL_PATH`。所有项目共用上一级 `common/` 调用器，不需要复制或修改。
 
 ## 输出和位数
 
 BAT 固定启用 `-Pretty`：DLL 的 JSON 响应会反序列化为状态、消息与编号输出清单。PowerShell 进程位数必须与 DLL 一致：普通 Windows PowerShell 通常为 x64；x86 DLL 应使用 `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`。
 
-`common/invoke_miresidian_dll.ps1` 是公共实现，负责 C ABI 参数/返回值的 UTF-8 处理与返回指针的即时复制。不要针对某个节点修改它。
+`invoke_miresidian_dll.ps1` 是该节点的调用实现，负责 C ABI 参数/返回值的 UTF-8 处理与返回指针的即时复制。新增节点时可按自身的测试与部署要求维护副本。

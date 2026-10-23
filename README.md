@@ -4,7 +4,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 
 ## 当前基础层
 
-当前实现已经具备可编译、可测试的运行时：
+当前实现已经具备可编译、可测试的运行时。数据编解码、参数解析、跨语言值模型与通用错误类型位于独立的 `miresidian_codec` crate；`miresidian` 保持兼容重导出：
 
 - 使用 `operation + config + input -> output` 的统一文本调用契约；
 - 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
@@ -23,13 +23,11 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 `mod.rs`：
 
 ```text
+codec/                     # 独立的数据编解码、解析和值模型 crate
+├── src/lib.rs              # 公开 API、错误和平台输出类型
+└── src/                    # 标量、数组、字节、文本与参数定义规则
+
 src/
-├── foundation.rs          # 基础数据、错误与数据编解码入口
-├── foundation/
-│   ├── codec.rs           # 编解码公共 API、类型转换与格式定义
-│   ├── codec/             # 标量、数组、字节、文本与参数定义规则
-│   ├── error.rs           # MiresidianError 与 MiresidianResult
-│   └── value.rs           # 跨语言值模型
 ├── runtime.rs             # 节点运行时入口
 ├── runtime/
 │   ├── contract.rs        # 调用契约与固定操作名称
@@ -41,8 +39,10 @@ src/
 ├── interop/
 │   ├── ffi.rs             # 公共 ABI 类型与状态码
 │   └── ffi_runtime.rs     # 宏生成 DLL 入口使用的 ABI 支撑
-└── bin/package_node.rs     # 节点发布包整理工具
+
 ```
+
+节点发布工具位于 `tools/miresidian-pack/`，不参与框架运行时依赖。
 
 普通自定义操作必须传入创建该对象时完全相同的 `Config[]`；运行时据此定位通道。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
 
@@ -65,6 +65,10 @@ constellation/serial/src/
 
 constellation/serial/tests/
 └── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
+
+constellation/serial/tools/
+├── test_serial_dll.bat     # Windows DLL 烟测入口
+└── serial_smoke.flow       # 串口节点烟测流程
 ```
 
 因此新增 TCP、USB、CAN 等节点时，只需在对应 `constellation/<节点>/` crate 中引入通信库；
@@ -105,7 +109,7 @@ cargo build --release
 
 编码、文档、FFI 与测试约束见 [docs/coding-standards.md](docs/coding-standards.md)。
 数据格式、文本编码与数组表示规则见 [docs/data-codec.md](docs/data-codec.md)。
-串口通信节点的配置与操作说明见 [docs/drivers/串口通信.md](docs/drivers/串口通信.md)。
+串口通信节点的配置与操作说明见 [constellation/serial/docs/串口通信.md](constellation/serial/docs/串口通信.md)。
 C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
 构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。
 框架、实例项目与 ABI 的版本、修订记录和发布流程见 [docs/versioning.md](docs/versioning.md)。

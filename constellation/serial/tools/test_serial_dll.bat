@@ -18,11 +18,11 @@ rem ================================================================
 set "FLOW_FILE=serial_smoke.flow"
 
 rem Fixed node configuration. Keep DLL selection out of the test-input area.
-set "MIRESIDIAN_DLL_PATH=..\..\dist"
+set "MIRESIDIAN_DLL_PATH=..\..\..\dist"
 set "MIRESIDIAN_DLL_NAME=miresidian_serial.dll"
 
-if not exist "..\common\invoke_miresidian_dll.ps1" (
-    echo ERROR: ..\common\invoke_miresidian_dll.ps1 was not found.
+if not exist "invoke_miresidian_dll.ps1" (
+    echo ERROR: invoke_miresidian_dll.ps1 was not found.
     goto :end
 )
 
@@ -38,7 +38,7 @@ if not exist "%MIRESIDIAN_DLL_PATH%" (
 
 rem Environment variables preserve paths and JSON; do not pass them through cmd.exe arguments.
 set "MIRESIDIAN_FLOW_FILE=%FLOW_FILE%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\common\invoke_miresidian_dll.ps1" -FromEnvironment -Pretty
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "invoke_miresidian_dll.ps1" -FromEnvironment -Pretty
 
 :end
 echo.

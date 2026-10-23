@@ -36,7 +36,7 @@ miresidian_abi_version = 5
 2. 判断变更是 `MAJOR`、`MINOR` 还是 `PATCH`，并更新框架或实例的版本号。
 3. 变更框架版本时，同步更新每个待发布实例的 `miresidian_version`；重新构建的实例必须提升自身版本。
 4. 变更 C ABI 时递增 ABI 版本，并同步更新实例元数据、头文件、ABI 文档和兼容性测试。
-5. 运行全部测试与 `cargo dll` 打包；打包器会拒绝框架或 ABI 版本不匹配的实例。
+5. 运行全部测试；进入对应节点项目后运行 `cargo miresidian-pack` 打包；打包器会拒绝框架或 ABI 版本不匹配的实例。
 6. 将 `Unreleased` 条目移动到带日期的版本条目。
 7. 提交后创建不可移动的 Git 标签：框架用 `miresidian-vX.Y.Z`，实例用 `miresidian_serial-vX.Y.Z`。
 
@@ -59,7 +59,8 @@ miresidian_abi_version = 5
 运行以下命令发布实例：
 
 ```text
-cargo dll 串口通信
+cd constellation/serial
+cargo miresidian-pack
 ```
 
 打包器会构建 DLL、复制头文件、说明与实例的 `CHANGELOG.md`，并生成 `dist/<节点>/manifest.json`。

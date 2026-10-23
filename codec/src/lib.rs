@@ -6,12 +6,17 @@
 mod binary;
 mod collection;
 mod definition;
+mod error;
+mod output;
 mod scalar;
 mod text;
+mod value;
 
 use std::{fmt, str::FromStr};
 
-use crate::{InvocationOutput, MiresidianError, MiresidianResult};
+pub use error::{MiresidianError, MiresidianResult};
+pub use output::InvocationOutput;
+pub use value::{DeviceScalar, DeviceValue};
 
 /// 原始字节与平台文本之间使用的明确数据格式。
 ///

@@ -1,8 +1,7 @@
 //! Miresidian 节点发布包整理工具。
 //!
-//! 未指定节点名称时，`cargo dll` 默认构建工作区中全部节点的 x86 与 x64 发布包；
-//! `cargo dll32`、`cargo dll64` 分别只构建对应位数。传入节点显示名可限定单个节点，
-//! 例如 `cargo dll 串口通信`。DLL 与 C 头文件按位数放入子目录，节点说明固定放在
+//! 在节点项目根目录运行 `cargo miresidian-pack` 即构建该项目的 x86 与 x64 发布包；
+//! `cargo miresidian-pack x86`、`cargo miresidian-pack x64` 可只构建对应位数。DLL 与 C 头文件按位数放入子目录，节点说明位于
 //! `dist/<节点名称>/` 根目录。
 
 use std::{
@@ -13,7 +12,6 @@ use std::{
 };
 
 use cargo_metadata::{MetadataCommand, Package, TargetKind};
-use miresidian::MIRESIDIAN_ABI_VERSION;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use syn::{Attribute, Item, LitStr};
@@ -74,7 +72,7 @@ fn main() -> ExitCode {
 /// 构建选定节点、选定平台，并整理为测试平台可直接取用的发布结构。
 fn package() -> Result<(), String> {
     let request = selected_request()?;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = env::current_dir().map_err(|error| format!("无法确定当前节点项目目录：{error}"))?;
     let discovered_nodes = discover_nodes(&root)?;
     let nodes = select_nodes(discovered_nodes, request.node_name.as_deref())?;
 
@@ -135,7 +133,7 @@ fn target_from_architecture(architecture: &str) -> Result<WindowsTarget, String>
 }
 
 fn usage() -> String {
-    "用法：cargo dll [节点名称]；cargo dll32 [节点名称]；cargo dll64 [节点名称]".to_owned()
+    "用法：cargo miresidian-pack；cargo miresidian-pack x86；cargo miresidian-pack x64".to_owned()
 }
 
 fn windows_x64() -> WindowsTarget {
@@ -156,14 +154,22 @@ fn windows_x86() -> WindowsTarget {
 fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
     let metadata = MetadataCommand::new()
         .current_dir(root)
-        .no_deps()
         .exec()
         .map_err(|error| format!("无法读取 Cargo 工作区元数据：{error}"))?;
-    let miresidian_version = metadata
-        .root_package()
-        .ok_or_else(|| "无法确定框架根包版本".to_owned())?
-        .version
-        .to_string();
+    let framework = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "miresidian")
+        .ok_or_else(|| "当前节点项目未解析到 miresidian 依赖".to_owned())?;
+    let miresidian_version = framework.version.to_string();
+    let framework_abi_version = framework
+        .metadata
+        .get("miresidian")
+        .and_then(Value::as_object)
+        .and_then(|metadata| metadata.get("abi_version"))
+        .and_then(Value::as_u64)
+        .and_then(|version| u32::try_from(version).ok())
+        .ok_or_else(|| "miresidian 包缺少有效的 ABI 元数据".to_owned())?;
     let mut nodes = Vec::new();
 
     for member in &metadata.workspace_members {
@@ -198,7 +204,7 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
             return Err(format!("发现重复的节点显示名：{node_name}"));
         }
         let (declared_miresidian_version, abi_version) =
-            release_versions(package, &miresidian_version)?;
+            release_versions(package, &miresidian_version, framework_abi_version)?;
         nodes.push(NodeRelease {
             package: package.name.clone(),
             project_directory: PathBuf::from(manifest_directory.as_str()),
@@ -218,7 +224,11 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
 }
 
 /// 读取节点发布声明，并拒绝与当前 Miresidian不一致的版本组合。
-fn release_versions(package: &Package, miresidian_version: &str) -> Result<(String, u32), String> {
+fn release_versions(
+    package: &Package,
+    miresidian_version: &str,
+    framework_abi_version: u32,
+) -> Result<(String, u32), String> {
     let metadata = package
         .metadata
         .get("miresidian")
@@ -241,10 +251,10 @@ fn release_versions(package: &Package, miresidian_version: &str) -> Result<(Stri
         .and_then(Value::as_u64)
         .and_then(|version| u32::try_from(version).ok())
         .ok_or_else(|| format!("节点 {} 缺少有效的 miresidian_abi_version", package.name))?;
-    if abi_version != MIRESIDIAN_ABI_VERSION {
+    if abi_version != framework_abi_version {
         return Err(format!(
             "节点 {} 声明的 ABI 版本 {} 与当前 ABI 版本 {} 不一致",
-            package.name, abi_version, MIRESIDIAN_ABI_VERSION
+            package.name, abi_version, framework_abi_version
         ));
     }
 
@@ -322,7 +332,7 @@ fn copy_target_files(
     let destination_dll = destination.join(&node.dll_name);
     copy_file(&source_dll, &destination_dll)?;
     copy_file(
-        &root.join("api/miresidian.h"),
+        &node.project_directory.join("api/miresidian.h"),
         &destination.join("miresidian.h"),
     )?;
     Ok(ReleaseArtifact {
@@ -412,8 +422,9 @@ fn copy_node_release_documents(root: &Path, node: &NodeRelease) -> Result<(), St
     let destination = root.join("dist").join(&node.node_name);
     fs::create_dir_all(&destination).map_err(|error| format!("无法创建发布目录：{error}"))?;
     copy_file(
-        &root
-            .join("docs/drivers")
+        &node
+            .project_directory
+            .join("docs")
             .join(format!("{}.md", node.node_name)),
         &destination.join(format!("{}.md", node.node_name)),
     )?;

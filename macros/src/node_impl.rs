@@ -8,8 +8,43 @@ mod dispatch;
 mod ffi;
 mod naming;
 
+use proc_macro_crate::{FoundCrate, crate_name};
 use quote::{format_ident, quote};
-use syn::{Error, ItemImpl, Result, Type};
+use syn::{Error, ItemImpl, Result, Type, visit_mut::VisitMut};
+
+fn rewrite_framework_paths(tokens: proc_macro2::TokenStream) -> Result<proc_macro2::TokenStream> {
+    let FoundCrate::Name(name) = crate_name("miresidian").map_err(|error| {
+        Error::new(
+            proc_macro2::Span::call_site(),
+            format!("无法定位 miresidian 依赖：{error}"),
+        )
+    })?
+    else {
+        return Ok(tokens);
+    };
+    let mut file = syn::parse2::<syn::File>(tokens)?;
+    struct RenameFramework {
+        name: syn::Ident,
+    }
+    impl VisitMut for RenameFramework {
+        fn visit_path_mut(&mut self, path: &mut syn::Path) {
+            if path.leading_colon.is_some()
+                && path
+                    .segments
+                    .first()
+                    .is_some_and(|segment| segment.ident == "miresidian")
+            {
+                path.segments.first_mut().expect("checked above").ident = self.name.clone();
+            }
+            syn::visit_mut::visit_path_mut(self, path);
+        }
+    }
+    RenameFramework {
+        name: syn::Ident::new(&name, proc_macro2::Span::call_site()),
+    }
+    .visit_file_mut(&mut file);
+    Ok(quote!(#file))
+}
 
 /// 分析节点实现块并生成平台调度与 C ABI 入口。
 pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::TokenStream> {
@@ -47,7 +82,7 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         .map(|method| dispatch::port_probe(&self_type, method));
     let abi_exports = ffi::exports(&self_type, &runtime);
 
-    Ok(quote! {
+    let expanded = quote! {
         #item_impl
         const #init_config: &[::miresidian::ParameterDescriptor] = &[#(#init_config_descriptors),*];
         const #init_outputs: &[::miresidian::ParameterDescriptor] = &[#(#init_output_descriptors),*];
@@ -68,7 +103,8 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
             #port_probe
         }
         #abi_exports
-    })
+    };
+    rewrite_framework_paths(expanded)
 }
 
 fn type_identifier(ty: &Type) -> Result<&syn::Ident> {

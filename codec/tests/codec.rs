@@ -1,6 +1,6 @@
 //! 根框架数据编解码的跨模块回归测试。
 
-use miresidian::{
+use miresidian_codec::{
     ByteTextFormat, DeviceInput, DeviceOutput, decode_text_to_bytes, decode_value,
     decode_value_with_definition, encode_bytes_to_text, transcode_text,
 };
