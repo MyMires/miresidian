@@ -5,6 +5,16 @@
 ## [Unreleased]
 
 尚未发布的变更必须先记录在本节，发布时移动到对应版本与日期下。
+## [0.4.0] - 2026-10-24
+
+### Added
+
+- 租约声明新增 `activation = required | disabled | selectable`；`selectable` 节点向平台发布资源访问方式，并在通道完整生命周期中保持所选 Lease 或 Direct 路径。
+
+### Changed
+
+- 框架及其公开子 crate 升级至 `0.4.0`；版本与修订记录必须随同一次发布变更维护。
+
 
 ## [0.3.1] - 2026-10-24
 
