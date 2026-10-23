@@ -1,5 +1,4 @@
 # 版本管理
-
 Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单将三者固定到实际 DLL。
 
 ## 版本层次
@@ -7,7 +6,7 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
 | 框架版本 | `miresidian 0.2.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `miresidian_serial 0.2.0` | 每个节点独立使用语义化版本。 |
+| 实例项目版本 | `<node package> 0.2.0` | 每个节点独立使用语义化版本。 |
 | ABI 版本 | `5` | 仅在 C ABI 不兼容时递增。 |
 
 ## 唯一版本来源
@@ -21,7 +20,7 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 [workspace.package]
 version = "0.2.0"
 
-# constellation/serial/Cargo.toml
+# ../miresidian_serial/Cargo.toml
 [package]
 version = "0.2.0"
 
@@ -59,7 +58,7 @@ miresidian_abi_version = 5
 运行以下命令发布实例：
 
 ```text
-cd constellation/serial
+cd ../miresidian_serial
 cargo miresidian-pack
 ```
 

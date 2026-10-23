@@ -20,7 +20,6 @@ macros = ["dep:miresidian_macros"]
 # `constellation/*` 是基于框架的独立节点项目；工作区保留它们以便联调，
 # 但框架的默认校验范围仅包含运行时与配套宏。
 members = ["abi", "codec", "macros", "tools/miresidian-pack"]
-exclude = ["constellation/serial"]
 default-members = [".", "codec", "macros"]
 resolver = "3"
 

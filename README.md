@@ -53,7 +53,7 @@ src/
 例如串口通信节点使用以下结构：
 
 ```text
-constellation/serial/src/
+../miresidian_serial/src/
 ├── lib.rs                  # 模块入口与 SerialNode 公开导出
 ├── node.rs                 # 节点状态与平台方法
 ├── transport.rs            # 串口会话、参数校验与文本收发
@@ -63,15 +63,15 @@ constellation/serial/src/
     ├── protocol.rs         # 客户端与代理共用的回环协议
     └── broker.rs           # 持有物理串口的本地代理和端口池
 
-constellation/serial/tests/
+../miresidian_serial/tests/
 └── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
 
-constellation/serial/tools/
+../miresidian_serial/tools/
 ├── test_serial_dll.bat     # Windows DLL 烟测入口
 └── serial_smoke.flow       # 串口节点烟测流程
 ```
 
-因此新增 TCP、USB、CAN 等节点时，只需在对应 `constellation/<节点>/` crate 中引入通信库；
+因此新增 TCP、USB、CAN 等节点时，只需在各自独立的节点项目中引入通信库；
 `miresidian` 框架本身不会依赖这些具体传输库。
 
 ## 属性宏与节点扩展
@@ -95,7 +95,7 @@ macros/src/
 ```
 
 新增节点时先阅读 [宏驱动开发说明](docs/宏驱动开发.md)，再在
-`constellation/<节点>/` 中创建独立 crate。宏标注、自动命名、固定入口和可使用的数据类型均以
+`独立节点项目/` 中创建独立 crate。宏标注、自动命名、固定入口和可使用的数据类型均以
 该文档为准。
 
 ## 验证
@@ -109,7 +109,7 @@ cargo build --release
 
 编码、文档、FFI 与测试约束见 [docs/coding-standards.md](docs/coding-standards.md)。
 数据格式、文本编码与数组表示规则见 [docs/data-codec.md](docs/data-codec.md)。
-串口通信节点的配置与操作说明见 [constellation/serial/docs/串口通信.md](constellation/serial/docs/串口通信.md)。
+串口通信节点的配置与操作说明见 [../miresidian_serial/docs/串口通信.md](../miresidian_serial/docs/串口通信.md)。
 C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
 构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。
 框架、实例项目与 ABI 的版本、修订记录和发布流程见 [docs/versioning.md](docs/versioning.md)。

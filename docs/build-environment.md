@@ -1,77 +1,17 @@
 # 构建环境
 
-项目把常用构建流程收敛为 Cargo 默认成员与别名；日常不需要再手写包名、目标三元组或链接器环境变量。
+本仓库仅包含 Miresidian 框架及其 ABI、编解码、过程宏和打包工具。
 
-## 日常开发
+## 框架开发
 
-在项目根目录执行：
-
-```bash
-cargo build
-cargo test
-cargo lint
-```
-
-`cargo build` 默认构建 `constellation/serial` 的串口通信驱动；`cargo lint` 会对整个工作区执行 Clippy 并把警告视为错误。
-
-## 首次准备 Windows DLL 交叉编译环境
-
-此步骤每个容器只需执行一次：
+在框架根目录执行：
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends build-essential pkg-config mingw-w64
-rustup target add x86_64-pc-windows-gnu
-rustup target add i686-pc-windows-gnu
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
 ```
 
-## 生成测试平台可加载的 Windows DLL
+## 节点项目
 
-```bash
-cd constellation/serial
-cargo miresidian-pack
-```
-
-`cargo miresidian-pack` 只构建当前节点项目的 Windows x86 与 x64 DLL。只需要其中一个位数时，分别使用：
-
-```bash
-cargo miresidian-pack x86  # 仅生成 Windows x86 DLL
-cargo miresidian-pack x64  # 仅生成 Windows x64 DLL
-```
-
-当前节点项目只有一个可交付节点，名称由
-`#[miresidian::node("...")]` 的值完全一致：
-
-
-构建完成后，测试平台可直接部署的产物会被自动整理到：
-
-```text
-dist/串口通信/windows-x64/miresidian_serial.dll
-dist/串口通信/windows-x86/miresidian_serial.dll
-dist/串口通信/串口通信.md
-dist/串口通信/CHANGELOG.md
-dist/串口通信/manifest.json
-```
-
-`dist/` 及其子目录均由构建命令自动创建，无需预先准备。发布目录的名称取自驱动结构体上的 `#[miresidian::node("串口通信")]`；每个位数目录包含对应 DLL 和 C 头文件，同名中文部署说明固定放在驱动根目录。节点项目的 `.cargo/config.toml` 已记录两个 MinGW 链接器，因此无需再在命令行设置链接器环境变量。
-
-## 手动验证 C ABI
-
-`constellation/serial/tools/invoke_miresidian_dll.ps1` 是首选的通用调用工具。Windows 自带的 PowerShell/.NET 即可运行，因此将 `tools` 文件夹复制到部署机后，不需要安装 Python、pip 或第三方包；DLL 也不必保留项目中的目录结构。传入 DLL 路径即可调用，省略操作名时默认调用 `GetFunctions`：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\constellation\serial\tools\invoke_miresidian_dll.ps1 .\miresidian_serial.dll
-powershell -ExecutionPolicy Bypass -File .\constellation\serial\tools\invoke_miresidian_dll.ps1 .\miresidian_serial.dll InitDevice '["COM3","9600","8","None","1","None","1000","1000"]' '[]'
-powershell -ExecutionPolicy Bypass -File .\constellation\serial\tools\invoke_miresidian_dll.ps1 .\miresidian_serial.dll -AbiVersion
-```
-
-脚本默认原样输出 `result_json`；加 `-Pretty` 会反序列化响应，并将状态、消息和每条业务输出整理为易读的编号清单。PowerShell 进程位数必须与目标 DLL 一致：64 位 DLL 用 Windows x64 PowerShell，32 位 DLL 用 `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`。
-
-不想使用命令行时，可双击 `constellation/serial/tools/test_serial_dll.bat`。在本项目中，它默认从 `dist` 目录自动选择与 PowerShell 位数相同的 DLL，并运行 BAT 顶部 `FLOW_FILE` 指向的 UTF-8 流程文件。流程以 `Config("...")`、`InitDevice()`、`Delay("500")`、`业务方法("...")`、`CloseDevice()` 的形式顺序调用；`Config` 显式指定 C ABI Config，`Delay("毫秒数")` 可在步骤间等待，真实 DLL 方法的参数进入 Input；执行器从 `GetFunctions()` 读取并验证方法存在性，在同一个 DLL 进程中保留初始化状态。DLL 定位为节点脚本内部固定配置。BAT 支持从网络共享（UNC 路径）启动，并会在结束时暂停，方便查看调用结果或错误信息。
-
-`constellation/serial/tools/invoke_miresidian_dll.ps1` 是通用的 Miresidian C ABI 调用器，并不包含串口业务逻辑。新增节点测试时复制整个 DLL 项目测试目录（例如 `constellation/serial/tools/`），使 BAT 与 `.flow` 保持同级；修改 BAT 的 `FLOW_FILE`、固定 DLL 文件名及流程中的真实 DLL 方法。每个节点项目应在自己的 `tools/` 目录中保存调用器、流程与烟测入口；新增节点时以该目录为模板复制并维护。
-
-BAT 中字符串数组的 JSON 写法、转义规则、返回输出格式及新增节点入口的约定见 [DLL 测试工具说明](../constellation/serial/tools/README.md)。
-
-纯 Linux 的 `python3` 不能直接加载 Windows PE DLL。要在 Linux 中执行 `dist` 下的实际 DLL，
-需要 Wine 与同位数的 Windows Python，并通过 Wine 运行该脚本；若验证物理串口，还需映射 Wine 的 `COMx`。
+节点应作为独立 Cargo 项目维护，并从 crates.io 依赖发布后的框架；本地联调可使用相邻目录的 `path` 依赖。Windows DLL 的交叉编译、`cargo miresidian-pack` 和烟测工具均由节点项目自行配置与维护。

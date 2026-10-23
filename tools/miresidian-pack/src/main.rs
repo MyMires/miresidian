@@ -40,6 +40,8 @@ struct NodeRelease {
     package: String,
     /// 实例项目 Cargo.toml 所在目录，用于收集发布随附文档。
     project_directory: PathBuf,
+    /// 由解析到的 miresidian_abi crate 提供的发布头文件。
+    abi_header: PathBuf,
     /// 节点的发布目录与命令筛选名称。
     node_name: String,
     /// cdylib 编译完成后的 DLL 文件名。
@@ -167,6 +169,12 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         .iter()
         .find(|package| package.name == "miresidian_abi")
         .ok_or_else(|| "当前节点项目未解析到 miresidian_abi 依赖".to_owned())?;
+    let abi_header = abi
+        .manifest_path
+        .parent()
+        .map(|directory| PathBuf::from(directory.as_str()).join("api/miresidian.h"))
+        .filter(|path| path.is_file())
+        .ok_or_else(|| "miresidian_abi 包未包含 api/miresidian.h".to_owned())?;
     let framework_abi_version = abi
         .metadata
         .get("miresidian")
@@ -213,6 +221,7 @@ fn discover_nodes(root: &Path) -> Result<Vec<NodeRelease>, String> {
         nodes.push(NodeRelease {
             package: package.name.clone(),
             project_directory: PathBuf::from(manifest_directory.as_str()),
+            abi_header: abi_header.clone(),
             node_name,
             dll_name: format!("{}.dll", cdylib.name.replace('-', "_")),
             project_version: package.version.to_string(),
@@ -336,10 +345,7 @@ fn copy_target_files(
     remove_legacy_documentation(&destination, &node.node_name)?;
     let destination_dll = destination.join(&node.dll_name);
     copy_file(&source_dll, &destination_dll)?;
-    copy_file(
-        &node.project_directory.join("api/miresidian.h"),
-        &destination.join("miresidian.h"),
-    )?;
+    copy_file(&node.abi_header, &destination.join("miresidian.h"))?;
     Ok(ReleaseArtifact {
         platform: target.package_name,
         file: node.dll_name.clone(),
