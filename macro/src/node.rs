@@ -11,6 +11,7 @@ use syn::{
 struct LeaseDeclaration {
     resource: LitStr,
     configuration: Vec<LitStr>,
+    activation: proc_macro2::TokenStream,
 }
 
 /// 生成节点展示名称与租约生命周期桥接代码，供 node_impl 调度读取。
@@ -23,6 +24,10 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
     };
     let identifier = &item_struct.ident;
 
+    let activation = lease
+        .as_ref()
+        .map(|lease| lease.activation.clone())
+        .unwrap_or_else(|| quote!(::miresidian::LeaseActivation::Disabled));
     let (acquire, release, participant) = match lease {
         Some(lease) => {
             let resource = lease.resource;
@@ -75,12 +80,13 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
 
     quote! {
         #item_struct
-
         impl #identifier {
             #[doc(hidden)]
             pub const __MIRESIDIAN_NODE_NAME: &'static str = #name;
             #acquire
             #release
+            #[doc(hidden)]
+            pub const __MIRESIDIAN_LEASE_ACTIVATION: ::miresidian::LeaseActivation = #activation;
         }
 
         #participant
@@ -102,6 +108,7 @@ fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseD
     let values = attribute.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
     let mut resource = None;
     let mut configuration = None;
+    let mut activation = None;
     for value in values {
         let Meta::NameValue(value) = value else {
             return Err(Error::new_spanned(
@@ -140,15 +147,23 @@ fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<Option<LeaseD
                 }
                 configuration = Some(values);
             }
+            "activation" => {
+                if activation.is_some() {
+                    return Err(Error::new_spanned(value, "activation 只能声明一次"));
+                }
+                activation = Some(activation_value(&value.value)?);
+            }
             _ => {
                 return Err(Error::new_spanned(
                     value,
-                    "lease 只接受 resource 和 configuration 参数",
+                    "lease 只接受 activation、resource 和 configuration 参数",
                 ));
             }
         }
     }
     Ok(Some(LeaseDeclaration {
+        activation: activation
+            .ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 activation"))?,
         resource: resource.ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 resource"))?,
         configuration: configuration
             .ok_or_else(|| Error::new_spanned(&attribute, "lease 缺少 configuration"))?,
@@ -167,4 +182,28 @@ fn string_literal(value: &Expr, label: &str) -> Result<LitStr> {
         ));
     };
     Ok(value.clone())
+}
+
+fn activation_value(value: &Expr) -> Result<proc_macro2::TokenStream> {
+    let Expr::Path(path) = value else {
+        return Err(Error::new_spanned(
+            value,
+            "activation 必须是 required、disabled 或 selectable",
+        ));
+    };
+    let Some(name) = path.path.get_ident() else {
+        return Err(Error::new_spanned(
+            value,
+            "activation 必须是 required、disabled 或 selectable",
+        ));
+    };
+    match name.to_string().as_str() {
+        "required" => Ok(quote!(::miresidian::LeaseActivation::Required)),
+        "disabled" => Ok(quote!(::miresidian::LeaseActivation::Disabled)),
+        "selectable" => Ok(quote!(::miresidian::LeaseActivation::Selectable)),
+        _ => Err(Error::new_spanned(
+            value,
+            "activation 必须是 required、disabled 或 selectable",
+        )),
+    }
 }

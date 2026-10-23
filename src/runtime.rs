@@ -13,6 +13,9 @@ pub use contract::{
     GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
     GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, SHARED_INVOCATION_MARKER,
 };
-pub use descriptor::{ExecutionMode, NodeDescriptor, OperationDescriptor, ParameterDescriptor};
+pub use descriptor::{
+    ExecutionMode, LeaseAccess, LeaseActivation, NodeDescriptor, OperationDescriptor,
+    ParameterDescriptor,
+};
 pub use lifecycle::NodeRuntime;
 pub use node::DeviceNode;

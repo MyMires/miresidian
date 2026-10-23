@@ -1,6 +1,6 @@
 //! 具体设备节点实现的扩展点。
 
-use crate::{InvocationOutput, MiresidianResult, NodeDescriptor};
+use crate::{InvocationOutput, LeaseAccess, MiresidianResult, NodeDescriptor};
 
 /// 由 `#[miresidian::node_impl]` 为具体驱动生成的运行时适配器。
 ///
@@ -29,6 +29,16 @@ pub trait DeviceNode: Default + Send + 'static {
         input: &[String],
     ) -> MiresidianResult<InvocationOutput>;
 
+    /// 使用框架已解析的资源访问方式初始化。手写节点保持既有行为。
+    fn init_device_with_access(
+        &mut self,
+        config: &[String],
+        input: &[String],
+        _access: LeaseAccess,
+    ) -> MiresidianResult<InvocationOutput> {
+        self.init_device(config, input)
+    }
+
     /// 释放节点持有的全部资源。
     ///
     /// 默认情况下关闭参数来自 `input`。节点作者可通过参数上的 `config` 或
@@ -37,6 +47,16 @@ pub trait DeviceNode: Default + Send + 'static {
 
     /// 在成功初始化后运行节点自定义操作。
     ///
+
+    /// 使用创建通道时的资源访问方式关闭。手写节点保持既有行为。
+    fn close_device_with_access(
+        &mut self,
+        config: &[String],
+        input: &[String],
+        _access: LeaseAccess,
+    ) -> MiresidianResult<()> {
+        self.close_device(config, input)
+    }
     /// 未标注的操作参数默认来自 `input`。参数上的 `#[miresidian::config]` 可使
     /// 该单个参数从 `config` 读取，二者可在同一操作中混用。
     fn invoke(

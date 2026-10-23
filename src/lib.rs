@@ -78,6 +78,6 @@ pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
-    SHARED_INVOCATION_MARKER,
+    LeaseAccess, LeaseActivation, NodeDescriptor, NodeRuntime, OperationDescriptor,
+    ParameterDescriptor, SHARED_INVOCATION_MARKER,
 };

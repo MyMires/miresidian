@@ -91,7 +91,7 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         const #operations: &[::miresidian::OperationDescriptor] = &[#(#operation_descriptors),*];
         const #descriptor: ::miresidian::NodeDescriptor = ::miresidian::NodeDescriptor {
             name: <#self_type>::__MIRESIDIAN_NODE_NAME, init_config: #init_config,
-            init_outputs: #init_outputs, port_probe_inputs: #port_probe_inputs, operations: #operations,
+            init_outputs: #init_outputs, port_probe_inputs: #port_probe_inputs, operations: #operations, lease_activation: <#self_type>::__MIRESIDIAN_LEASE_ACTIVATION,
         };
         impl #self_type {
             #[doc(hidden)]
@@ -101,8 +101,10 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         }
         impl ::miresidian::DeviceNode for #self_type {
             fn descriptor() -> &'static ::miresidian::NodeDescriptor { &#descriptor }
-            fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
-            fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> { #close_call }
+            fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { let access = <#self_type>::__MIRESIDIAN_LEASE_ACTIVATION.resolve_access(None); #init_call }
+            fn init_device_with_access(&mut self, config: &[::std::string::String], input: &[::std::string::String], access: ::miresidian::LeaseAccess) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
+            fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> { let access = <#self_type>::__MIRESIDIAN_LEASE_ACTIVATION.resolve_access(None); #close_call }
+            fn close_device_with_access(&mut self, config: &[::std::string::String], input: &[::std::string::String], access: ::miresidian::LeaseAccess) -> ::miresidian::MiresidianResult<()> { #close_call }
             fn project_version() -> &'static str { env!("CARGO_PKG_VERSION") }
             fn invoke(&mut self, operation: &str, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> {
                 match operation { #(#operation_calls)* other => Err(::miresidian::MiresidianError::InvalidOperation(other.to_owned())), }

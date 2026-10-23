@@ -41,6 +41,47 @@ impl ExecutionMode {
 pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
     "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播";
 
+/// 节点租约的激活策略。`Selectable` 由平台在初始化时选择访问路径。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeaseActivation {
+    Required,
+    Disabled,
+    Selectable,
+}
+
+impl LeaseActivation {
+    pub const fn has_platform_selector(self) -> bool {
+        matches!(self, Self::Selectable)
+    }
+}
+
+/// 单次初始化实际采用的资源访问路径。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeaseAccess {
+    Lease,
+    Direct,
+}
+
+impl LeaseActivation {
+    pub fn resolve_access(self, value: Option<&str>) -> LeaseAccess {
+        match self {
+            Self::Required => LeaseAccess::Lease,
+            Self::Disabled => LeaseAccess::Direct,
+            Self::Selectable => match value
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase()
+                .as_str()
+            {
+                "direct" | "直连" => LeaseAccess::Direct,
+                _ => LeaseAccess::Lease,
+            },
+        }
+    }
+}
+/// `Selectable` 租约节点自动追加的资源访问方式配置。
+pub const RESOURCE_ACCESS_DEFINITION: &str = "资源访问方式:Lease-租约/Direct-直连";
+
 /// 配置值、输入值或输出值的元数据。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParameterDescriptor {
@@ -99,6 +140,8 @@ pub struct NodeDescriptor {
     pub port_probe_inputs: &'static [ParameterDescriptor],
     /// 节点自定义的平台操作。
     pub operations: &'static [OperationDescriptor],
+    /// 租约启用策略；由 `#[node(..., lease(...))]` 声明。
+    pub lease_activation: LeaseActivation,
 }
 
 impl NodeDescriptor {
@@ -133,6 +176,9 @@ impl NodeDescriptor {
             .iter()
             .map(ParameterDescriptor::definition)
             .collect::<Vec<_>>();
+        if self.lease_activation.has_platform_selector() {
+            definitions.push(RESOURCE_ACCESS_DEFINITION.to_owned());
+        }
         definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
         definitions
     }

@@ -38,6 +38,7 @@ const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     init_outputs: &INIT_OUTPUTS,
     port_probe_inputs: &[],
     operations: &OPERATIONS,
+    lease_activation: miresidian::LeaseActivation::Disabled,
 };
 
 #[derive(Default)]

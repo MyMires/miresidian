@@ -15,6 +15,7 @@ static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     init_outputs: &[],
     port_probe_inputs: &[],
     operations: &[],
+    lease_activation: miresidian::LeaseActivation::Disabled,
 };
 
 #[derive(Default)]

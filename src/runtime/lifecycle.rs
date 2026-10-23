@@ -9,7 +9,7 @@ use crate::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -18,6 +18,8 @@ pub(super) struct Channel<N> {
     pub(super) config: Vec<String>,
     /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
     pub(super) node: Arc<Mutex<N>>,
+    /// 建立此通道时选定的资源访问路径。
+    pub(super) access: LeaseAccess,
 }
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
@@ -75,7 +77,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let (node_config, execution) = self.split_init_config(config)?;
+        let (node_config, access, execution) = self.split_init_config(config)?;
         if let Some(active) = self.shared_execution
             && active != execution
         {
@@ -96,17 +98,18 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
         // 仅在初始化成功后登记对象；失败的候选对象仍尝试关闭，以释放部分建立的资源。
         let mut candidate = N::default();
-        match candidate.init_device(node_config, input) {
+        match candidate.init_device_with_access(node_config, input, access) {
             Ok(output) => {
                 self.channels.push(Channel {
                     config: node_config.to_vec(),
                     node: Arc::new(Mutex::new(candidate)),
+                    access,
                 });
                 self.shared_execution = Some(execution);
                 Ok(output)
             }
             Err(error) => {
-                let _ = candidate.close_device(&[], &[]);
+                let _ = candidate.close_device_with_access(&[], &[], access);
                 Err(error)
             }
         }
@@ -129,7 +132,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 .node
                 .lock()
                 .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-            node.close_device(config, input)?;
+            node.close_device_with_access(config, input, self.channels[index].access)?;
         }
         self.channels.remove(index);
         if self.channels.is_empty() {
@@ -194,7 +197,9 @@ impl<N: DeviceNode> NodeRuntime<N> {
     /// 将框架保留的共享执行方式从初始化或后续定位 Config 中剥离。
     fn node_config<'a>(&self, config: &'a [String]) -> MiresidianResult<&'a [String]> {
         let count = N::descriptor().init_config.len();
-        if config.len() > count + 1 {
+        if config.len()
+            > count + 1 + usize::from(N::descriptor().lease_activation.has_platform_selector())
+        {
             return Err(MiresidianError::InvalidArgument {
                 field: "Config".to_owned(),
                 message: "配置参数数量超出初始化配置定义".to_owned(),
@@ -206,11 +211,21 @@ impl<N: DeviceNode> NodeRuntime<N> {
     fn split_init_config<'a>(
         &self,
         config: &'a [String],
-    ) -> MiresidianResult<(&'a [String], ExecutionMode)> {
+    ) -> MiresidianResult<(&'a [String], LeaseAccess, ExecutionMode)> {
         let node_config = self.node_config(config)?;
-        let execution =
-            ExecutionMode::parse_platform_value(config.get(node_config.len()).map(String::as_str));
-        Ok((node_config, execution))
+        let selector = N::descriptor().lease_activation.has_platform_selector();
+        let access = N::descriptor().lease_activation.resolve_access(
+            selector
+                .then(|| config.get(node_config.len()))
+                .flatten()
+                .map(String::as_str),
+        );
+        let execution = ExecutionMode::parse_platform_value(
+            config
+                .get(node_config.len() + usize::from(selector))
+                .map(String::as_str),
+        );
+        Ok((node_config, access, execution))
     }
 
     /// 返回操作的共享调度描述；未知操作返回 `None`。

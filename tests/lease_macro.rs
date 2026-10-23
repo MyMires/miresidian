@@ -11,6 +11,7 @@ static DECLARATIVE_RELEASE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 #[miresidian::node("声明式租约节点")]
 #[miresidian::lease(
+    activation = required,
     resource = "port_name",
     configuration = ["baud_rate", "data_bits"]
 )]
