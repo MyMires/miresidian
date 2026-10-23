@@ -1,8 +1,9 @@
 //! Miresidian 节点发布包整理工具。
 //!
-//! 在节点项目根目录运行 `cargo miresidian-pack` 即构建该项目的 x86 与 x64 发布包；
-//! `cargo miresidian-pack x86`、`cargo miresidian-pack x64` 可只构建对应位数。DLL 与 C 头文件按位数放入子目录，节点说明位于
-//! `dist/<节点名称>/` 根目录。
+//! 在节点项目根目录运行 `cargo miresidian-pack [x86|x64] [节点名称]`。省略参数时，工具为
+//! 工作区中全部标注 `#[miresidian::node(...)]` 的 `cdylib` 节点构建 x64 与 x86 发布包。
+//! 每个发布目录包含按位数分类的 DLL、ABI 头文件、节点说明、修订记录和带 SHA-256 的
+//! `manifest.json`；该工具不会发布 Rust crate，也不会执行硬件测试。
 
 use std::{
     env, fs,
@@ -135,7 +136,7 @@ fn target_from_architecture(architecture: &str) -> Result<WindowsTarget, String>
 }
 
 fn usage() -> String {
-    "用法：cargo miresidian-pack；cargo miresidian-pack x86；cargo miresidian-pack x64".to_owned()
+    "用法：cargo miresidian-pack [x86|x64] [节点名称]".to_owned()
 }
 
 fn windows_x64() -> WindowsTarget {

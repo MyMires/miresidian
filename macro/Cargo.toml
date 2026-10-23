@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 的设备节点属性过程宏。"
 license = "MIT OR Apache-2.0"
+readme = "README.md"
 
 [lib]
 proc-macro = true

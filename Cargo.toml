@@ -5,14 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
 license.workspace = true
+readme = "README.md"
 autobins = false
 
 [lib]
 crate-type = ["rlib"]
 
 [workspace]
-# `constellation/*` 是基于框架的独立节点项目；工作区保留它们以便联调，
-# 但框架的默认校验范围仅包含运行时与配套宏。
+# 具体节点是框架外的独立项目；工作区仅包含框架库与配套开发工具。
 members = ["abi", "codec", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows"]
 default-members = [".", "codec", "macro"]
 resolver = "3"

@@ -8,6 +8,7 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 | 框架版本 | `miresidian 0.2.0` | 管理运行时与过程宏，使用语义化版本。 |
 | 实例项目版本 | `<node package> 0.2.0` | 每个节点独立使用语义化版本。 |
 | ABI 版本 | `5` | 仅在 C ABI 不兼容时递增。 |
+| crate 发布版本 | `miresidian_abi 0.2.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
 ## 唯一版本来源
 
@@ -38,6 +39,17 @@ miresidian_abi_version = 5
 5. 运行全部测试；进入对应节点项目后运行 `cargo miresidian-pack` 打包；打包器会拒绝框架或 ABI 版本不匹配的实例。
 6. 将 `Unreleased` 条目移动到带日期的版本条目。
 7. 提交后创建不可移动的 Git 标签：框架用 `miresidian-vX.Y.Z`，实例用 `miresidian_serial-vX.Y.Z`。
+
+### crates.io 首发顺序
+
+根 crate 依赖三个公开子 crate，因此首次发布必须按以下顺序进行：
+
+1. 对 `miresidian_abi`、`miresidian_codec`、`miresidian_macro` 分别执行 `cargo package --allow-dirty` 与测试。
+2. 依次执行三个子 crate 的 `cargo publish`，并等待 crates.io 索引可解析对应版本。
+3. 在干净工作区对根 crate 执行 `cargo package`；确认它从 crates.io 解析三个子 crate 后，再执行 `cargo publish`。
+4. `miresidian_pack` 与 `miresidian_testflow_windows` 是独立开发工具；只有移除各自的 `publish = false`、补齐包级 README 和公开仓库链接后，才单独发布。
+
+发布前必须为每个公开 crate 配置真实的 `repository`；如有文档站或主页，再补充 `documentation`、`homepage`。这些 URL 不得以猜测值代替。
 
 `MAJOR` 表示不兼容变更，`MINOR` 表示向后兼容的新能力，`PATCH` 表示向后兼容的修复。
 

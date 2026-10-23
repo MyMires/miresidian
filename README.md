@@ -44,6 +44,8 @@ src/
 
 节点发布工具位于 `tools/miresidian-pack/`，不参与框架运行时依赖。
 
+工具的输入、输出与命令用法分别见 [打包工具说明](tools/miresidian-pack/README.md) 和 [Windows TestFlow 工具说明](tools/miresidian-testflow-windows/README.md)。
+
 普通自定义操作必须传入创建该对象时完全相同的 `Config[]`；运行时据此定位通道。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
@@ -67,12 +69,23 @@ src/
 └── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
 
 ../miresidian_serial/tools/
-├── test_serial_dll.bat     # Windows DLL 烟测入口
-└── serial_smoke.flow       # 串口节点烟测流程
+├── invoke_miresidian_dll.ps1 # Windows DLL 流程执行器
+├── serial_smoke.testflow     # 串口节点烟测流程
+└── serial_smoke.bat          # 由 TestFlow 工具生成的入口
 ```
 
 因此新增 TCP、USB、CAN 等节点时，只需在各自独立的节点项目中引入通信库；
 `miresidian` 框架本身不会依赖这些具体传输库。
+
+## crate 边界
+
+- `miresidian`：节点项目唯一需要直接引入的运行时入口；ABI、编解码和宏均为必选能力。
+- `miresidian_abi`：稳定 C ABI 契约，供有直接 FFI 需求的项目使用。
+- `miresidian_codec`：跨语言数据编解码与值模型，可独立使用。
+- `miresidian_macro`：节点声明和入口生成宏；由 `miresidian` 无条件重导出，节点项目通常不直接依赖。
+- `miresidian_pack`、`miresidian_testflow_windows`：独立的 Cargo 子命令工具，不进入节点 DLL 的运行时依赖图。
+
+当前不设置 Cargo feature：运行时三个基础 crate 均不可选，开发工具则应独立安装。未来出现真正可选的运行时能力时，再以 `full` 聚合全部可选功能。
 
 ## 属性宏与节点扩展
 

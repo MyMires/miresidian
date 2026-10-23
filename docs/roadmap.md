@@ -10,6 +10,7 @@
 
 ## 节点流程测试工具
 
-- 将 `.flow` 解析、执行、断言与报告从具体节点的 PowerShell 调用器中抽离为通用工具。
+- 当前 `miresidian_testflow_windows` 只负责将 `.testflow` 生成 Windows BAT 入口；流程执行仍由节点项目持有的 PowerShell 调用器完成。
+- 当 `.testflow` 的跨平台语法、断言和报告格式稳定后，再抽取 `miresidian_testflow` 核心 crate；在此之前不重复实现或猜测流程语法。
 - 工具应通过 C ABI 的 `GetFunctions` 与 `GetInitConfig` 自适应节点，而不包含串口业务规则。
 - 保留节点项目对流程文件、测试数据和硬件环境的所有权。
