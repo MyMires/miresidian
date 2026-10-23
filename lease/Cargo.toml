@@ -1,0 +1,16 @@
+[package]
+name = "miresidian_lease"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Miresidian 通用跨进程资源租约协议与本地 IPC 基础。"
+license.workspace = true
+readme = "README.md"
+
+[features]
+local-ipc = ["dep:interprocess"]
+
+[dependencies]
+getrandom = "0.3"
+miresidian_codec = { version = "=0.3.1", path = "../codec" }
+interprocess = { version = "2.4", optional = true }

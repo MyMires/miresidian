@@ -13,6 +13,7 @@ pub(super) struct NodeDefinition {
     pub(super) init: InitMethod,
     pub(super) close: FixedMethod,
     pub(super) port_probe: Option<FixedMethod>,
+    pub(super) lease: bool,
     pub(super) operations: Vec<OperationMethod>,
 }
 /// 单个配置或输入参数的 Rust 类型与平台声明。
@@ -76,6 +77,7 @@ pub(super) fn parse(item_impl: &mut ItemImpl) -> Result<NodeDefinition> {
         ));
     }
     let mut init_method = None;
+    let lease = take_lease_attribute(&mut item_impl.attrs)?;
     let mut close_method = None;
     let mut port_probe_method = None;
     let mut operation_methods = Vec::new();
@@ -113,6 +115,7 @@ pub(super) fn parse(item_impl: &mut ItemImpl) -> Result<NodeDefinition> {
             .ok_or_else(|| Error::new_spanned(&*item_impl, "缺少 init_device 方法"))?,
         close: close_method
             .ok_or_else(|| Error::new_spanned(&*item_impl, "缺少 close_device 方法"))?,
+        lease,
         port_probe: port_probe_method,
         operations: operation_methods,
     })
@@ -306,6 +309,19 @@ pub(super) fn names(attribute: &Attribute, label: &str) -> Result<Vec<LitStr>> {
     }
     Ok(values.into_iter().collect())
 }
+fn take_lease_attribute(attributes: &mut Vec<Attribute>) -> Result<bool> {
+    let Some(attribute) = take_attribute(attributes, "lease") else {
+        return Ok(false);
+    };
+    if !matches!(attribute.meta, syn::Meta::Path(_)) {
+        return Err(Error::new_spanned(
+            attribute,
+            "#[lease] 不接受参数；资源键、配置一致性与 IPC 由 LeaseParticipant 实现决定",
+        ));
+    }
+    Ok(true)
+}
+
 fn split_definition(value: &LitStr) -> (LitStr, Option<LitStr>) {
     let span = value.span();
     let text = value.value();

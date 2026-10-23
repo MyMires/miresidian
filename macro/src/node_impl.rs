@@ -70,8 +70,29 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         .flat_map(|method| descriptor::parameters(&method.parameters))
         .collect::<Vec<_>>();
     let operation_descriptors = definition.operations.iter().map(descriptor::operation);
-    let init_call = dispatch::with_config(&self_type, &definition.init);
-    let close_call = dispatch::with_input(&self_type, &definition.close);
+    let init_call = if definition.lease {
+        dispatch::leased_with_config(&self_type, &definition.init)
+    } else {
+        dispatch::with_config(&self_type, &definition.init)
+    };
+    let close_call = if definition.lease {
+        dispatch::leased_with_input(&self_type, &definition.close)
+    } else {
+        dispatch::with_input(&self_type, &definition.close)
+    };
+    let lease_participant = definition.lease.then(|| {
+        quote! {
+            impl ::miresidian::lease::LeaseParticipant for #self_type {
+                fn acquire_lease(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
+                    <#self_type>::lease_acquire(self, config, input)
+                }
+
+                fn release_lease(&mut self) -> ::miresidian::MiresidianResult<()> {
+                    <#self_type>::lease_release(self)
+                }
+            }
+        }
+    });
     let operation_calls = definition
         .operations
         .iter()
@@ -102,6 +123,7 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
             }
             #port_probe
         }
+        #lease_participant
         #abi_exports
     };
     rewrite_framework_paths(expanded)

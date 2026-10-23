@@ -36,6 +36,13 @@
 pub mod interop;
 mod runtime;
 
+/// 可选的本地 IPC 基础能力，供需要跨进程协调物理资源的节点使用。
+///
+/// 启用 Cargo feature `lease` 后可用。它不定义具体设备的租约协议，也不替代节点对访问控制、
+/// 身份验证和资源一致性的责任。
+#[cfg(feature = "lease")]
+pub use miresidian_lease as lease;
+
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
 pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -66,7 +73,7 @@ pub use miresidian_codec::{
 /// 供具体节点使用的属性宏。
 ///
 /// 这是框架节点项目的必选代码生成能力。
-pub use miresidian_macro::{config, input, node, node_impl, operation, output};
+pub use miresidian_macro::{config, input, lease, node, node_impl, operation, output};
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,

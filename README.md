@@ -87,13 +87,45 @@ cargo install miresidian_testflow_windows
 
 ## crate 边界
 
-- `miresidian`：节点项目唯一需要直接引入的运行时入口；ABI、编解码和宏均为必选能力。
+- `miresidian`：节点项目唯一需要直接引入的运行时入口；ABI、编解码和宏为必选能力，通用租约由可选的 `lease` feature 提供。
 - `miresidian_abi`：稳定 C ABI 契约，供有直接 FFI 需求的项目使用。
 - `miresidian_codec`：跨语言数据编解码与值模型，可独立使用。
 - `miresidian_macro`：节点声明和入口生成宏；由 `miresidian` 无条件重导出，节点项目通常不直接依赖。
+- `miresidian_lease`：设备无关的资源键、配置一致性、随机租约 ID 与生命周期状态机；启用 `lease` 后由根 crate 重导出，节点不直接依赖。
 - `miresidian_pack`、`miresidian_testflow_windows`：独立的 Cargo 子命令工具，不进入节点 DLL 的运行时依赖图。
 
-当前不设置 Cargo feature：运行时三个基础 crate 均不可选，开发工具则应独立安装。未来出现真正可选的运行时能力时，再以 `full` 聚合全部可选功能。
+默认运行时保持精简；需要跨进程协调物理资源的节点可启用 `miresidian` 的 `lease` feature。该 feature 提供通用租约协议与本地 IPC 原语，不包含任一设备的通信实现。
+
+### 可选租约能力
+
+默认不启用租约。需要它的节点 crate 必须显式声明：
+
+```toml
+[dependencies]
+miresidian = { version = "0.3.1", features = ["lease"] }
+```
+
+随后只在需要跨进程协调资源的节点实现上标记租约；未标记的节点仍使用原有的普通调用路径：
+
+```rust
+#[miresidian::node_impl]
+#[miresidian::lease]
+impl NetworkOrCanNode {
+    fn lease_acquire(&mut self, config: &[String], input: &[String]) -> miresidian::MiresidianResult<()> {
+        // 将设备专属配置映射为通用 ResourceKey，并请求/续持租约。
+        todo!()
+    }
+
+    fn lease_release(&mut self) -> miresidian::MiresidianResult<()> {
+        // 释放该节点持有的租约。
+        todo!()
+    }
+
+    // init_device、close_device 和 operation 与普通节点相同。
+}
+```
+
+属性顺序固定为 `#[node_impl]` 在外、`#[lease]` 紧随其后。宏在初始化前调用 `lease_acquire`，在成功关闭后调用 `lease_release`；具体串口、TCP、CAN 或 USB 的资源键、配置一致性和 IPC 服务端均由节点实现。
 
 ## 属性宏与节点扩展
 

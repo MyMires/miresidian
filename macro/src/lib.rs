@@ -59,6 +59,16 @@ pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
+/// 为节点启用租约感知生命周期；必须紧邻并位于 `#[node_impl]` 之后。
+///
+/// 被标记节点须在同一 `impl` 中提供 `lease_acquire(&mut self, &[String], &[String])`
+/// 与 `lease_release(&mut self)` 方法。宏会生成 `LeaseParticipant` 适配，并在初始化和关闭
+/// 时自动调用这两个方法。节点依赖必须显式启用 `miresidian` 的 `lease` feature。
+#[proc_macro_attribute]
+pub fn lease(_attribute: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
 /// 标记节点方法输出；由 `node_impl` 消费。
 ///
 /// 此标注写在方法上，参数为一个或多个输出名称。未标注且返回值不是 `MiresidianResult<()>` 时，

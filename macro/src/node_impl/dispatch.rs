@@ -13,12 +13,34 @@ pub(super) fn with_config(self_type: &Type, method: &InitMethod) -> proc_macro2:
     quote! { #(#arguments)* let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) }
 }
 
+/// 生成带租约生命周期的初始化调用。
+pub(super) fn leased_with_config(
+    self_type: &Type,
+    method: &InitMethod,
+) -> proc_macro2::TokenStream {
+    let arguments = parse_arguments(&method.parameters);
+    let variables = argument_variables(method.parameters.len());
+    let method = &method.method;
+    quote! { #(#arguments)* ::miresidian::lease::LeaseParticipant::acquire_lease(self, config, input)?; let value = <#self_type>::#method(self, #(#variables),*); ::miresidian::codec::encode_value(value?) }
+}
+
 /// 生成固定入口的双通道参数解析和调用。
 pub(super) fn with_input(self_type: &Type, method: &FixedMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let method = &method.method;
     quote! { #(#arguments)* <#self_type>::#method(self, #(#variables),*) }
+}
+
+/// 生成带租约释放的固定关闭入口。
+pub(super) fn leased_with_input(
+    self_type: &Type,
+    method: &FixedMethod,
+) -> proc_macro2::TokenStream {
+    let arguments = parse_arguments(&method.parameters);
+    let variables = argument_variables(method.parameters.len());
+    let method = &method.method;
+    quote! { #(#arguments)* <#self_type>::#method(self, #(#variables),*)?; ::miresidian::lease::LeaseParticipant::release_lease(self) }
 }
 
 /// 生成 `DeviceNode::invoke` 中的一个双通道操作分支。
