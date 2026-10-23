@@ -5,10 +5,10 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.2.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `<node package> 0.2.0` | 每个节点独立使用语义化版本。 |
+| 框架版本 | `miresidian 0.3.0` | 管理运行时与过程宏，使用语义化版本。 |
+| 实例项目版本 | `<node package> 0.3.0` | 每个节点独立使用语义化版本。 |
 | ABI 版本 | `5` | 仅在 C ABI 不兼容时递增。 |
-| crate 发布版本 | `miresidian_abi 0.2.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| crate 发布版本 | `miresidian_abi 0.3.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
 ## 唯一版本来源
 
@@ -19,14 +19,14 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 ```toml
 # 根 Cargo.toml
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.2.0"
+version = "0.3.0"
 
 [package.metadata.miresidian]
-miresidian_version = "0.2.0"
+miresidian_version = "0.3.0"
 miresidian_abi_version = 5
 ```
 
@@ -47,7 +47,7 @@ miresidian_abi_version = 5
 1. 对 `miresidian_abi`、`miresidian_codec`、`miresidian_macro` 分别执行 `cargo package --allow-dirty` 与测试。
 2. 依次执行三个子 crate 的 `cargo publish`，并等待 crates.io 索引可解析对应版本。
 3. 在干净工作区对根 crate 执行 `cargo package`；确认它从 crates.io 解析三个子 crate 后，再执行 `cargo publish`。
-4. `miresidian_pack` 与 `miresidian_testflow_windows` 是独立开发工具；只有移除各自的 `publish = false`、补齐包级 README 和公开仓库链接后，才单独发布。
+4. `miresidian_pack` 与 `miresidian_testflow_windows` 是独立开发工具，均已具备发布元数据与包级 README；配置真实的公开仓库链接后，可在根 crate 之后分别执行 `cargo publish`。
 
 发布前必须为每个公开 crate 配置真实的 `repository`；如有文档站或主页，再补充 `documentation`、`homepage`。这些 URL 不得以猜测值代替。
 

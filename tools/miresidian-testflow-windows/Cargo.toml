@@ -3,14 +3,16 @@ name = "miresidian_testflow_windows"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Miresidian TestFlow Windows BAT 生成工具。"
+description = "Miresidian TestFlow Windows 自包含 BAT 生成与执行工具。"
 license.workspace = true
 readme = "README.md"
-publish = false
+keywords = ["miresidian", "cargo-subcommand", "windows", "testing"]
+categories = ["command-line-utilities", "development-tools::testing"]
 
 [[bin]]
 name = "cargo-miresidian-testflow-windows"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "0.22"
 cargo_metadata = "0.19"

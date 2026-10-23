@@ -1,0 +1,18 @@
+[package]
+name = "miresidian_tool_smoke_node"
+version = "0.3.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.miresidian]
+miresidian_version = "0.3.0"
+miresidian_abi_version = 5
+
+# 这是独立节点项目的最小 Windows 集成夹具，仅供工具链端到端验证。
+[workspace]
+
+[dependencies]
+miresidian = { version = "0.3.0", path = "../../.." }

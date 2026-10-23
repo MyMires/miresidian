@@ -46,6 +46,15 @@ src/
 
 工具的输入、输出与命令用法分别见 [打包工具说明](tools/miresidian-pack/README.md) 和 [Windows TestFlow 工具说明](tools/miresidian-testflow-windows/README.md)。
 
+工具 crate 发布后，在节点项目所在机器安装一次：
+
+```text
+cargo install miresidian_pack
+cargo install miresidian_testflow_windows
+```
+
+随后直接使用 `cargo miresidian-pack` 与 `cargo miresidian-testflow-windows`；两者均不进入节点 DLL 的运行时依赖图。
+
 普通自定义操作必须传入创建该对象时完全相同的 `Config[]`；运行时据此定位通道。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
@@ -69,7 +78,6 @@ src/
 └── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
 
 ../miresidian_serial/tools/
-├── invoke_miresidian_dll.ps1 # Windows DLL 流程执行器
 ├── serial_smoke.testflow     # 串口节点烟测流程
 └── serial_smoke.bat          # 由 TestFlow 工具生成的入口
 ```

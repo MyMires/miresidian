@@ -1,9 +1,10 @@
-//! Miresidian Windows TestFlow BAT 生成工具。
+//! Miresidian Windows TestFlow 自包含 BAT 生成工具。
 //!
 //! 在节点项目根目录运行 `cargo miresidian-testflow-windows <流程.testflow>`。工具会确认
 //! 当前包声明了 `cdylib`，并在流程文件旁生成同名 `.bat`，供 Windows 上的 PowerShell
-//! 调用器执行。它只生成入口，不解释 `.testflow` 内容、不构建 DLL，也不直接访问硬件。
+//! 执行。BAT 以 `-EncodedCommand` 内嵌框架维护的流程执行器，不依赖节点项目中的 `.ps1`；它不构建 DLL，也不直接访问硬件。
 //!
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cargo_metadata::{MetadataCommand, TargetKind};
 use std::{
     env, fs,
@@ -24,7 +25,7 @@ fn main() -> ExitCode {
 }
 /// 读取节点项目元数据，并依据 cdylib 名称生成与流程同名的 BAT 文件。
 fn run() -> Result<PathBuf, String> {
-    let a = env::args().skip(1).collect::<Vec<_>>();
+    let a = cargo_subcommand_arguments(env::args().skip(1));
     if a.len() != 1 {
         return Err("用法：cargo miresidian-testflow-windows <流程.testflow>".into());
     }
@@ -55,6 +56,18 @@ fn run() -> Result<PathBuf, String> {
     Ok(out)
 }
 
+/// Cargo 调用外部子命令时会额外传入子命令名；直接运行二进制时则不会。
+fn cargo_subcommand_arguments(arguments: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut arguments = arguments.into_iter().collect::<Vec<_>>();
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "miresidian-testflow-windows")
+    {
+        arguments.remove(0);
+    }
+    arguments
+}
+
 /// 防止把旧 `.flow` 或任意文本文件误当作当前 TestFlow 入口。
 fn validate_testflow_extension(flow: &Path) -> Result<(), String> {
     if flow.extension().and_then(|extension| extension.to_str()) == Some("testflow") {
@@ -64,18 +77,66 @@ fn validate_testflow_extension(flow: &Path) -> Result<(), String> {
     }
 }
 
-/// 生成 BAT 内容；DLL 路径相对于节点项目的 `tools/` 目录固定为 `../dist`。
+/// 生成自包含 BAT；流程和 DLL 均相对于 BAT 自身目录定位，可在 UNC 路径启动。
 fn batch_body(flow_name: &str, cdylib_name: &str) -> String {
+    let payload = embedded_runner();
+    let chunks = payload
+        .as_bytes()
+        .chunks(4000)
+        .map(|chunk| {
+            format!(
+                "echo {}",
+                std::str::from_utf8(chunk).expect("Base64 载荷必须是 ASCII")
+            )
+        })
+        .collect::<Vec<_>>();
+
     format!(
-        "@echo off\r\nsetlocal\r\npushd \"%~dp0\"\r\nset \"MIRESIDIAN_FLOW_FILE={flow_name}\"\r\nset \"MIRESIDIAN_DLL_NAME={}.dll\"\r\nset \"MIRESIDIAN_DLL_PATH=..\\dist\"\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"invoke_miresidian_dll.ps1\" -FromEnvironment -Pretty\r\npause\r\npopd\r\nendlocal\r\n",
-        cdylib_name.replace('-', "_")
+        "@echo off\r\nsetlocal\r\nset \"MIRESIDIAN_FLOW_FILE=%~dp0{flow_name}\"\r\nset \"MIRESIDIAN_DLL_NAME={}.dll\"\r\nset \"MIRESIDIAN_DLL_PATH=%~dp0..\\dist\"\r\nset \"MIRESIDIAN_TESTFLOW_PAYLOAD=%TEMP%\\miresidian-testflow-%RANDOM%-%RANDOM%.b64\"\r\n> \"%MIRESIDIAN_TESTFLOW_PAYLOAD%\" (\r\n{}\r\n)\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand {}\r\nset \"MIRESIDIAN_TESTFLOW_EXIT=%ERRORLEVEL%\"\r\ndel /q \"%MIRESIDIAN_TESTFLOW_PAYLOAD%\" >nul 2>nul\r\nif not defined MIRESIDIAN_TESTFLOW_NO_PAUSE pause\r\nendlocal & exit /b %MIRESIDIAN_TESTFLOW_EXIT%\r\n",
+        cdylib_name.replace('-', "_"),
+        chunks.join("\r\n"),
+        embedded_bootstrap(),
+    )
+}
+
+const RUNNER: &str = include_str!("runner.ps1");
+
+/// PowerShell 的 `-EncodedCommand` 要求 UTF-16LE 文本的 Base64 编码。
+fn encode_powershell(source: &str) -> String {
+    let bytes = source
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect::<Vec<_>>();
+    STANDARD.encode(bytes)
+}
+
+/// 完整执行器分段写入临时载荷，避免 cmd.exe 的单条命令长度限制。
+fn embedded_runner() -> String {
+    encode_powershell(RUNNER)
+}
+
+/// 短引导命令从临时载荷在内存中恢复并运行完整 TestFlow 执行器。
+fn embedded_bootstrap() -> String {
+    encode_powershell(
+        r#"$payload=[IO.File]::ReadAllText($env:MIRESIDIAN_TESTFLOW_PAYLOAD);$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($payload));Remove-Item -LiteralPath $env:MIRESIDIAN_TESTFLOW_PAYLOAD -Force;&([ScriptBlock]::Create($script));exit $LASTEXITCODE"#,
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{batch_body, validate_testflow_extension};
+    use super::{batch_body, cargo_subcommand_arguments, validate_testflow_extension};
     use std::path::Path;
+
+    #[test]
+    fn cargo_子命令名不会被当作流程路径() {
+        assert_eq!(
+            cargo_subcommand_arguments([
+                "miresidian-testflow-windows".to_owned(),
+                "tools/smoke.testflow".to_owned(),
+            ]),
+            vec!["tools/smoke.testflow"]
+        );
+    }
 
     #[test]
     fn only_testflow_files_are_accepted() {
@@ -86,8 +147,30 @@ mod tests {
     #[test]
     fn windows_batch_uses_flow_name_and_cdylib_name() {
         let batch = batch_body("serial_smoke.testflow", "serial-node");
-        assert!(batch.contains("MIRESIDIAN_FLOW_FILE=serial_smoke.testflow"));
+        assert!(batch.contains("MIRESIDIAN_FLOW_FILE=%~dp0serial_smoke.testflow"));
         assert!(batch.contains("MIRESIDIAN_DLL_NAME=serial_node.dll"));
-        assert!(batch.contains("MIRESIDIAN_DLL_PATH=..\\dist"));
+        assert!(batch.contains("MIRESIDIAN_DLL_PATH=%~dp0..\\dist"));
+        assert!(!batch.contains("pushd "));
+    }
+
+    #[test]
+    fn generated_batch_is_self_contained() {
+        let batch = batch_body("serial_smoke.testflow", "serial-node");
+        assert!(batch.contains("-EncodedCommand"));
+        assert!(batch.contains("MIRESIDIAN_TESTFLOW_PAYLOAD"));
+        assert!(batch.contains("MIRESIDIAN_TESTFLOW_NO_PAUSE"));
+        assert!(batch.contains("endlocal & exit /b %MIRESIDIAN_TESTFLOW_EXIT%"));
+        assert!(batch.lines().all(|line| line.len() < 8_191));
+        assert!(!batch.contains("invoke_miresidian_dll.ps1"));
+        assert!(super::RUNNER.contains("function Invoke-Flow"));
+        assert!(super::RUNNER.contains("Get-FlowMethodDefinitions"));
+        assert!(super::RUNNER.contains("miresidian_invoke"));
+        assert!(super::RUNNER.contains(".ProviderPath"));
+        assert!(
+            super::RUNNER
+                .lines()
+                .filter(|line| line.contains("Resolve-Path"))
+                .all(|line| line.contains(".ProviderPath"))
+        );
     }
 }

@@ -6,10 +6,13 @@
 
 尚未发布的变更必须先记录在本节，发布时移动到对应版本与日期下。
 
+## [0.3.0] - 2026-10-24
+
 ### Added
 
 - 拆分并公开 `miresidian_abi`、`miresidian_codec` 与 `miresidian_macro`；根 crate 保持统一入口，宏为必选能力。
 - 新增 `miresidian_testflow_windows` 开发工具，用于从 `.testflow` 生成 Windows BAT 测试入口。
+- 新增无硬件 Windows 冒烟夹具与 CI：安装正式 Cargo 子命令后，自动完成 x64 打包、BAT 生成及 DLL 调用。
 - 为三个公开子 crate 补充包级 README，并明确 crates.io 首发顺序。
 
 - `NodeRuntime` 按完整 Config 创建、复用、定位和关闭多个通道对象。
@@ -20,6 +23,9 @@
 - 版本标识统一为 `miresidian_version`、`miresidian_abi_version` 与 `miresidian` 发布清单键。
 
 ### Changed
+
+- TestFlow Windows BAT 改为内嵌框架执行器，节点项目不再保存 PowerShell 调用器。
+- TestFlow 执行器统一使用原生文件系统路径，兼容 UNC 路径下的 DLL 加载与流程读取；自动化可设置 `MIRESIDIAN_TESTFLOW_NO_PAUSE=1` 跳过暂停。
 
 - 补充公开 crate、节点打包工具与 Windows TestFlow 工具的职责、输入输出及发布说明。
 

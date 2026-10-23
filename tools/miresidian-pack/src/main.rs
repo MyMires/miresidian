@@ -99,7 +99,19 @@ fn package() -> Result<(), String> {
 
 /// 解析打包参数，兼容全部节点、全部位数与单节点、单个位数的组合。
 fn selected_request() -> Result<PackageRequest, String> {
-    request_from_args(env::args().skip(1))
+    request_from_args(cargo_subcommand_arguments(env::args().skip(1)))
+}
+
+/// Cargo 调用外部子命令时会额外传入子命令名；直接运行二进制时则不会。
+fn cargo_subcommand_arguments(arguments: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut arguments = arguments.into_iter().collect::<Vec<_>>();
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "miresidian-pack")
+    {
+        arguments.remove(0);
+    }
+    arguments
 }
 
 fn request_from_args(
@@ -565,6 +577,19 @@ mod tests {
 
         assert_eq!(request.node_name.as_deref(), Some("串口通信"));
         assert_eq!(request.targets, vec![windows_x64(), windows_x86()]);
+    }
+
+    #[test]
+    fn cargo_子命令名不会被当作打包参数() {
+        let request = request_from_args(cargo_subcommand_arguments(arguments(&[
+            "miresidian-pack",
+            "x64",
+            "串口通信",
+        ])))
+        .expect("Cargo 子命令参数应可解析");
+
+        assert_eq!(request.node_name.as_deref(), Some("串口通信"));
+        assert_eq!(request.targets, vec![windows_x64()]);
     }
 
     #[test]

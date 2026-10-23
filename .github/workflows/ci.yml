@@ -15,3 +15,37 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --all-targets
+
+
+  windows-tools:
+    name: Windows 工具端到端验证
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
+      - name: 配置 MinGW 链接器
+        shell: powershell
+        run: |
+          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: 安装框架 Cargo 子命令
+        shell: powershell
+        run: |
+          cargo install --path tools/miresidian-pack --root "$env:RUNNER_TEMP\miresidian-tools" --force
+          cargo install --path tools/miresidian-testflow-windows --root "$env:RUNNER_TEMP\miresidian-tools" --force
+          "$env:RUNNER_TEMP\miresidian-tools\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: 打包并执行无硬件 TestFlow
+        working-directory: tools/fixtures/smoke-node
+        shell: powershell
+        run: |
+          cargo miresidian-pack x64 工具冒烟节点
+          cargo miresidian-testflow-windows tools/smoke.testflow
+          $env:MIRESIDIAN_TESTFLOW_NO_PAUSE = 1
+          cmd.exe /d /c tools\smoke.bat
+          if ($LASTEXITCODE -ne 0) { throw "TestFlow 失败，退出码：$LASTEXITCODE" }
+          if (-not (Test-Path dist/工具冒烟节点/windows-x64/miresidian_tool_smoke_node.dll)) { throw '未生成 x64 DLL' }

@@ -1,0 +1,4 @@
+# 此流程不访问硬件，可由 Windows CI 直接执行。
+GetFrameworkVersion()
+GetProjectVersion()
+GetFunctions()
