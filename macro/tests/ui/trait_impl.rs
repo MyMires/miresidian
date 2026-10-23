@@ -1,4 +1,4 @@
-use miresidian_macros::node_impl;
+use miresidian_macro::node_impl;
 
 trait ExternalContract {}
 struct TraitNode;

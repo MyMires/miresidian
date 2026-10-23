@@ -1,0 +1,15 @@
+[package]
+name = "miresidian_testflow_windows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Miresidian TestFlow Windows BAT 生成工具。"
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "cargo-miresidian-testflow-windows"
+path = "src/main.rs"
+
+[dependencies]
+cargo_metadata = "0.19"

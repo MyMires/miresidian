@@ -172,7 +172,7 @@ version = "0.2.0"
 dependencies = [
  "miresidian_abi",
  "miresidian_codec",
- "miresidian_macros",
+ "miresidian_macro",
  "serde",
  "serde_json",
 ]
@@ -191,7 +191,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "miresidian_macros"
+name = "miresidian_macro"
 version = "0.2.0"
 dependencies = [
  "proc-macro-crate",
@@ -209,6 +209,13 @@ dependencies = [
  "serde_json",
  "sha2",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "miresidian_testflow_windows"
+version = "0.2.0"
+dependencies = [
+ "cargo_metadata",
 ]
 
 [[package]]

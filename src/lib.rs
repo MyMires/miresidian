@@ -65,10 +65,8 @@ pub use miresidian_codec::{
 };
 /// 供具体节点使用的属性宏。
 ///
-/// 这是默认启用的框架能力。仅使用 ABI、运行时或编解码 API 的项目可通过
-/// `default-features = false` 省略编译期过程宏依赖。
-#[cfg(feature = "macros")]
-pub use miresidian_macros::{config, input, node, node_impl, operation, output};
+/// 这是框架节点项目的必选代码生成能力。
+pub use miresidian_macro::{config, input, node, node_impl, operation, output};
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,

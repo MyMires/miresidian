@@ -1,6 +1,6 @@
 //! `#[operation]` 声明未知执行方式关键字时必须在编译期失败。
 
-use miresidian_macros::{node, node_impl, operation};
+use miresidian_macro::{node, node_impl, operation};
 
 #[node("非法执行方式节点")]
 #[derive(Default)]

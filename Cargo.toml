@@ -10,17 +10,11 @@ autobins = false
 [lib]
 crate-type = ["rlib"]
 
-[features]
-# 节点开发者默认可直接使用 `#[miresidian::node]` 等属性宏；纯运行时使用者
-# 可通过 `default-features = false` 避免编译过程宏依赖。
-default = ["macros"]
-macros = ["dep:miresidian_macros"]
-
 [workspace]
 # `constellation/*` 是基于框架的独立节点项目；工作区保留它们以便联调，
 # 但框架的默认校验范围仅包含运行时与配套宏。
-members = ["abi", "codec", "macros", "tools/miresidian-pack"]
-default-members = [".", "codec", "macros"]
+members = ["abi", "codec", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows"]
+default-members = [".", "codec", "macro"]
 resolver = "3"
 
 [workspace.package]
@@ -31,6 +25,6 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 miresidian_abi = { version = "=0.2.0", path = "abi" }
 miresidian_codec = { version = "=0.2.0", path = "codec" }
-miresidian_macros = { version = "=0.2.0", path = "macros", optional = true }
+miresidian_macro = { version = "=0.2.0", path = "macro" }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }

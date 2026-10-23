@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use miresidian_macros::{node_impl, operation, output};
+use miresidian_macro::{node_impl, operation, output};
 
 struct InvalidOutput;
 
