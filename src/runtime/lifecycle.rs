@@ -7,11 +7,6 @@
 use crate::lease::local_ipc::LocalLease;
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "lease")]
-type ActiveLease = LocalLease;
-#[cfg(not(feature = "lease"))]
-type ActiveLease = ();
-
 use crate::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
@@ -26,7 +21,8 @@ pub(super) struct Channel<N> {
     /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
     pub(super) node: Arc<Mutex<N>>,
     /// 框架持有的通用租约；业务节点不感知该令牌。
-    pub(super) lease: Option<ActiveLease>,
+    #[cfg(feature = "lease")]
+    pub(super) lease: Option<LocalLease>,
 }
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
@@ -118,15 +114,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
             None
         };
         #[cfg(not(feature = "lease"))]
-        let lease: Option<ActiveLease> = {
-            let _ = access;
-            None
-        };
+        let _ = access;
         match candidate.init_device(node_config, input) {
             Ok(output) => {
                 self.channels.push(Channel {
                     config: node_config.to_vec(),
                     node: Arc::new(Mutex::new(candidate)),
+                    #[cfg(feature = "lease")]
                     lease,
                 });
                 self.shared_execution = Some(execution);
