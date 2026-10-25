@@ -7,7 +7,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 当前实现已经具备可编译、可测试的运行时。数据编解码、参数解析、跨语言值模型与通用错误类型位于独立的 `miresidian_codec` crate；`miresidian` 保持兼容重导出：
 
 - 使用 `operation + config + input -> output` 的统一文本调用契约；
-- 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
+- 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`；
 - 通过 `DeviceNode` 定义节点生命周期、自定义操作与编译进 DLL 的平台适配器注册表；
 - 通过 `NodeRuntime` 按完整 Config 管理多通道对象、临时端口探测和资源关闭；
 - 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由操作标注选择顺序或并行分发；
@@ -107,7 +107,7 @@ cargo install miresidian_testflow_windows
 
 ```toml
 [dependencies]
-miresidian = { version = "0.7.0", features = ["lease"] }
+miresidian = { version = "0.8.0", features = ["lease"] }
 ```
 
 仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：

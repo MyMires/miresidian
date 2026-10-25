@@ -14,7 +14,8 @@ use serde::Serialize;
 
 use crate::{
     DeviceNode, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus, NodeRuntime,
+    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus,
+    NodeRuntime,
 };
 
 const INTERNAL_ERROR_RESPONSE: &str =
@@ -119,7 +120,19 @@ unsafe fn dispatch<N: DeviceNode>(
         })?
         .invoke(&Invocation::new(operation, config, input))
         .map(|value| value.into_values())
-        .map_err(|error| (MIRESIDIAN_STATUS_OPERATION_FAILED, error.to_string()))
+        .map_err(|error| (status_for_error(&error), error.to_string()))
+}
+
+fn status_for_error(error: &MiresidianError) -> MiresidianStatus {
+    match error {
+        MiresidianError::InvalidArgument { .. } | MiresidianError::InvalidOperation(_) => {
+            MIRESIDIAN_STATUS_INVALID_ARGUMENT
+        }
+        MiresidianError::NotInitialized
+        | MiresidianError::UnknownChannel(_)
+        | MiresidianError::NotSupported(_)
+        | MiresidianError::Failure(_) => MIRESIDIAN_STATUS_OPERATION_FAILED,
+    }
 }
 
 unsafe fn parse_json_array(value: *const c_char, field: &str) -> Result<Vec<String>, String> {

@@ -14,6 +14,8 @@ pub const GET_PORT_NO_OPERATION: &str = "GetPortNO";
 pub const INIT_DEVICE_OPERATION: &str = "InitDevice";
 /// 关闭并释放当前节点的兼容操作。
 pub const CLOSE_DEVICE_OPERATION: &str = "CloseDevice";
+/// 关闭并释放当前运行时全部通道的兼容操作。
+pub const CLOSE_ALL_DEVICES_OPERATION: &str = "CloseAllDevices";
 /// TB LV Test Platform 兼容适配器使用的共享调用标记值。
 ///
 /// 新平台不应依赖该文本标记，而应通过 `PlatformAdapter` 构造结构化共享调用。

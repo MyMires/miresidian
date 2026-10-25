@@ -16,7 +16,7 @@ const char *miresidian_invoke(
     const char *input_json);
 ~~~
 
-- function：UTF-8 C 字符串，例如 GetFunctions、GetFrameworkVersion、GetProjectVersion、InitDevice 或节点操作名。
+- function：UTF-8 C 字符串，例如 GetFunctions、GetFrameworkVersion、GetProjectVersion、InitDevice、CloseAllDevices 或节点操作名。
 - config_json、input_json：JSON 字符串数组，例如 ["COM3","9600"]；传 NULL 等同于 []。数组元素不能是数值、布尔值或对象。
 - 返回值 `result_json`：DLL 内部保存的 UTF-8 JSON C 字符串指针。
 
@@ -57,7 +57,7 @@ const char *result_json = miresidian_invoke(
 status 为状态码，message 为成功时的空字符串或失败诊断，output 始终为业务字符串数组。
 JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
 
-GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。
+GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。`CloseAllDevices` 也不要求先初始化：它会幂等地清理当前运行时持有的全部通道。
 GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；GetProjectVersion 的 output 为当前 DLL 项目的语义化版本。
 这两个值来自 DLL 的编译期元数据，可用于与发布包 `manifest.json` 交叉核对。
 只有节点定义的设备操作才会在未初始化时返回“设备尚未初始化”。
@@ -67,6 +67,6 @@ GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；Ge
 | 值 | 含义 |
 | --- | --- |
 | 0 | 成功 |
-| 1 | 参数无效 |
-| 2 | 操作失败 |
+| 1 | 参数无效：ABI 文本/JSON 不合法，或运行时拒绝参数、运行时明确报告的未知操作。 |
+| 2 | 操作失败：未初始化、通道不存在、节点关闭或业务执行失败。 |
 | 3 | 内部错误 |

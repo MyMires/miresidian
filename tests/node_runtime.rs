@@ -1,10 +1,11 @@
 use miresidian::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
-    INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MIRESIDIAN_VERSION, MiresidianError,
-    MiresidianResult, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
-    PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation,
-    TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
+    CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
+    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
+    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult, NodeDescriptor,
+    NodeRuntime, OperationDescriptor, ParameterDescriptor, PlatformAdapter, PlatformRegistry,
+    RuntimeInvocation, RuntimeResponse, SharedInvocation, TB_LV_TEST_PLATFORM,
+    TbLvTestPlatformAdapter,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -73,6 +74,9 @@ impl DeviceNode for MemoryNode {
     }
 
     fn close_device(&mut self, _config: &[String], _input: &[String]) -> MiresidianResult<()> {
+        if self.address == "fail-close" {
+            return Err(MiresidianError::Failure("模拟关闭失败".to_owned()));
+        }
         Ok(())
     }
 
@@ -167,6 +171,11 @@ fn fixed_operations_publish_compatible_metadata() {
             .as_slice()
             .contains(&"GetPortNO()(搜索结果,端口号)".to_owned())
     );
+    assert!(
+        functions
+            .as_slice()
+            .contains(&"CloseAllDevices()()".to_owned())
+    );
 
     let config = runtime
         .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
@@ -221,6 +230,68 @@ fn node_operations_require_lifecycle_and_round_trip_values() {
         .invoke(&request(CLOSE_DEVICE_OPERATION, &["127.0.0.1"], &[]))
         .unwrap();
     assert!(!runtime.is_initialized());
+}
+
+#[test]
+fn close_all_devices_releases_every_channel_and_resets_the_runtime() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B"], &[]))
+        .unwrap();
+
+    let output = runtime
+        .invoke(&request(CLOSE_ALL_DEVICES_OPERATION, &[], &[]))
+        .unwrap();
+    assert!(output.as_slice().is_empty());
+    assert!(!runtime.is_initialized());
+    assert_eq!(
+        runtime.invoke(&request("Query", &["A"], &["ping"])),
+        Err(MiresidianError::NotInitialized)
+    );
+
+    let error = runtime
+        .invoke(&request(CLOSE_ALL_DEVICES_OPERATION, &[], &["unexpected"]))
+        .expect_err("批量关闭不接受业务参数");
+    assert!(error.to_string().contains("不接受 Config 或 Input 参数"));
+}
+
+#[test]
+fn shutdown_converges_the_runtime_after_a_close_failure() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["fail-close"], &[]))
+        .unwrap();
+
+    let error = runtime
+        .shutdown()
+        .expect_err("节点关闭失败必须向调用方报告");
+    assert!(error.to_string().contains("通道 [fail-close] 关闭失败"));
+    assert!(!runtime.is_initialized());
+
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B"], &[]))
+        .expect("失败清理后运行时必须可重新初始化");
+}
+
+#[test]
+fn shutdown_resets_execution_and_platform_selection() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]))
+        .unwrap();
+
+    runtime.shutdown().expect("关闭应成功");
+    assert!(!runtime.is_initialized());
+
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B", "Broadcast"], &[]))
+        .expect("关闭后应能选择新的共享执行方式");
 }
 
 #[test]

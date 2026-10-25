@@ -9,12 +9,13 @@ use crate::lease::local_ipc::LocalLease;
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
-    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
-    PLATFORM_ADAPTER_NAME, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
-    SharedInvocation, SharedResponse, normalize_value_with_definition,
+    CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
+    ExecutionMode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
+    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
+    INIT_DEVICE_OPERATION, Invocation, InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION,
+    MiresidianError, MiresidianResult, PLATFORM_ADAPTER_NAME, PlatformAdapter, PlatformRegistry,
+    RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse,
+    normalize_value_with_definition,
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -160,6 +161,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 platform_selector_enabled,
                 adapter_identifier,
             ),
+            CLOSE_ALL_DEVICES_OPERATION => self.close_all(&invocation.config, &invocation.input),
             operation => self.invoke_node(
                 operation,
                 &invocation.config,
@@ -173,6 +175,44 @@ impl<N: DeviceNode> NodeRuntime<N> {
     /// 返回当前是否保留着至少一个已初始化通道对象。
     pub fn is_initialized(&self) -> bool {
         !self.channels.is_empty()
+    }
+
+    /// 关闭并释放全部已初始化通道。
+    ///
+    /// 无论单个节点关闭或租约释放是否失败，运行时都会移除全部通道并重置平台与共享调度
+    /// 状态，避免已关闭或半关闭对象继续参与后续调用。失败会在全部清理尝试完成后汇总返回。
+    pub fn shutdown(&mut self) -> MiresidianResult<()> {
+        let mut failures = Vec::new();
+
+        while let Some(channel) = self.channels.pop() {
+            let channel_key = channel.config.join(",");
+            match channel.node.lock() {
+                Ok(mut node) => {
+                    if let Err(error) = node.close_device(&channel.config, &[]) {
+                        failures.push(format!("通道 [{channel_key}] 关闭失败: {error}"));
+                    }
+                }
+                Err(_) => failures.push(format!("通道 [{channel_key}] 的节点状态锁已损坏")),
+            }
+            #[cfg(feature = "lease")]
+            if let Some(mut lease) = channel.lease
+                && let Err(error) = lease.release()
+            {
+                failures.push(format!("通道 [{channel_key}] 租约释放失败: {error}"));
+            }
+        }
+
+        self.shared_execution = None;
+        self.active_platform = None;
+
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(MiresidianError::Failure(format!(
+                "关闭全部通道时发生清理失败: {}",
+                failures.join("；")
+            )))
+        }
     }
 
     /// 以规范化后的业务 Config 定位通道对象。
@@ -289,17 +329,45 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
             node.close_device(&channel.config, input)?;
         }
+        let channel = self.channels.remove(index);
         #[cfg(feature = "lease")]
-        if let Some(mut lease) = self.channels[index].lease.take() {
-            lease
-                .release()
-                .map_err(|error| MiresidianError::Failure(error.to_string()))?;
-        }
-        self.channels.remove(index);
+        let cleanup_failure = if let Some(mut lease) = channel.lease {
+            lease.release().err().map(|error| {
+                MiresidianError::Failure(format!(
+                    "通道 [{}] 已关闭，但租约释放失败: {error}",
+                    channel.config.join(",")
+                ))
+            })
+        } else {
+            None
+        };
+        #[cfg(not(feature = "lease"))]
+        let cleanup_failure: Option<MiresidianError> = None;
+        #[cfg(not(feature = "lease"))]
+        let _ = channel;
+
         if self.channels.is_empty() {
             self.shared_execution = None;
             self.active_platform = None;
         }
+        match cleanup_failure {
+            Some(error) => Err(error),
+            None => Ok(InvocationOutput::empty()),
+        }
+    }
+
+    fn close_all(
+        &mut self,
+        config: &[String],
+        input: &[String],
+    ) -> MiresidianResult<InvocationOutput> {
+        if !config.is_empty() || !input.is_empty() {
+            return Err(MiresidianError::InvalidArgument {
+                field: CLOSE_ALL_DEVICES_OPERATION.to_owned(),
+                message: "不接受 Config 或 Input 参数".to_owned(),
+            });
+        }
+        self.shutdown()?;
         Ok(InvocationOutput::empty())
     }
 
@@ -491,5 +559,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
 impl<N: DeviceNode> Default for NodeRuntime<N> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<N: DeviceNode> Drop for NodeRuntime<N> {
+    fn drop(&mut self) {
+        // Drop 不能传播生命周期错误，也不能因节点实现 panic 而在析构期间二次 panic。
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.shutdown()));
     }
 }

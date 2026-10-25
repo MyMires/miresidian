@@ -2,8 +2,8 @@
 
 use miresidian::{
     DeviceNode, Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MiresidianResult, NodeDescriptor, NodeRuntime, PlatformAdapter,
-    PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianResult, NodeDescriptor,
+    NodeRuntime, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
 };
 use std::{
     ffi::{CStr, CString},
@@ -176,6 +176,20 @@ fn c_abi_可从节点注册表选择编译进_dll_的平台() {
         serde_json::from_str(unsafe { CStr::from_ptr(initialized) }.to_str().unwrap()).unwrap();
     assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
     assert_eq!(initialized["output"], serde_json::json!(["c-abi-mock"]));
+}
+
+#[test]
+fn 运行时参数校验映射为无效参数状态码() {
+    let output = call("InitDevice", r#"["unexpected","extra"]"#);
+    assert_eq!(output["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
+    assert!(output["message"].as_str().unwrap().contains("配置参数数量"));
+}
+
+#[test]
+fn 运行时执行失败映射为操作失败状态码() {
+    let output = call("UnknownOperation", "[]");
+    assert_eq!(output["status"], MIRESIDIAN_STATUS_OPERATION_FAILED);
+    assert!(output["message"].as_str().unwrap().contains("尚未初始化"));
 }
 
 #[test]

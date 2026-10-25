@@ -26,7 +26,7 @@ Function + Config[] + Input[] -> Output[]
 - `Output[]` 是有序字符串数组；无业务输出的方法返回空数组。
 - Rust 运行时内部仍使用 `operation` 表示节点调度语义。不得将内部名称反向暴露为平台契约，也不得把平台的 `Function` 擅自改称为其他名称。
 
-固定入口的外部名称为 `GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`。其中两个版本查询不依赖设备初始化。普通节点方法使用 `operation` 标注发布名称。
+固定入口的外部名称为 `GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`。其中两个版本查询不依赖设备初始化。普通节点方法使用 `operation` 标注发布名称。
 
 ## 参数通道
 
@@ -40,6 +40,7 @@ Function + Config[] + Input[] -> Output[]
 - 普通 `NodeRuntime::invoke` 路径会在 `InitDevice` 的业务 Config（及可选租约方式）之后追加 `平台适配:<已注册 id...>`。该值仅用于从运行时注册表选择适配器，不参与通道键，也不传给节点；显式 `invoke_with(adapter, ...)` 路径不发布也不接受该项。宏生成的 C ABI 在首次调用时使用节点 `platforms(...)` 声明生成该注册表。
 - 框架自动在 `InitDevice` 配置末尾追加 `共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播`。该值不传给节点 `init_device`，也不参与通道键；缺失、空白或未知值均回退为 `Sequential`。
 - 首个成功初始化的通道确定本驱动运行时的共享执行方式；后续通道必须解析为同一方式。最后一个通道关闭后可重新选择。
+- `CloseAllDevices` 不接受 Config 或 Input；它按已创建通道的逆序逐一关闭、始终清空运行时登记并重置平台/共享执行状态。若任一关闭或租约释放失败，全部清理尝试完成后返回汇总错误。
 - 除常驻查询和 `GetPortNO` 外，普通调用与 `CloseDevice` 以业务 Config 定位通道；运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，携带的框架保留末项会自动剥离。
 - 自定义操作的 `Input[0]` 为 `共享` 时进入共享调用。随后每项依创建通道顺序对应一个通道，使用英文逗号分隔该通道的 Input 参数；参数内部数组仍使用 `|` 语法，输出也一通道一个槽位。
 - `Sequential` 顺序执行，`Parallel` 并行执行，`Broadcast` 要求各有效通道参数串完全一致，并以同一参数计划顺序执行到各目标通道。
