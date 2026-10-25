@@ -14,7 +14,9 @@ pub const GET_PORT_NO_OPERATION: &str = "GetPortNO";
 pub const INIT_DEVICE_OPERATION: &str = "InitDevice";
 /// 关闭并释放当前节点的兼容操作。
 pub const CLOSE_DEVICE_OPERATION: &str = "CloseDevice";
-/// 共享调用的标记值；出现在节点自定义操作 Input 的首个元素时触发多通道批量执行。
+/// TB LV Test Platform 兼容适配器使用的共享调用标记值。
+///
+/// 新平台不应依赖该文本标记，而应通过 `PlatformAdapter` 构造结构化共享调用。
 pub const SHARED_INVOCATION_MARKER: &str = "共享";
 /// InitDevice 命中已有通道而复用对象时返回的固定提示文本。
 pub const CHANNEL_REUSED_MESSAGE: &str = "已复用已有连接";

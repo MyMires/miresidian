@@ -109,7 +109,7 @@ unsafe fn dispatch<N: DeviceNode>(
     let input = unsafe { parse_json_array(input_json, "input_json") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
     runtime
-        .get_or_init(|| Mutex::new(NodeRuntime::new()))
+        .get_or_init(|| Mutex::new(NodeRuntime::with_platforms(N::platform_registry())))
         .lock()
         .map_err(|_| {
             (

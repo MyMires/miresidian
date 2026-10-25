@@ -1,8 +1,9 @@
 //! JSON 文本 ABI 的固定操作回归测试。
 
 use miresidian::{
-    DeviceNode, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
-    MiresidianResult, NodeDescriptor, NodeRuntime,
+    DeviceNode, Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
+    MIRESIDIAN_STATUS_OK, MiresidianResult, NodeDescriptor, NodeRuntime, PlatformAdapter,
+    PlatformRegistry, RuntimeInvocation, RuntimeResponse,
 };
 use std::{
     ffi::{CStr, CString},
@@ -45,6 +46,58 @@ impl DeviceNode for TestNode {
     }
 }
 
+#[derive(Default)]
+struct CAbiPlatformNode;
+
+impl DeviceNode for CAbiPlatformNode {
+    fn descriptor() -> &'static NodeDescriptor {
+        &DESCRIPTOR
+    }
+
+    fn platform_registry() -> PlatformRegistry {
+        PlatformRegistry::default().with_adapter(CAbiMockAdapter)
+    }
+
+    fn init_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<InvocationOutput> {
+        Ok(InvocationOutput::empty())
+    }
+
+    fn close_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<()> {
+        Ok(())
+    }
+
+    fn invoke(
+        &mut self,
+        _: &str,
+        _: &[String],
+        _: &[String],
+    ) -> MiresidianResult<InvocationOutput> {
+        Ok(InvocationOutput::empty())
+    }
+}
+
+#[derive(Clone, Copy)]
+struct CAbiMockAdapter;
+
+impl PlatformAdapter for CAbiMockAdapter {
+    fn identifier(&self) -> &'static str {
+        "c_abi_mock_platform"
+    }
+
+    fn decode(&self, invocation: Invocation) -> MiresidianResult<RuntimeInvocation> {
+        Ok(RuntimeInvocation::Single(invocation))
+    }
+
+    fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
+        match response {
+            RuntimeResponse::Output(_) => Ok(InvocationOutput::new(vec!["c-abi-mock".to_owned()])),
+            RuntimeResponse::Shared(_) => {
+                Ok(InvocationOutput::new(vec!["c-abi-mock-shared".to_owned()]))
+            }
+        }
+    }
+}
+
 fn call(function: &str, config_json: &str) -> serde_json::Value {
     let runtime: OnceLock<Mutex<NodeRuntime<TestNode>>> = OnceLock::new();
     let function = CString::new(function).expect("固定操作名不含 NUL");
@@ -78,8 +131,51 @@ fn get_init_config_无需调用方输出缓冲区() {
     assert_eq!(output["message"], "");
     assert_eq!(
         output["output"],
-        serde_json::json!(["共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"])
+        serde_json::json!([
+            "平台适配:tb_lv_test_platform",
+            "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"
+        ])
     );
+}
+
+#[test]
+fn c_abi_可从节点注册表选择编译进_dll_的平台() {
+    let runtime: OnceLock<Mutex<NodeRuntime<CAbiPlatformNode>>> = OnceLock::new();
+    let function = CString::new("GetInitConfig").unwrap();
+    let config = CString::new("[]").unwrap();
+    let metadata = unsafe {
+        miresidian::ffi_runtime::invoke(
+            &runtime,
+            function.as_ptr(),
+            config.as_ptr(),
+            c"[]".as_ptr(),
+        )
+    };
+    let metadata: serde_json::Value =
+        serde_json::from_str(unsafe { CStr::from_ptr(metadata) }.to_str().unwrap()).unwrap();
+    assert!(
+        metadata["output"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!(
+                "平台适配:c_abi_mock_platform/tb_lv_test_platform"
+            ))
+    );
+
+    let function = CString::new("InitDevice").unwrap();
+    let config = CString::new("[\"c_abi_mock_platform\"]").unwrap();
+    let initialized = unsafe {
+        miresidian::ffi_runtime::invoke(
+            &runtime,
+            function.as_ptr(),
+            config.as_ptr(),
+            c"[]".as_ptr(),
+        )
+    };
+    let initialized: serde_json::Value =
+        serde_json::from_str(unsafe { CStr::from_ptr(initialized) }.to_str().unwrap()).unwrap();
+    assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
+    assert_eq!(initialized["output"], serde_json::json!(["c-abi-mock"]));
 }
 
 #[test]

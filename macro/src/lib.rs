@@ -11,7 +11,8 @@ use syn::{ItemImpl, parse_macro_input};
 
 /// 标记一个可由 Miresidian 加载的节点结构体。
 ///
-/// 参数必须是节点在测试平台中的展示名称，例如 `#[miresidian::node("串口通信")]`。
+/// 参数必须以节点在测试平台中的展示名称开始，例如 `#[miresidian::node("串口通信")]`。
+/// 可选 `platforms(AdapterType, ...)` 将实现 `Default` 的平台适配器编译进该 DLL。
 /// `node_impl` 会读取该名称并写入节点描述信息。
 #[proc_macro_attribute]
 pub fn node(attribute: TokenStream, item: TokenStream) -> TokenStream {
@@ -19,6 +20,7 @@ pub fn node(attribute: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// 分析节点实现并生成平台调度与 C ABI 入口。
+/// 平台适配器由同一类型上的 `#[node(..., platforms(AdapterType, ...))]` 声明注册。
 ///
 /// 标注的 `impl` 块必须包含 `init_device` 和 `close_device`，并且二者以 `&mut self`
 /// 为接收者。宏会消费其中的 `operation`、`config`、`input` 与 `output` 标注。

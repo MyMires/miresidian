@@ -4,7 +4,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Error, Expr, ExprArray, ExprLit, Ident, ItemStruct, Lit, LitStr, Meta, Result, Token,
+    Error, Expr, ExprArray, ExprLit, Ident, ItemStruct, Lit, LitStr, Meta, Path, Result, Token,
     parenthesized,
     parse::{Parse, ParseStream},
     parse_macro_input,
@@ -20,28 +20,52 @@ struct LeaseDeclaration {
 struct NodeArguments {
     name: LitStr,
     lease: Option<LeaseDeclaration>,
+    platforms: Vec<Path>,
 }
 
 impl Parse for NodeArguments {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let name = input.parse()?;
-        if input.is_empty() {
-            return Ok(Self { name, lease: None });
-        }
-        input.parse::<Token![,]>()?;
-        let keyword: Ident = input.parse()?;
-        if keyword != "lease" {
-            return Err(Error::new_spanned(keyword, "node 子配置仅支持 lease(...)"));
-        }
-        let content;
-        parenthesized!(content in input);
-        let values = content.parse_terminated(Meta::parse, Token![,])?;
-        if !input.is_empty() {
-            return Err(input.error("node 只允许一个 lease(...) 子配置"));
+        let mut lease = None;
+        let mut platforms = None;
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            let keyword: Ident = input.parse()?;
+            let content;
+            parenthesized!(content in input);
+            match keyword.to_string().as_str() {
+                "lease" => {
+                    if lease.is_some() {
+                        return Err(Error::new_spanned(keyword, "lease 只能声明一次"));
+                    }
+                    let values = content.parse_terminated(Meta::parse, Token![,])?;
+                    lease = Some(parse_lease_declaration(values)?);
+                }
+                "platforms" => {
+                    if platforms.is_some() {
+                        return Err(Error::new_spanned(keyword, "platforms 只能声明一次"));
+                    }
+                    let values = content.parse_terminated(Path::parse_mod_style, Token![,])?;
+                    if values.is_empty() {
+                        return Err(Error::new_spanned(
+                            keyword,
+                            "platforms 至少需要一个适配器类型",
+                        ));
+                    }
+                    platforms = Some(values.into_iter().collect());
+                }
+                _ => {
+                    return Err(Error::new_spanned(
+                        keyword,
+                        "node 子配置仅支持 lease(...) 和 platforms(...)",
+                    ));
+                }
+            }
         }
         Ok(Self {
             name,
-            lease: Some(parse_lease_declaration(values)?),
+            lease,
+            platforms: platforms.unwrap_or_default(),
         })
     }
 }
@@ -65,7 +89,17 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
     let lease = arguments.lease;
+    let platforms = arguments.platforms;
     let identifier = &item_struct.ident;
+    let platform_registry = if platforms.is_empty() {
+        quote!(::miresidian::PlatformRegistry::default())
+    } else {
+        quote!({
+            let mut registry = ::miresidian::PlatformRegistry::default();
+            #(registry.register(<#platforms as ::core::default::Default>::default());)*
+            registry
+        })
+    };
 
     let activation = lease
         .as_ref()
@@ -97,6 +131,10 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
             }
             #[doc(hidden)]
             pub const __MIRESIDIAN_LEASE_ACTIVATION: ::miresidian::LeaseActivation = #activation;
+            #[doc(hidden)]
+            fn __miresidian_platform_registry() -> ::miresidian::PlatformRegistry {
+                #platform_registry
+            }
         }
     }
     .into()

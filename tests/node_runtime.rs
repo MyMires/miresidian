@@ -3,6 +3,8 @@ use miresidian::{
     GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
     INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MIRESIDIAN_VERSION, MiresidianError,
     MiresidianResult, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation,
+    TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -102,6 +104,33 @@ impl DeviceNode for MemoryNode {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MockPlatformAdapter;
+
+impl PlatformAdapter for MockPlatformAdapter {
+    fn identifier(&self) -> &'static str {
+        "mock_platform"
+    }
+
+    fn decode(&self, mut invocation: Invocation) -> MiresidianResult<RuntimeInvocation> {
+        if invocation.operation == "MockQuery" {
+            invocation.operation = "Query".to_owned();
+        }
+        Ok(RuntimeInvocation::Single(invocation))
+    }
+
+    fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
+        match response {
+            RuntimeResponse::Output(output) => {
+                let mut values = output.into_values();
+                values.insert(0, "mock".to_owned());
+                Ok(InvocationOutput::new(values))
+            }
+            RuntimeResponse::Shared(_) => Ok(InvocationOutput::new(vec!["mock-shared".to_owned()])),
+        }
+    }
+}
+
 fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
     Invocation::new(
         operation,
@@ -126,7 +155,7 @@ fn fixed_operations_publish_compatible_metadata() {
     assert!(
         functions
             .as_slice()
-            .contains(&"InitDevice(地址:127.0.0.1,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播)(状态)".to_owned())
+            .contains(&"InitDevice(地址:127.0.0.1,平台适配:tb_lv_test_platform,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播)(状态)".to_owned())
     );
     assert!(
         functions
@@ -146,6 +175,7 @@ fn fixed_operations_publish_compatible_metadata() {
         config.as_slice(),
         [
             "地址:127.0.0.1",
+            "平台适配:tb_lv_test_platform",
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
         ]
     );
@@ -231,9 +261,14 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
     );
 
     let output = runtime
-        .invoke(&request("Query", &[], &["共享", "one", "  ", "three"]))
+        .invoke(&request("Query", &[], &["共享", "one"]))
         .unwrap();
-    assert_eq!(output.as_slice(), ["A:one", "", ""]);
+    assert_eq!(output.as_slice(), ["A:one", ""]);
+
+    let extra_slot = runtime
+        .invoke(&request("Query", &[], &["共享", "one", "two", "three"]))
+        .expect_err("共享输入不得产生超过已初始化通道数的输出槽位");
+    assert!(extra_slot.to_string().contains("超过已初始化通道数"));
 }
 
 #[test]
@@ -275,4 +310,90 @@ fn invalid_or_blank_shared_execution_defaults_to_sequential() {
         .invoke(&request("Query", &[], &["共享", "first", "second"]))
         .unwrap();
     assert_eq!(output.as_slice(), ["A:first", "B:second"]);
+}
+
+#[test]
+fn 注册平台可由普通调用的初始化_config_选择() {
+    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(
+        PlatformRegistry::default().with_adapter(MockPlatformAdapter),
+    );
+    let metadata = runtime
+        .invoke(&request(GET_INIT_CONFIG_OPERATION, &[], &[]))
+        .unwrap();
+    assert!(
+        metadata
+            .as_slice()
+            .contains(&"平台适配:mock_platform/tb_lv_test_platform".to_owned())
+    );
+
+    let initialized = runtime
+        .invoke(&request(
+            INIT_DEVICE_OPERATION,
+            &["A", "mock_platform", "Sequential"],
+            &[],
+        ))
+        .unwrap();
+    assert_eq!(initialized.as_slice(), ["mock", "已连接"]);
+
+    let output = runtime
+        .invoke(&request("MockQuery", &["A"], &["ping"]))
+        .unwrap();
+    assert_eq!(output.as_slice(), ["mock", "A:ping"]);
+}
+
+#[test]
+fn 显式适配器调用不发布或接受平台选择_config() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let config = runtime
+        .invoke_with(
+            &TbLvTestPlatformAdapter,
+            request(GET_INIT_CONFIG_OPERATION, &[], &[]),
+        )
+        .unwrap();
+    assert_eq!(
+        config.as_slice(),
+        [
+            "地址:127.0.0.1",
+            "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
+        ]
+    );
+
+    runtime
+        .invoke_with(
+            &TbLvTestPlatformAdapter,
+            request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]),
+        )
+        .expect("显式适配器初始化只接受共享执行方式");
+
+    let error = runtime
+        .invoke_with(
+            &TbLvTestPlatformAdapter,
+            request(INIT_DEVICE_OPERATION, &["B", TB_LV_TEST_PLATFORM], &[]),
+        )
+        .expect_err("显式适配器路径不得再通过 Config 选择平台");
+    assert!(error.to_string().contains("不应在 Config 中重复选择"));
+}
+
+#[test]
+fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B"], &[]))
+        .unwrap();
+
+    let response = runtime
+        .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
+            "Query",
+            vec![Some(vec!["one".to_owned()])],
+        )))
+        .expect("结构化共享调用应由运行时执行");
+    let RuntimeResponse::Shared(response) = response else {
+        panic!("共享命令必须返回结构化共享结果");
+    };
+    assert_eq!(response.slots.len(), 2);
+    assert_eq!(response.slots[0].as_ref().unwrap().as_slice(), ["A:one"]);
+    assert!(response.slots[1].is_none());
 }

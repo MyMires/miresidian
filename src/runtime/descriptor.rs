@@ -41,6 +41,11 @@ impl ExecutionMode {
 pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
     "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播";
 
+/// 框架自动追加到 `InitDevice` 的平台适配器选择器名称。
+pub const PLATFORM_ADAPTER_NAME: &str = "平台适配";
+/// 未显式构造平台注册表时发布的默认平台适配器。
+pub const PLATFORM_ADAPTER_DEFINITION: &str = "平台适配:tb_lv_test_platform";
+
 /// 节点租约的激活策略。`Selectable` 由平台在初始化时选择访问路径。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LeaseActivation {
@@ -171,6 +176,30 @@ impl NodeDescriptor {
         signatures
     }
 
+    /// 返回包含运行时平台注册表的平台选择器的全部签名。
+    pub fn function_signatures_with_platform(&self, platform_selector: &str) -> Vec<String> {
+        let mut signatures = Vec::with_capacity(self.operations.len() + 7);
+        signatures.push(format!("GetFunctions()({})", "函数列表"));
+        signatures.push(format!("GetFrameworkVersion()({})", "框架版本"));
+        signatures.push(format!("GetProjectVersion()({})", "项目版本"));
+        signatures.push(format!(
+            "GetInitConfig()({})",
+            self.init_config_definition_with_platform(platform_selector)
+        ));
+        signatures.push(format!(
+            "GetPortNO({})(搜索结果,端口号)",
+            definitions(self.port_probe_inputs)
+        ));
+        signatures.push(format!(
+            "InitDevice({})({})",
+            self.init_parameter_definition_with_platform(platform_selector),
+            definitions(self.init_outputs)
+        ));
+        signatures.push("CloseDevice()()".to_owned());
+        signatures.extend(self.operations.iter().map(OperationDescriptor::signature));
+        signatures
+    }
+
     /// 返回 `GetInitConfig` 所使用的初始化配置元数据。
     pub fn init_config_definitions(&self) -> Vec<String> {
         let mut definitions = self
@@ -185,14 +214,40 @@ impl NodeDescriptor {
         definitions
     }
 
+    /// 返回包含运行时平台注册表的平台选择器的初始化配置元数据。
+    pub fn init_config_definitions_with_platform(&self, platform_selector: &str) -> Vec<String> {
+        let mut definitions = self
+            .init_config
+            .iter()
+            .map(ParameterDescriptor::definition)
+            .collect::<Vec<_>>();
+        if self.lease_activation.has_platform_selector() {
+            definitions.push(RESOURCE_ACCESS_DEFINITION.to_owned());
+        }
+        definitions.push(platform_selector.to_owned());
+        definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
+        definitions
+    }
+
     fn init_config_definition(&self) -> String {
         self.init_config_definitions().join(",")
     }
 
-    /// 返回 `InitDevice` 签名所发布的全部参数。配置与输入在 ABI 中属于不同数组，
-    /// 但函数签名需同时使平台可发现两类业务参数。
     fn init_parameter_definition(&self) -> String {
         let mut definitions = self.init_config_definitions();
+        definitions.extend(self.init_inputs.iter().map(ParameterDescriptor::definition));
+        definitions.join(",")
+    }
+
+    fn init_config_definition_with_platform(&self, platform_selector: &str) -> String {
+        self.init_config_definitions_with_platform(platform_selector)
+            .join(",")
+    }
+
+    /// 返回 `InitDevice` 签名所发布的全部参数。配置与输入在 ABI 中属于不同数组，
+    /// 但函数签名需同时使平台可发现两类业务参数。
+    fn init_parameter_definition_with_platform(&self, platform_selector: &str) -> String {
+        let mut definitions = self.init_config_definitions_with_platform(platform_selector);
         definitions.extend(self.init_inputs.iter().map(ParameterDescriptor::definition));
         definitions.join(",")
     }

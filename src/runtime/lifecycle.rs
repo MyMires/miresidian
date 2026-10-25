@@ -13,7 +13,8 @@ use crate::{
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
-    normalize_value_with_definition,
+    PLATFORM_ADAPTER_NAME, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    SharedInvocation, SharedResponse, normalize_value_with_definition,
 };
 
 /// 一个按 Config 键登记的通道对象。
@@ -32,36 +33,140 @@ pub struct NodeRuntime<N: DeviceNode> {
     channels: Vec<Channel<N>>,
     /// 首个成功初始化的通道决定当前驱动运行时的共享调度方式。
     shared_execution: Option<ExecutionMode>,
+    /// 可由 `InitDevice` 的保留 Config 选择的平台适配器。
+    platforms: PlatformRegistry,
+    /// 运行时持有通道期间固定使用的平台；释放全部通道后允许重新选择。
+    active_platform: Option<String>,
 }
 
 impl<N: DeviceNode> NodeRuntime<N> {
-    /// 创建尚未初始化节点的运行时。
+    /// 创建尚未初始化节点的运行时，默认仅注册 TB LV Test Platform 适配器。
     pub fn new() -> Self {
+        Self::with_platforms(PlatformRegistry::default())
+    }
+
+    /// 创建使用指定平台注册表的运行时。
+    pub fn with_platforms(platforms: PlatformRegistry) -> Self {
         Self {
             channels: vec![],
             shared_execution: None,
+            platforms,
+            active_platform: None,
         }
     }
 
-    /// 处理固定操作或节点自定义操作的调用。
+    /// 使用 `InitDevice` 的 `平台适配` 配置所选择的适配器处理调用。
     pub fn invoke(&mut self, invocation: &Invocation) -> MiresidianResult<InvocationOutput> {
-        match invocation.operation.as_str() {
-            GET_FUNCTIONS_OPERATION => {
-                Ok(InvocationOutput::new(N::descriptor().function_signatures()))
+        let adapter = self.adapter_for(invocation)?;
+        self.invoke_with_mode(adapter.as_ref(), invocation.clone(), true)
+    }
+
+    /// 使用指定平台适配器处理调用。直接调用此方法时，`InitDevice` 的平台选择器仍会
+    /// 校验该适配器的稳定标识，避免以错误协议初始化运行时。
+    pub fn invoke_with<A: PlatformAdapter + ?Sized>(
+        &mut self,
+        adapter: &A,
+        request: Invocation,
+    ) -> MiresidianResult<InvocationOutput> {
+        self.invoke_with_mode(adapter, request, false)
+    }
+
+    fn invoke_with_mode<A: PlatformAdapter + ?Sized>(
+        &mut self,
+        adapter: &A,
+        request: Invocation,
+        platform_selector_enabled: bool,
+    ) -> MiresidianResult<InvocationOutput> {
+        if let Some(active) = &self.active_platform
+            && active != adapter.identifier()
+        {
+            return Err(MiresidianError::InvalidArgument {
+                field: PLATFORM_ADAPTER_NAME.to_owned(),
+                message: format!(
+                    "当前驱动运行时已使用 {active}，不能改用 {}",
+                    adapter.identifier()
+                ),
+            });
+        }
+        let command = adapter.decode(request)?;
+        let response = self.invoke_command_from(
+            Some(adapter.identifier()),
+            platform_selector_enabled,
+            command,
+        )?;
+        adapter.encode(response)
+    }
+
+    /// 执行平台无关的运行时命令。
+    pub fn invoke_command(
+        &mut self,
+        command: RuntimeInvocation,
+    ) -> MiresidianResult<RuntimeResponse> {
+        self.invoke_command_from(None, true, command)
+    }
+
+    fn invoke_command_from(
+        &mut self,
+        adapter_identifier: Option<&str>,
+        platform_selector_enabled: bool,
+        command: RuntimeInvocation,
+    ) -> MiresidianResult<RuntimeResponse> {
+        match command {
+            RuntimeInvocation::Single(invocation) => self
+                .invoke_single(&invocation, adapter_identifier, platform_selector_enabled)
+                .map(RuntimeResponse::Output),
+            RuntimeInvocation::Shared(invocation) => {
+                self.invoke_shared(invocation).map(RuntimeResponse::Shared)
             }
+        }
+    }
+
+    /// 处理固定操作或单通道节点操作。
+    fn invoke_single(
+        &mut self,
+        invocation: &Invocation,
+        adapter_identifier: Option<&str>,
+        platform_selector_enabled: bool,
+    ) -> MiresidianResult<InvocationOutput> {
+        match invocation.operation.as_str() {
+            GET_FUNCTIONS_OPERATION => Ok(InvocationOutput::new(if platform_selector_enabled {
+                N::descriptor()
+                    .function_signatures_with_platform(&self.platforms.selector_definition())
+            } else {
+                N::descriptor().function_signatures()
+            })),
             GET_FRAMEWORK_VERSION_OPERATION => {
                 Ok(InvocationOutput::new(vec![MIRESIDIAN_VERSION.to_owned()]))
             }
             GET_PROJECT_VERSION_OPERATION => {
                 Ok(InvocationOutput::new(vec![N::project_version().to_owned()]))
             }
-            GET_INIT_CONFIG_OPERATION => Ok(InvocationOutput::new(
-                N::descriptor().init_config_definitions(),
-            )),
+            GET_INIT_CONFIG_OPERATION => Ok(InvocationOutput::new(if platform_selector_enabled {
+                N::descriptor()
+                    .init_config_definitions_with_platform(&self.platforms.selector_definition())
+            } else {
+                N::descriptor().init_config_definitions()
+            })),
             GET_PORT_NO_OPERATION => self.get_port_no(&invocation.config, &invocation.input),
-            INIT_DEVICE_OPERATION => self.init_device(&invocation.config, &invocation.input),
-            CLOSE_DEVICE_OPERATION => self.close_device(&invocation.config, &invocation.input),
-            operation => self.invoke_node(operation, &invocation.config, &invocation.input),
+            INIT_DEVICE_OPERATION => self.init_device(
+                &invocation.config,
+                &invocation.input,
+                adapter_identifier,
+                platform_selector_enabled,
+            ),
+            CLOSE_DEVICE_OPERATION => self.close_device(
+                &invocation.config,
+                &invocation.input,
+                platform_selector_enabled,
+                adapter_identifier,
+            ),
+            operation => self.invoke_node(
+                operation,
+                &invocation.config,
+                &invocation.input,
+                platform_selector_enabled,
+                adapter_identifier,
+            ),
         }
     }
 
@@ -81,8 +186,27 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
+        adapter_identifier: Option<&str>,
+        platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
-        let (node_config, access, execution) = self.split_init_config(config)?;
+        let (node_config, access, platform, execution) =
+            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?;
+        if let Some(active) = &self.active_platform
+            && active != &platform
+        {
+            return Err(MiresidianError::InvalidArgument {
+                field: PLATFORM_ADAPTER_NAME.to_owned(),
+                message: format!("当前驱动运行时已使用 {active}，不能改为 {platform}"),
+            });
+        }
+        if let Some(adapter_identifier) = adapter_identifier
+            && adapter_identifier != platform
+        {
+            return Err(MiresidianError::InvalidArgument {
+                field: PLATFORM_ADAPTER_NAME.to_owned(),
+                message: format!("配置选择 {platform}，但本次调用使用 {adapter_identifier}"),
+            });
+        }
         let channel_config = self.normalize_channel_config(node_config)?;
         if let Some(active) = self.shared_execution
             && active != execution
@@ -127,6 +251,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                     lease,
                 });
                 self.shared_execution = Some(execution);
+                self.active_platform = Some(platform);
                 Ok(output)
             }
             Err(error) => {
@@ -144,8 +269,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
+        platform_selector_enabled: bool,
+        adapter_identifier: Option<&str>,
     ) -> MiresidianResult<InvocationOutput> {
-        let config = self.normalize_channel_config(self.node_config(config)?)?;
+        let config = self.normalize_channel_config(
+            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
+                .0,
+        )?;
         let index = self
             .channels
             .iter()
@@ -168,6 +298,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         self.channels.remove(index);
         if self.channels.is_empty() {
             self.shared_execution = None;
+            self.active_platform = None;
         }
         Ok(InvocationOutput::empty())
     }
@@ -187,33 +318,38 @@ impl<N: DeviceNode> NodeRuntime<N> {
         }
     }
 
+    /// 执行平台已经结构化的共享调用。
+    fn invoke_shared(&mut self, invocation: SharedInvocation) -> MiresidianResult<SharedResponse> {
+        if self.channels.is_empty() {
+            return Err(MiresidianError::NotInitialized);
+        }
+        let descriptor = self
+            .operation_descriptor(&invocation.operation)
+            .ok_or_else(|| MiresidianError::InvalidOperation(invocation.operation.clone()))?;
+        super::shared::invoke_shared(
+            &self.channels,
+            &invocation.operation,
+            &invocation.slots,
+            descriptor,
+            self.shared_execution.unwrap_or(ExecutionMode::Sequential),
+        )
+    }
+
     fn invoke_node(
         &mut self,
         operation: &str,
         config: &[String],
         input: &[String],
+        platform_selector_enabled: bool,
+        adapter_identifier: Option<&str>,
     ) -> MiresidianResult<InvocationOutput> {
-        // 共享调用刻意忽略本次 Config：每个已登记通道使用其自身的创建 Config。
-        if super::shared::is_shared_invocation(input) {
-            if self.channels.is_empty() {
-                return Err(MiresidianError::NotInitialized);
-            }
-            let descriptor = self
-                .operation_descriptor(operation)
-                .ok_or_else(|| MiresidianError::InvalidOperation(operation.to_owned()))?;
-            return super::shared::invoke_shared(
-                &self.channels,
-                operation,
-                &input[1..],
-                descriptor,
-                self.shared_execution.unwrap_or(ExecutionMode::Sequential),
-            );
-        }
-
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
-        let config = self.normalize_channel_config(self.node_config(config)?)?;
+        let config = self.normalize_channel_config(
+            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
+                .0,
+        )?;
         let channel = self
             .find_channel(&config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
@@ -223,20 +359,6 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .lock()
             .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
         node.invoke(operation, &channel.config, input)
-    }
-
-    /// 将框架保留的共享执行方式从初始化或后续定位 Config 中剥离。
-    fn node_config<'a>(&self, config: &'a [String]) -> MiresidianResult<&'a [String]> {
-        let count = N::descriptor().init_config.len();
-        if config.len()
-            > count + 1 + usize::from(N::descriptor().lease_activation.has_platform_selector())
-        {
-            return Err(MiresidianError::InvalidArgument {
-                field: "Config".to_owned(),
-                message: "配置参数数量超出初始化配置定义".to_owned(),
-            });
-        }
-        Ok(&config[..config.len().min(count)])
     }
 
     /// 生成稳定通道键并补齐有效的默认值。该规则与宏生成参数解析保持一致，
@@ -261,21 +383,100 @@ impl<N: DeviceNode> NodeRuntime<N> {
     fn split_init_config<'a>(
         &self,
         config: &'a [String],
-    ) -> MiresidianResult<(&'a [String], LeaseAccess, ExecutionMode)> {
-        let node_config = self.node_config(config)?;
-        let selector = N::descriptor().lease_activation.has_platform_selector();
+        platform_selector_enabled: bool,
+        explicit_adapter: Option<&str>,
+    ) -> MiresidianResult<(&'a [String], LeaseAccess, String, ExecutionMode)> {
+        let count = N::descriptor().init_config.len();
+        let node_config = &config[..config.len().min(count)];
+        let lease_selector = N::descriptor().lease_activation.has_platform_selector();
         let access = N::descriptor().lease_activation.resolve_access(
-            selector
-                .then(|| config.get(node_config.len()))
+            lease_selector
+                .then(|| config.get(count))
                 .flatten()
                 .map(String::as_str),
         );
-        let execution = ExecutionMode::parse_platform_value(
-            config
-                .get(node_config.len() + usize::from(selector))
-                .map(String::as_str),
-        );
-        Ok((node_config, access, execution))
+        let mut reserved_index = count + usize::from(lease_selector);
+        let (platform, consumes_platform_selector) = if platform_selector_enabled {
+            self.platform_selection(config.get(reserved_index).map(String::as_str))?
+        } else {
+            if let Some(value) = config.get(reserved_index).map(String::as_str)
+                && self.is_platform_selector(value)
+            {
+                return Err(MiresidianError::InvalidArgument {
+                    field: PLATFORM_ADAPTER_NAME.to_owned(),
+                    message: "invoke_with 已显式指定平台适配器，不应在 Config 中重复选择"
+                        .to_owned(),
+                });
+            }
+            (
+                explicit_adapter
+                    .or(self.active_platform.as_deref())
+                    .unwrap_or(self.platforms.default_identifier())
+                    .to_owned(),
+                false,
+            )
+        };
+        reserved_index += usize::from(consumes_platform_selector);
+        if config.len() > reserved_index + 1 {
+            return Err(MiresidianError::InvalidArgument {
+                field: "Config".to_owned(),
+                message: "配置参数数量超出初始化配置定义".to_owned(),
+            });
+        }
+        let execution =
+            ExecutionMode::parse_platform_value(config.get(reserved_index).map(String::as_str));
+        Ok((node_config, access, platform, execution))
+    }
+
+    fn is_platform_selector(&self, value: &str) -> bool {
+        let value = value.trim();
+        value
+            .split_once(":")
+            .is_some_and(|(name, _)| name.trim() == PLATFORM_ADAPTER_NAME)
+            || self.platforms.adapter(value).is_some()
+    }
+
+    fn platform_selection(&self, value: Option<&str>) -> MiresidianResult<(String, bool)> {
+        let Some(value) = value else {
+            return Ok((self.platforms.default_identifier().to_owned(), false));
+        };
+        let value = value.trim();
+        if let Some((name, selected)) = value.split_once(":")
+            && name.trim() == PLATFORM_ADAPTER_NAME
+        {
+            let selected = selected.trim();
+            return self
+                .platforms
+                .adapter(selected)
+                .map(|_| (selected.to_owned(), true))
+                .ok_or_else(|| MiresidianError::InvalidArgument {
+                    field: PLATFORM_ADAPTER_NAME.to_owned(),
+                    message: format!("未注册的平台适配器 {selected}"),
+                });
+        }
+        if self.platforms.adapter(value).is_some() {
+            return Ok((value.to_owned(), true));
+        }
+        Ok((self.platforms.default_identifier().to_owned(), false))
+    }
+
+    fn adapter_for(
+        &self,
+        invocation: &Invocation,
+    ) -> MiresidianResult<std::sync::Arc<dyn PlatformAdapter>> {
+        let identifier = if invocation.operation == INIT_DEVICE_OPERATION {
+            self.split_init_config(&invocation.config, true, None)?.2
+        } else {
+            self.active_platform
+                .clone()
+                .unwrap_or_else(|| self.platforms.default_identifier().to_owned())
+        };
+        self.platforms
+            .adapter(&identifier)
+            .ok_or_else(|| MiresidianError::InvalidArgument {
+                field: PLATFORM_ADAPTER_NAME.to_owned(),
+                message: format!("未注册的平台适配器 {identifier}"),
+            })
     }
 
     /// 返回操作的共享调度描述；未知操作返回 `None`。

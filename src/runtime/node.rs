@@ -1,6 +1,8 @@
 //! 具体设备节点实现的扩展点。
 
-use crate::{InvocationOutput, MiresidianResult, NodeDescriptor, lease::LeaseRequest};
+use crate::{
+    InvocationOutput, MiresidianResult, NodeDescriptor, PlatformRegistry, lease::LeaseRequest,
+};
 
 /// 由 `#[miresidian::node_impl]` 为具体驱动生成的运行时适配器。
 ///
@@ -9,6 +11,12 @@ use crate::{InvocationOutput, MiresidianResult, NodeDescriptor, lease::LeaseRequ
 pub trait DeviceNode: Default + Send + 'static {
     /// 返回此节点类型的编译期元数据。
     fn descriptor() -> &'static NodeDescriptor;
+
+    /// 返回编译进当前节点 DLL 的平台适配器。默认仅提供 TB LV Test Platform。
+    /// `#[miresidian::node(..., platforms(...))]` 会覆盖此默认值。
+    fn platform_registry() -> PlatformRegistry {
+        PlatformRegistry::default()
+    }
 
     /// 返回构建当前节点 DLL 的项目版本。
     ///

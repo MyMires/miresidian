@@ -15,7 +15,7 @@ pub use contract::{
 };
 pub use descriptor::{
     ExecutionMode, LeaseAccess, LeaseActivation, NodeDescriptor, OperationDescriptor,
-    ParameterDescriptor,
+    PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
 };
 pub use lifecycle::NodeRuntime;
 pub use node::DeviceNode;

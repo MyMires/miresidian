@@ -8,7 +8,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 
 - 使用 `operation + config + input -> output` 的统一文本调用契约；
 - 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`；
-- 通过 `DeviceNode` 定义节点生命周期与自定义操作的扩展点；
+- 通过 `DeviceNode` 定义节点生命周期、自定义操作与编译进 DLL 的平台适配器注册表；
 - 通过 `NodeRuntime` 按完整 Config 管理多通道对象、临时端口探测和资源关闭；
 - 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由操作标注选择顺序或并行分发；
 - 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
@@ -35,6 +35,9 @@ src/
 │   ├── lifecycle.rs       # 多通道初始化、关闭与调用调度
 │   ├── shared.rs          # 共享调用的参数校验与顺序/并行/广播分发
 │   └── node.rs            # 节点实现接口
+├── platform.rs            # 平台适配抽象与结构化运行时命令
+├── platform/
+│   └── tb_lv_test_platform.rs # 当前 TB LV Test Platform 兼容适配器
 ├── interop.rs             # C ABI 入口
 ├── interop/
 │   ├── ffi.rs             # 公共 ABI 类型与状态码
@@ -59,6 +62,8 @@ cargo install miresidian_testflow_windows
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
 `miresidian::ffi_runtime::invoke`。节点无需复刻首次初始化时的原始 Config 文本；其余宏生成代码无需手写。
+
+平台适配边界、`#[node(..., platforms(AdapterType))]` 的 DLL 注册方式与当前兼容平台的约定见 [平台适配器说明](docs/platform-adapters.md)。
 
 具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自身目录；
 例如串口通信节点使用以下结构：
@@ -102,7 +107,7 @@ cargo install miresidian_testflow_windows
 
 ```toml
 [dependencies]
-miresidian = { version = "0.6.0", features = ["lease"] }
+miresidian = { version = "0.7.0", features = ["lease"] }
 ```
 
 仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：

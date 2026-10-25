@@ -120,6 +120,9 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         }
         impl ::miresidian::DeviceNode for #self_type {
             fn descriptor() -> &'static ::miresidian::NodeDescriptor { &#descriptor }
+            fn platform_registry() -> ::miresidian::PlatformRegistry {
+                <#self_type>::__miresidian_platform_registry()
+            }
             fn init_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #init_call }
             fn lease_request(&self, config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::miresidian::lease::LeaseRequest>> { <#self_type>::__miresidian_lease_request(config) }
             fn close_device(&mut self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> { #close_call }

@@ -1,56 +1,38 @@
-//! 共享调用：一次调用让多个已创建通道执行同一操作。
+//! 共享调用：在全部已创建通道上按结构化槽位执行同一操作。
 //!
-//! 共享调用的 Input 首个元素为标记值 `共享`，其后每个元素是一个通道的参数串；参数串内部
-//! 以英文逗号分隔同通道的不同参数。参数串为空白、拆分个数不符或缺少必填参数的通道会被
-//! 跳过，并在输出中以空字符串占位。
+//! 平台适配器负责把其输入格式转换成槽位；本模块只维护通道对齐、参数有效性和调度语义。
 
 use super::lifecycle::Channel;
 use crate::{
     DeviceNode, ExecutionMode, InvocationOutput, MiresidianError, MiresidianResult,
-    OperationDescriptor, ParameterDescriptor, SHARED_INVOCATION_MARKER,
+    OperationDescriptor, ParameterDescriptor, SharedResponse,
 };
-
-/// 判断一次调用的 Input 是否为共享调用形式。
-pub(super) fn is_shared_invocation(input: &[String]) -> bool {
-    input
-        .first()
-        .is_some_and(|marker| marker == SHARED_INVOCATION_MARKER)
-}
 
 /// 在全部已创建对象上按预设执行方式运行有效通道。
 ///
-/// 参数串按对象的创建顺序一一对应；不足的对象或参数槽位不执行。
+/// 输入槽位不足时补齐跳过槽位；超过已初始化通道数时拒绝请求。因此结果槽位数始终等于
+/// 已初始化通道数。
 pub(super) fn invoke_shared<N: DeviceNode>(
     nodes: &[Channel<N>],
     operation: &str,
-    channels: &[String],
+    slots: &[Option<Vec<String>>],
     descriptor: &OperationDescriptor,
     execution: ExecutionMode,
-) -> MiresidianResult<InvocationOutput> {
-    let plans = channel_plans(channels, descriptor.channel_inputs);
+) -> MiresidianResult<SharedResponse> {
+    let plans = channel_plans(slots, descriptor.channel_inputs, nodes.len())?;
     let plans = match execution {
         ExecutionMode::Broadcast => broadcast_plans(plans)?,
         ExecutionMode::Sequential | ExecutionMode::Parallel => plans,
     };
     let outputs = match execution {
-        ExecutionMode::Sequential => plans
+        ExecutionMode::Sequential | ExecutionMode::Broadcast => plans
             .iter()
             .enumerate()
-            .map(|(index, plan)| execute_channel(nodes.get(index), operation, plan, index))
+            .map(|(index, plan)| execute_channel(&nodes[index], operation, plan, index))
             .collect::<Result<Vec<_>, _>>(),
         ExecutionMode::Parallel => run_parallel(nodes, operation, &plans),
-        ExecutionMode::Broadcast => plans
-            .iter()
-            .enumerate()
-            .map(|(index, plan)| execute_channel(nodes.get(index), operation, plan, index))
-            .collect::<Result<Vec<_>, _>>(),
     }?;
-    Ok(InvocationOutput::new(
-        outputs
-            .into_iter()
-            .map(|output| output.join(","))
-            .collect::<Vec<_>>(),
-    ))
+    Ok(SharedResponse::new(outputs))
 }
 
 /// 将全部有效通道参数计划收敛为第一份计划，并拒绝不一致的广播输入。
@@ -77,56 +59,58 @@ fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>
 /// 单个通道的执行计划；`None` 表示该通道被跳过。
 type ChannelPlan = Option<Vec<String>>;
 
-/// 将每个通道参数串拆分为参数值；不合法的通道返回 `None`。
-///
-/// 拆分后的段值原样传递，`|` 数组语法由 codec 层按参数类型正常解析。
-fn channel_plans(channels: &[String], parameters: &[ParameterDescriptor]) -> Vec<ChannelPlan> {
-    channels
+/// 校验平台适配器提供的槽位，并补齐遗漏通道的跳过槽位。
+fn channel_plans(
+    slots: &[Option<Vec<String>>],
+    parameters: &[ParameterDescriptor],
+    channel_count: usize,
+) -> MiresidianResult<Vec<ChannelPlan>> {
+    if slots.len() > channel_count {
+        return Err(MiresidianError::InvalidArgument {
+            field: "共享输入".to_owned(),
+            message: "共享输入槽位数量超过已初始化通道数".to_owned(),
+        });
+    }
+    let mut plans = slots
         .iter()
-        .map(|channel| split_channel(channel, parameters))
-        .collect()
+        .map(|slot| {
+            slot.as_ref()
+                .and_then(|values| validate_slot(values, parameters))
+        })
+        .collect::<Vec<_>>();
+    plans.resize(channel_count, None);
+    Ok(plans)
 }
 
-/// 拆分单个通道参数串；空白、空值、参数数目不符均跳过。
-fn split_channel(channel: &str, parameters: &[ParameterDescriptor]) -> ChannelPlan {
-    let trimmed = channel.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    let values = trimmed
-        .split(',')
-        .map(|segment| segment.trim().to_owned())
-        .collect::<Vec<_>>();
+/// 参数数目不符、空参数或缺少无默认值参数的槽位视为跳过。
+fn validate_slot(values: &[String], parameters: &[ParameterDescriptor]) -> ChannelPlan {
     if values.len() > parameters.len()
-        || values.iter().any(String::is_empty)
+        || values.iter().any(|value| value.trim().is_empty())
         || parameters[values.len()..]
             .iter()
             .any(|parameter| parameter.default_value.is_none())
     {
         return None;
     }
-    Some(values)
+    Some(values.to_vec())
 }
 
 /// 在当前线程上执行一个通道。
 fn execute_channel<N: DeviceNode>(
-    channel: Option<&Channel<N>>,
+    channel: &Channel<N>,
     operation: &str,
     plan: &ChannelPlan,
     index: usize,
-) -> MiresidianResult<Vec<String>> {
+) -> MiresidianResult<Option<InvocationOutput>> {
     let Some(arguments) = plan else {
-        return Ok(Vec::new());
-    };
-    let Some(channel) = channel else {
-        return Ok(Vec::new());
+        return Ok(None);
     };
     let mut node = channel
         .node
         .lock()
         .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
     node.invoke(operation, &channel.config, arguments)
-        .map(|output| output.into_values())
+        .map(Some)
         .map_err(|error| MiresidianError::Failure(format!("通道 {} 执行失败: {error}", index + 1)))
 }
 
@@ -135,16 +119,15 @@ fn run_parallel<N: DeviceNode>(
     nodes: &[Channel<N>],
     operation: &str,
     plans: &[ChannelPlan],
-) -> MiresidianResult<Vec<Vec<String>>> {
+) -> MiresidianResult<Vec<Option<InvocationOutput>>> {
     let operation = operation.to_owned();
     let results = std::thread::scope(|scope| {
         plans
             .iter()
             .enumerate()
             .map(|(index, plan)| {
-                let channel = nodes.get(index);
                 let operation = operation.clone();
-                scope.spawn(move || execute_channel(channel, &operation, plan, index))
+                scope.spawn(move || execute_channel(&nodes[index], &operation, plan, index))
             })
             .collect::<Vec<_>>()
             .into_iter()

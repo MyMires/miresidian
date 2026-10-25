@@ -34,6 +34,7 @@
 //! ```
 
 pub mod interop;
+pub mod platform;
 mod runtime;
 
 /// 可选的本地 IPC 基础能力，供需要跨进程协调物理资源的节点使用。
@@ -78,10 +79,15 @@ pub use miresidian_codec::{
 ///
 /// 这是框架节点项目的必选代码生成能力。
 pub use miresidian_macro::{config, input, lease, node, node_impl, operation, output};
+pub use platform::{
+    PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation,
+    SharedResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
+};
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_DEVICE_OPERATION, DeviceNode, ExecutionMode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     LeaseAccess, LeaseActivation, NodeDescriptor, NodeRuntime, OperationDescriptor,
-    ParameterDescriptor, SHARED_INVOCATION_MARKER,
+    PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
+    SHARED_INVOCATION_MARKER,
 };

@@ -1,10 +1,31 @@
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
 use miresidian::{
-    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, MiresidianResult, NodeRuntime,
+    DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, InvocationOutput,
+    MiresidianResult, NodeRuntime, PlatformAdapter, RuntimeInvocation, RuntimeResponse,
 };
 
-#[miresidian::node("双通道测试节点")]
+#[derive(Clone, Copy, Default)]
+struct MacroPlatformAdapter;
+
+impl PlatformAdapter for MacroPlatformAdapter {
+    fn identifier(&self) -> &'static str {
+        "macro_platform"
+    }
+
+    fn decode(&self, invocation: Invocation) -> MiresidianResult<RuntimeInvocation> {
+        Ok(RuntimeInvocation::Single(invocation))
+    }
+
+    fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
+        match response {
+            RuntimeResponse::Output(output) => Ok(output),
+            RuntimeResponse::Shared(_) => Ok(InvocationOutput::empty()),
+        }
+    }
+}
+
+#[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter))]
 #[derive(Default)]
 struct MixedChannelNode;
 
@@ -36,7 +57,9 @@ impl MixedChannelNode {
 
 #[test]
 fn 手动标注决定每个参数的外部来源通道() {
-    let mut runtime = NodeRuntime::<MixedChannelNode>::new();
+    let registry = <MixedChannelNode as DeviceNode>::platform_registry();
+    assert!(registry.adapter("macro_platform").is_some());
+    let mut runtime = NodeRuntime::<MixedChannelNode>::with_platforms(registry);
     let init_config = runtime
         .invoke(&Invocation::new(
             GET_INIT_CONFIG_OPERATION,
@@ -49,6 +72,7 @@ fn 手动标注决定每个参数的外部来源通道() {
         [
             "设备地址",
             "超时毫秒",
+            "平台适配:macro_platform/tb_lv_test_platform",
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
         ]
     );
@@ -60,7 +84,7 @@ fn 手动标注决定每个参数的外部来源通道() {
         ))
         .unwrap();
     assert!(functions.as_slice().contains(
-        &"InitDevice(设备地址,超时毫秒,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播,初始化令牌)(返回值)".to_owned()
+        &"InitDevice(设备地址,超时毫秒,平台适配:macro_platform/tb_lv_test_platform,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播,初始化令牌)(返回值)".to_owned()
     ));
 
     let initialized = runtime

@@ -6,6 +6,18 @@
 
 尚未发布的变更必须先记录在本节，发布时移动到对应版本与日期下。
 
+## [0.7.0] - 2026-10-26
+
+### Added
+
+- 新增平台适配抽象 `PlatformAdapter`、平台无关的结构化共享调用/响应模型，以及当前 `tb_lv_test_platform` 的兼容适配器。
+- 新增 `PlatformRegistry`；普通 `invoke` 可由 `InitDevice` 的保留 Config 在已注册适配器中选择平台，`invoke_with(adapter, ...)` 则保持显式选型且不发布该 Config。
+- `#[node(..., platforms(AdapterType, ...))]` 可将实现 `PlatformAdapter + Default` 的适配器编译进节点 DLL；C ABI 首次调用使用该注册表，外部可通过原有 `InitDevice` Config 实际选中平台。
+
+### Changed
+
+- 共享调度结果现在始终与已初始化通道数对齐；不足输入槽位补为跳过，超过通道数的槽位被明确拒绝。
+
 ## [0.6.0] - 2026-10-26
 
 ### Fixed
