@@ -1,6 +1,8 @@
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
-use miresidian::{Invocation, MiresidianResult, NodeRuntime};
+use miresidian::{
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, MiresidianResult, NodeRuntime,
+};
 
 #[miresidian::node("双通道测试节点")]
 #[derive(Default)]
@@ -35,14 +37,53 @@ impl MixedChannelNode {
 #[test]
 fn 手动标注决定每个参数的外部来源通道() {
     let mut runtime = NodeRuntime::<MixedChannelNode>::new();
+    let init_config = runtime
+        .invoke(&Invocation::new(
+            GET_INIT_CONFIG_OPERATION,
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
+    assert_eq!(
+        init_config.as_slice(),
+        [
+            "设备地址",
+            "超时毫秒",
+            "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
+        ]
+    );
+    let functions = runtime
+        .invoke(&Invocation::new(
+            GET_FUNCTIONS_OPERATION,
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
+    assert!(functions.as_slice().contains(
+        &"InitDevice(设备地址,超时毫秒,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播,初始化令牌)(返回值)".to_owned()
+    ));
+
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
-            vec!["COM9".to_owned(), "2500".to_owned()],
+            vec!["COM9".to_owned(), "2500".to_owned(), "Parallel".to_owned()],
             vec!["令牌".to_owned()],
         ))
         .unwrap();
     assert_eq!(initialized.as_slice(), ["COM9:2500:令牌"]);
+
+    let execution_conflict = runtime
+        .invoke(&Invocation::new(
+            "InitDevice",
+            vec![
+                "COM10".to_owned(),
+                "2500".to_owned(),
+                "Sequential".to_owned(),
+            ],
+            vec!["令牌".to_owned()],
+        ))
+        .expect_err("首个通道选择的 Parallel 必须被后续通道保持");
+    assert!(execution_conflict.to_string().contains("Parallel"));
 
     let result = runtime
         .invoke(&Invocation::new(

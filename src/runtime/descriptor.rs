@@ -132,8 +132,10 @@ impl OperationDescriptor {
 pub struct NodeDescriptor {
     /// 用于诊断及后续发现机制的稳定节点名称。
     pub name: &'static str,
-    /// `InitDevice` 的有序配置值。
+    /// `InitDevice` 的有序配置值；它们构成通道身份。
     pub init_config: &'static [ParameterDescriptor],
+    /// `InitDevice` 的有序输入值；它们不属于通道身份。
+    pub init_inputs: &'static [ParameterDescriptor],
     /// `InitDevice` 的有序输出。
     pub init_outputs: &'static [ParameterDescriptor],
     /// `GetPortNO` 的有序输入；为空表示该驱动不需要探测输入。
@@ -161,7 +163,7 @@ impl NodeDescriptor {
         ));
         signatures.push(format!(
             "InitDevice({})({})",
-            self.init_config_definition(),
+            self.init_parameter_definition(),
             definitions(self.init_outputs)
         ));
         signatures.push("CloseDevice()()".to_owned());
@@ -185,6 +187,14 @@ impl NodeDescriptor {
 
     fn init_config_definition(&self) -> String {
         self.init_config_definitions().join(",")
+    }
+
+    /// 返回 `InitDevice` 签名所发布的全部参数。配置与输入在 ABI 中属于不同数组，
+    /// 但函数签名需同时使平台可发现两类业务参数。
+    fn init_parameter_definition(&self) -> String {
+        let mut definitions = self.init_config_definitions();
+        definitions.extend(self.init_inputs.iter().map(ParameterDescriptor::definition));
+        definitions.join(",")
     }
 }
 

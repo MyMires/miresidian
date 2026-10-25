@@ -35,6 +35,7 @@ const OPERATIONS: [OperationDescriptor; 1] = [OperationDescriptor {
 const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     name: "MemoryNode",
     init_config: &INIT_CONFIG,
+    init_inputs: &[],
     init_outputs: &INIT_OUTPUTS,
     port_probe_inputs: &[],
     operations: &OPERATIONS,

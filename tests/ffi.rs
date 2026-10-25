@@ -12,6 +12,7 @@ use std::{
 static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     name: "FFI 测试节点",
     init_config: &[],
+    init_inputs: &[],
     init_outputs: &[],
     port_probe_inputs: &[],
     operations: &[],

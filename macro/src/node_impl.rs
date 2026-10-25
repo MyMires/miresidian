@@ -55,6 +55,7 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
         self_identifier.to_string().to_uppercase()
     );
     let init_config = format_ident!("{prefix}_INIT_CONFIG");
+    let init_inputs = format_ident!("{prefix}_INIT_INPUTS");
     let init_outputs = format_ident!("{prefix}_INIT_OUTPUTS");
     let port_probe_inputs = format_ident!("{prefix}_PORT_PROBE_INPUTS");
     let operations = format_ident!("{prefix}_OPERATIONS");
@@ -62,7 +63,24 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
     let runtime = format_ident!("{prefix}_RUNTIME");
 
     let definition = definition::parse(item_impl)?;
-    let init_config_descriptors = descriptor::parameters(&definition.init.parameters);
+    // `InitDevice` 可以逐参数改从 Input 读取。只有 Config 来源的参数才是
+    // 通道身份的一部分；运行时据此剥离租约和共享执行方式等框架保留配置。
+    let init_config_parameters = definition
+        .init
+        .parameters
+        .iter()
+        .filter(|parameter| parameter.source == definition::ParameterSource::Config)
+        .cloned()
+        .collect::<Vec<_>>();
+    let init_config_descriptors = descriptor::parameters(&init_config_parameters);
+    let init_input_parameters = definition
+        .init
+        .parameters
+        .iter()
+        .filter(|parameter| parameter.source == definition::ParameterSource::Input)
+        .cloned()
+        .collect::<Vec<_>>();
+    let init_input_descriptors = descriptor::parameters(&init_input_parameters);
     let init_output_descriptors = descriptor::outputs(&definition.init.outputs);
     let port_probe_input_descriptors = definition
         .port_probe
@@ -86,12 +104,13 @@ pub(crate) fn expand_node_impl(item_impl: &mut ItemImpl) -> Result<proc_macro2::
     let expanded = quote! {
         #item_impl
         const #init_config: &[::miresidian::ParameterDescriptor] = &[#(#init_config_descriptors),*];
+        const #init_inputs: &[::miresidian::ParameterDescriptor] = &[#(#init_input_descriptors),*];
         const #init_outputs: &[::miresidian::ParameterDescriptor] = &[#(#init_output_descriptors),*];
         const #port_probe_inputs: &[::miresidian::ParameterDescriptor] = &[#(#port_probe_input_descriptors),*];
         const #operations: &[::miresidian::OperationDescriptor] = &[#(#operation_descriptors),*];
         const #descriptor: ::miresidian::NodeDescriptor = ::miresidian::NodeDescriptor {
             name: <#self_type>::__MIRESIDIAN_NODE_NAME, init_config: #init_config,
-            init_outputs: #init_outputs, port_probe_inputs: #port_probe_inputs, operations: #operations, lease_activation: <#self_type>::__MIRESIDIAN_LEASE_ACTIVATION,
+            init_inputs: #init_inputs, init_outputs: #init_outputs, port_probe_inputs: #port_probe_inputs, operations: #operations, lease_activation: <#self_type>::__MIRESIDIAN_LEASE_ACTIVATION,
         };
         impl #self_type {
             #[doc(hidden)]
