@@ -3,8 +3,8 @@ use miresidian::{
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult, NodeDescriptor,
-    NodeRuntime, OperationDescriptor, ParameterDescriptor, PlatformAdapter, PlatformRegistry,
-    RuntimeInvocation, RuntimeResponse, SharedInvocation, TB_LV_TEST_PLATFORM,
+    NodeRuntime, OperationDescriptor, ParameterDescriptor, Platform, PlatformAdapter,
+    PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation, TB_LV_TEST_PLATFORM,
     TbLvTestPlatformAdapter,
 };
 
@@ -112,6 +112,10 @@ impl DeviceNode for MemoryNode {
 struct MockPlatformAdapter;
 
 impl PlatformAdapter for MockPlatformAdapter {
+    fn platform(&self) -> Platform {
+        Platform::Custom(0x0001_0000)
+    }
+
     fn identifier(&self) -> &'static str {
         "mock_platform"
     }
@@ -410,6 +414,21 @@ fn 注册平台可由普通调用的初始化_config_选择() {
         .invoke(&request("MockQuery", &["A"], &["ping"]))
         .unwrap();
     assert_eq!(output.as_slice(), ["mock", "A:ping"]);
+}
+
+#[test]
+fn 平台枚举可从注册表显式选择适配器() {
+    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(
+        PlatformRegistry::default().with_adapter(MockPlatformAdapter),
+    );
+
+    let initialized = runtime
+        .invoke_with_platform(
+            Platform::Custom(0x0001_0000),
+            request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]),
+        )
+        .unwrap();
+    assert_eq!(initialized.as_slice(), ["mock", "已连接"]);
 }
 
 #[test]

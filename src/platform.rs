@@ -4,11 +4,57 @@
 
 mod tb_lv_test_platform;
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, fmt, sync::Arc};
 
 use crate::{Invocation, InvocationOutput, MiresidianResult};
 
 pub use tb_lv_test_platform::{TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter};
+
+/// 平台的稳定类型标识。
+///
+/// 内置平台使用框架保留的低位编号；第三方平台必须使用 `Custom` 且编号不小于
+/// `Platform::CUSTOM_MIN`，避免未来内置平台与扩展平台冲突。该类型直接映射到 C ABI 的
+/// `uint32_t` 参数。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Platform {
+    /// 当前 TB LV Test Platform 兼容适配器。
+    TbLvTestPlatform,
+    /// 已注册的第三方或私有平台。
+    Custom(u32),
+}
+
+impl Platform {
+    /// TB LV Test Platform 在 C ABI 中的稳定数值。
+    pub const TB_LV_TEST_PLATFORM: u32 = 1;
+    /// 第三方平台可分配编号的起始值。
+    pub const CUSTOM_MIN: u32 = 0x0001_0000;
+
+    /// 返回 C ABI 使用的稳定无符号整数。
+    pub const fn as_u32(self) -> u32 {
+        match self {
+            Self::TbLvTestPlatform => Self::TB_LV_TEST_PLATFORM,
+            Self::Custom(value) => value,
+        }
+    }
+
+    /// 由 C ABI 数值解析平台。保留编号和零值会被拒绝。
+    pub const fn from_abi(value: u32) -> Option<Self> {
+        match value {
+            Self::TB_LV_TEST_PLATFORM => Some(Self::TbLvTestPlatform),
+            Self::CUSTOM_MIN..=u32::MAX => Some(Self::Custom(value)),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for Platform {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TbLvTestPlatform => formatter.write_str(TB_LV_TEST_PLATFORM),
+            Self::Custom(value) => write!(formatter, "Custom({value})"),
+        }
+    }
+}
 
 /// 运行时可选择的平台适配器集合。
 ///
@@ -16,26 +62,29 @@ pub use tb_lv_test_platform::{TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter};
 /// 使用同一个平台，最后一个通道关闭后可重新选择。
 #[derive(Clone)]
 pub struct PlatformRegistry {
-    default_identifier: String,
-    adapters: BTreeMap<String, Arc<dyn PlatformAdapter>>,
+    default_platform: Platform,
+    adapters: BTreeMap<Platform, Arc<dyn PlatformAdapter>>,
 }
 
 impl PlatformRegistry {
     /// 以默认适配器创建注册表。
     pub fn new<A: PlatformAdapter>(default_adapter: A) -> Self {
-        let default_identifier = default_adapter.identifier().to_owned();
-        let mut adapters: BTreeMap<String, Arc<dyn PlatformAdapter>> = BTreeMap::new();
-        adapters.insert(default_identifier.clone(), Arc::new(default_adapter));
+        let default_platform = default_adapter.platform();
+        let mut adapters: BTreeMap<Platform, Arc<dyn PlatformAdapter>> = BTreeMap::new();
+        adapters.insert(default_platform, Arc::new(default_adapter));
         Self {
-            default_identifier,
+            default_platform,
             adapters,
         }
     }
 
-    /// 注册或替换一个可由 `平台适配` 选择的适配器。
+    /// 注册或替换一个可由 `平台适配` 选择的适配器。平台数值与文本标识均保持唯一。
     pub fn register<A: PlatformAdapter>(&mut self, adapter: A) {
-        self.adapters
-            .insert(adapter.identifier().to_owned(), Arc::new(adapter));
+        let platform = adapter.platform();
+        self.adapters.retain(|registered, existing| {
+            *registered == platform || existing.identifier() != adapter.identifier()
+        });
+        self.adapters.insert(platform, Arc::new(adapter));
     }
 
     /// 链式注册一个适配器。
@@ -44,27 +93,45 @@ impl PlatformRegistry {
         self
     }
 
-    /// 默认平台的稳定标识。
-    pub fn default_identifier(&self) -> &str {
-        &self.default_identifier
+    /// 默认平台的类型标识。
+    pub const fn default_platform(&self) -> Platform {
+        self.default_platform
     }
 
-    /// 返回指定平台的适配器。
-    pub fn adapter(&self, identifier: &str) -> Option<Arc<dyn PlatformAdapter>> {
-        self.adapters.get(identifier).cloned()
+    /// 根据类型标识返回适配器。
+    pub fn adapter(&self, platform: Platform) -> Option<Arc<dyn PlatformAdapter>> {
+        self.adapters.get(&platform).cloned()
     }
 
-    /// 平台稳定标识列表，供发布初始化元数据使用。
-    pub fn identifiers(&self) -> impl Iterator<Item = &str> {
-        self.adapters.keys().map(String::as_str)
+    /// 根据旧 Config 文本标识返回适配器，供默认 C ABI 路径兼容使用。
+    pub fn adapter_by_identifier(&self, identifier: &str) -> Option<Arc<dyn PlatformAdapter>> {
+        self.adapters
+            .values()
+            .find(|adapter| adapter.identifier() == identifier)
+            .cloned()
+    }
+
+    /// 根据旧 Config 文本标识返回平台类型。
+    pub fn platform_by_identifier(&self, identifier: &str) -> Option<Platform> {
+        self.adapters.iter().find_map(|(platform, adapter)| {
+            (adapter.identifier() == identifier).then_some(*platform)
+        })
+    }
+
+    /// 平台稳定文本标识列表，供兼容初始化元数据使用。
+    pub fn identifiers(&self) -> Vec<&str> {
+        let mut identifiers = self
+            .adapters
+            .values()
+            .map(|adapter| adapter.identifier())
+            .collect::<Vec<_>>();
+        identifiers.sort_unstable();
+        identifiers
     }
 
     /// `InitDevice` 中平台选择器的发布定义。
     pub fn selector_definition(&self) -> String {
-        format!(
-            "平台适配:{}",
-            self.identifiers().collect::<Vec<_>>().join("/")
-        )
+        format!("平台适配:{}", self.identifiers().join("/"))
     }
 }
 
@@ -122,7 +189,10 @@ impl SharedResponse {
 ///
 /// 新平台应实现此 trait，而不应将其专有的函数命名、参数拼接或输出编码写入运行时。
 pub trait PlatformAdapter: Send + Sync + 'static {
-    /// 平台稳定标识，例如 `tb_lv_test_platform`。
+    /// 平台稳定类型标识；会映射为 C ABI 的 `uint32_t`。
+    fn platform(&self) -> Platform;
+
+    /// 供默认 Config 兼容路径与诊断使用的平台文本标识，例如 `tb_lv_test_platform`。
     fn identifier(&self) -> &'static str;
 
     /// C ABI 统一后的文本请求。适配器可在此解析平台自己的名称、输入编码和共享协议。

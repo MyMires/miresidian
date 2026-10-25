@@ -5,10 +5,10 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.9.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `<node package> 0.9.0` | 每个节点独立使用语义化版本。 |
-| ABI 版本 | `6` | 新增 C 导出入口或改变既有 C 导出契约时递增。 |
-| crate 发布版本 | `miresidian_abi 0.9.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| 框架版本 | `miresidian 0.10.0` | 管理运行时与过程宏，使用语义化版本。 |
+| 实例项目版本 | `<node package> 0.10.0` | 每个节点独立使用语义化版本。 |
+| ABI 版本 | `7` | 新增 C 导出入口或改变既有 C 导出契约时递增。 |
+| crate 发布版本 | `miresidian_abi 0.10.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
 ## 唯一版本来源
 
@@ -19,14 +19,14 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 ```toml
 # 根 Cargo.toml
 [workspace.package]
-version = "0.9.0"
+version = "0.10.0"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.9.0"
+version = "0.10.0"
 
 [dependencies]
-miresidian = { version = "0.9.0" }
+miresidian = { version = "0.10.0" }
 
 ```
 

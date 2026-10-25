@@ -13,8 +13,8 @@ use crate::{
     ExecutionMode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
     GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
     INIT_DEVICE_OPERATION, Invocation, InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION,
-    MiresidianError, MiresidianResult, PLATFORM_ADAPTER_NAME, PlatformAdapter, PlatformRegistry,
-    RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse,
+    MiresidianError, MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
+    PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse,
     normalize_value_with_definition,
 };
 
@@ -37,7 +37,7 @@ pub struct NodeRuntime<N: DeviceNode> {
     /// 可由 `InitDevice` 的保留 Config 选择的平台适配器。
     platforms: PlatformRegistry,
     /// 运行时持有通道期间固定使用的平台；释放全部通道后允许重新选择。
-    active_platform: Option<String>,
+    active_platform: Option<Platform>,
 }
 
 impl<N: DeviceNode> NodeRuntime<N> {
@@ -62,6 +62,22 @@ impl<N: DeviceNode> NodeRuntime<N> {
         self.invoke_with_mode(adapter.as_ref(), invocation.clone(), true)
     }
 
+    /// 按平台枚举从注册表选择适配器处理调用。
+    pub fn invoke_with_platform(
+        &mut self,
+        platform: Platform,
+        request: Invocation,
+    ) -> MiresidianResult<InvocationOutput> {
+        let adapter =
+            self.platforms
+                .adapter(platform)
+                .ok_or_else(|| MiresidianError::InvalidArgument {
+                    field: PLATFORM_ADAPTER_NAME.to_owned(),
+                    message: format!("未注册的平台适配器 {platform}"),
+                })?;
+        self.invoke_with(adapter.as_ref(), request)
+    }
+
     /// 使用指定平台适配器处理调用。直接调用此方法时，`InitDevice` 的平台选择器仍会
     /// 校验该适配器的稳定标识，避免以错误协议初始化运行时。
     pub fn invoke_with<A: PlatformAdapter + ?Sized>(
@@ -79,22 +95,19 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
         if let Some(active) = &self.active_platform
-            && active != adapter.identifier()
+            && active != &adapter.platform()
         {
             return Err(MiresidianError::InvalidArgument {
                 field: PLATFORM_ADAPTER_NAME.to_owned(),
                 message: format!(
                     "当前驱动运行时已使用 {active}，不能改用 {}",
-                    adapter.identifier()
+                    adapter.platform()
                 ),
             });
         }
         let command = adapter.decode(request)?;
-        let response = self.invoke_command_from(
-            Some(adapter.identifier()),
-            platform_selector_enabled,
-            command,
-        )?;
+        let response =
+            self.invoke_command_from(Some(adapter.platform()), platform_selector_enabled, command)?;
         adapter.encode(response)
     }
 
@@ -108,7 +121,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
     fn invoke_command_from(
         &mut self,
-        adapter_identifier: Option<&str>,
+        adapter_identifier: Option<Platform>,
         platform_selector_enabled: bool,
         command: RuntimeInvocation,
     ) -> MiresidianResult<RuntimeResponse> {
@@ -126,7 +139,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
     fn invoke_single(
         &mut self,
         invocation: &Invocation,
-        adapter_identifier: Option<&str>,
+        adapter_identifier: Option<Platform>,
         platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
         match invocation.operation.as_str() {
@@ -226,7 +239,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &mut self,
         config: &[String],
         input: &[String],
-        adapter_identifier: Option<&str>,
+        adapter_identifier: Option<Platform>,
         platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
         let (node_config, access, platform, execution) =
@@ -310,7 +323,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
         platform_selector_enabled: bool,
-        adapter_identifier: Option<&str>,
+        adapter_identifier: Option<Platform>,
     ) -> MiresidianResult<InvocationOutput> {
         let config = self.normalize_channel_config(
             self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
@@ -409,7 +422,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
         platform_selector_enabled: bool,
-        adapter_identifier: Option<&str>,
+        adapter_identifier: Option<Platform>,
     ) -> MiresidianResult<InvocationOutput> {
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
@@ -452,8 +465,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &self,
         config: &'a [String],
         platform_selector_enabled: bool,
-        explicit_adapter: Option<&str>,
-    ) -> MiresidianResult<(&'a [String], LeaseAccess, String, ExecutionMode)> {
+        explicit_adapter: Option<Platform>,
+    ) -> MiresidianResult<(&'a [String], LeaseAccess, Platform, ExecutionMode)> {
         let count = N::descriptor().init_config.len();
         let node_config = &config[..config.len().min(count)];
         let lease_selector = N::descriptor().lease_activation.has_platform_selector();
@@ -478,9 +491,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
             }
             (
                 explicit_adapter
-                    .or(self.active_platform.as_deref())
-                    .unwrap_or(self.platforms.default_identifier())
-                    .to_owned(),
+                    .or(self.active_platform)
+                    .unwrap_or(self.platforms.default_platform()),
                 false,
             )
         };
@@ -501,12 +513,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
         value
             .split_once(":")
             .is_some_and(|(name, _)| name.trim() == PLATFORM_ADAPTER_NAME)
-            || self.platforms.adapter(value).is_some()
+            || self.platforms.adapter_by_identifier(value).is_some()
     }
 
-    fn platform_selection(&self, value: Option<&str>) -> MiresidianResult<(String, bool)> {
+    fn platform_selection(&self, value: Option<&str>) -> MiresidianResult<(Platform, bool)> {
         let Some(value) = value else {
-            return Ok((self.platforms.default_identifier().to_owned(), false));
+            return Ok((self.platforms.default_platform(), false));
         };
         let value = value.trim();
         if let Some((name, selected)) = value.split_once(":")
@@ -515,17 +527,17 @@ impl<N: DeviceNode> NodeRuntime<N> {
             let selected = selected.trim();
             return self
                 .platforms
-                .adapter(selected)
-                .map(|_| (selected.to_owned(), true))
+                .platform_by_identifier(selected)
+                .map(|platform| (platform, true))
                 .ok_or_else(|| MiresidianError::InvalidArgument {
                     field: PLATFORM_ADAPTER_NAME.to_owned(),
                     message: format!("未注册的平台适配器 {selected}"),
                 });
         }
-        if self.platforms.adapter(value).is_some() {
-            return Ok((value.to_owned(), true));
+        if let Some(platform) = self.platforms.platform_by_identifier(value) {
+            return Ok((platform, true));
         }
-        Ok((self.platforms.default_identifier().to_owned(), false))
+        Ok((self.platforms.default_platform(), false))
     }
 
     fn adapter_for(
@@ -536,11 +548,10 @@ impl<N: DeviceNode> NodeRuntime<N> {
             self.split_init_config(&invocation.config, true, None)?.2
         } else {
             self.active_platform
-                .clone()
-                .unwrap_or_else(|| self.platforms.default_identifier().to_owned())
+                .unwrap_or_else(|| self.platforms.default_platform())
         };
         self.platforms
-            .adapter(&identifier)
+            .adapter(identifier)
             .ok_or_else(|| MiresidianError::InvalidArgument {
                 field: PLATFORM_ADAPTER_NAME.to_owned(),
                 message: format!("未注册的平台适配器 {identifier}"),

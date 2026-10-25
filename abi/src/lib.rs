@@ -6,7 +6,7 @@
 use std::{ffi::c_char, ptr};
 
 /// 当前固定 C ABI 的版本号。新增 C 导出入口或改变既有 C 导出契约时递增。
-pub const MIRESIDIAN_ABI_VERSION: u32 = 6;
+pub const MIRESIDIAN_ABI_VERSION: u32 = 7;
 
 /// C ABI 调用成功。
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
@@ -22,8 +22,8 @@ pub type MiresidianStatus = i32;
 
 /// 旧版 Rust 源码兼容保留的 UTF-8 文本数组结构。
 ///
-/// C ABI v6 的 `miresidian_invoke` 不使用此结构，也不导出 `miresidian_free_text_array`；
-/// v6 调用方应读取其返回的 `result_json`，且不得释放该指针。
+/// C ABI v7 的 `miresidian_invoke` 不使用此结构，也不导出 `miresidian_free_text_array`；
+/// v7 调用方应读取其返回的 `result_json`，且不得释放该指针。
 #[repr(C)]
 #[derive(Debug)]
 pub struct MiresidianTextArray {
@@ -52,6 +52,8 @@ mod tests {
         assert!(header.contains(&format!(
             "#define MIRESIDIAN_ABI_VERSION {MIRESIDIAN_ABI_VERSION}"
         )));
+        assert!(header.contains("MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM = 1"));
+        assert!(header.contains("MIRESIDIAN_PLATFORM_CUSTOM_MIN = 65536"));
         assert!(header.contains("MIRESIDIAN_STATUS_OK = 0"));
         assert!(header.contains("MIRESIDIAN_STATUS_INVALID_ARGUMENT = 1"));
         assert!(header.contains("MIRESIDIAN_STATUS_OPERATION_FAILED = 2"));

@@ -199,7 +199,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "miresidian"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "miresidian_abi",
  "miresidian_codec",
@@ -211,11 +211,11 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.9.0"
+version = "0.10.0"
 
 [[package]]
 name = "miresidian_codec"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_lease"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "getrandom",
  "interprocess",
@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_pack"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cargo_metadata",
  "serde_json",
@@ -254,7 +254,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_testflow_windows"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64",
  "cargo_metadata",

@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-26
+
+### Added
+
+- 新增可扩展 Rust `Platform` 枚举：内置 `TbLvTestPlatform` 与第三方 `Custom(u32)`；适配器与注册表以该类型定位平台。
+
+### Changed
+
+- C ABI 升级至 v7；`miresidian_invoke_with` 的 `platform` 从 UTF-8 文本标识改为 `uint32_t` 平台枚举值。
+
 ## [0.9.0] - 2026-10-26
 
 ### Added

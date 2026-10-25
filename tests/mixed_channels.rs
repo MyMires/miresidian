@@ -2,13 +2,17 @@
 
 use miresidian::{
     DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, InvocationOutput,
-    MiresidianResult, NodeRuntime, PlatformAdapter, RuntimeInvocation, RuntimeResponse,
+    MiresidianResult, NodeRuntime, Platform, PlatformAdapter, RuntimeInvocation, RuntimeResponse,
 };
 
 #[derive(Clone, Copy, Default)]
 struct MacroPlatformAdapter;
 
 impl PlatformAdapter for MacroPlatformAdapter {
+    fn platform(&self) -> Platform {
+        Platform::Custom(0x0001_0001)
+    }
+
     fn identifier(&self) -> &'static str {
         "macro_platform"
     }
@@ -58,7 +62,7 @@ impl MixedChannelNode {
 #[test]
 fn 手动标注决定每个参数的外部来源通道() {
     let registry = <MixedChannelNode as DeviceNode>::platform_registry();
-    assert!(registry.adapter("macro_platform").is_some());
+    assert!(registry.adapter(Platform::Custom(0x0001_0001)).is_some());
     let mut runtime = NodeRuntime::<MixedChannelNode>::with_platforms(registry);
     let init_config = runtime
         .invoke(&Invocation::new(

@@ -11,11 +11,16 @@
 #define MIRESIDIAN_CALL
 #endif
 
-#define MIRESIDIAN_ABI_VERSION 6
+#define MIRESIDIAN_ABI_VERSION 7
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+enum {
+    MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM = 1,
+    MIRESIDIAN_PLATFORM_CUSTOM_MIN = 65536
+};
 
 enum {
     MIRESIDIAN_STATUS_OK = 0,
@@ -41,16 +46,16 @@ MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke(
     const char *config_json,
     const char *input_json);
 /*
- * platform 是已编译进 DLL 的 PlatformAdapter 稳定标识。
+ * platform 是已编译进 DLL 的 Platform 枚举数值；`1` 为 `tb_lv_test_platform`，第三方平台必须不小于 `65536`。
  * 此显式选型路径对应 Rust 的 NodeRuntime::invoke_with：InitDevice 的 Config 不得包含平台适配选择器。
  */
 MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke_with(
-    const char *platform,
+    uint32_t platform,
     const char *function,
     const char *config_json,
     const char *input_json);
 
-#define MIRESIDIAN_ABI_VERSION 6
+#define MIRESIDIAN_ABI_VERSION 7
 
 #ifdef __cplusplus
 }

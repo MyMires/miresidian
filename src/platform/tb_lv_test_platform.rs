@@ -4,7 +4,7 @@
 //! 此约定仅保留在适配器中，运行时只接收结构化共享槽位。
 
 use crate::{
-    Invocation, InvocationOutput, MiresidianResult, PlatformAdapter, RuntimeInvocation,
+    Invocation, InvocationOutput, MiresidianResult, Platform, PlatformAdapter, RuntimeInvocation,
     RuntimeResponse, SHARED_INVOCATION_MARKER, SharedInvocation,
 };
 
@@ -16,6 +16,10 @@ pub const TB_LV_TEST_PLATFORM: &str = "tb_lv_test_platform";
 pub struct TbLvTestPlatformAdapter;
 
 impl PlatformAdapter for TbLvTestPlatformAdapter {
+    fn platform(&self) -> Platform {
+        Platform::TbLvTestPlatform
+    }
+
     fn identifier(&self) -> &'static str {
         TB_LV_TEST_PLATFORM
     }

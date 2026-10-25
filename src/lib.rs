@@ -80,8 +80,8 @@ pub use miresidian_codec::{
 /// 这是框架节点项目的必选代码生成能力。
 pub use miresidian_macro::{config, input, lease, node, node_impl, operation, output};
 pub use platform::{
-    PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation,
-    SharedResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
+    Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    SharedInvocation, SharedResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
 };
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,

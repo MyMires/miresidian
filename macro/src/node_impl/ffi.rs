@@ -28,7 +28,7 @@ pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::To
         /// 使用显式平台注册 id 调用 DLL；对应 Rust 的 `NodeRuntime::invoke_with`。
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn miresidian_invoke_with(
-            platform: *const ::std::ffi::c_char,
+            platform: u32,
             function: *const ::std::ffi::c_char,
             config_json: *const ::std::ffi::c_char,
             input_json: *const ::std::ffi::c_char,

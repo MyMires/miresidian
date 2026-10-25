@@ -3,8 +3,7 @@
 use miresidian::{
     DeviceNode, Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
     MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianResult, NodeDescriptor,
-    NodeRuntime, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
-    TB_LV_TEST_PLATFORM,
+    NodeRuntime, Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
 };
 use std::{
     ffi::{CStr, CString},
@@ -81,6 +80,10 @@ impl DeviceNode for CAbiPlatformNode {
 struct CAbiMockAdapter;
 
 impl PlatformAdapter for CAbiMockAdapter {
+    fn platform(&self) -> Platform {
+        Platform::Custom(0x0001_0002)
+    }
+
     fn identifier(&self) -> &'static str {
         "c_abi_mock_platform"
     }
@@ -119,13 +122,12 @@ fn call(function: &str, config_json: &str) -> serde_json::Value {
 
 fn call_with(function: &str, config_json: &str) -> serde_json::Value {
     let runtime: OnceLock<Mutex<NodeRuntime<TestNode>>> = OnceLock::new();
-    let platform = CString::new(TB_LV_TEST_PLATFORM).expect("平台标识不含 NUL");
     let function = CString::new(function).expect("固定操作名不含 NUL");
     let config_json = CString::new(config_json).expect("JSON 不含 NUL");
     let output = unsafe {
         miresidian::ffi_runtime::invoke_with(
             &runtime,
-            platform.as_ptr(),
+            Platform::TbLvTestPlatform.as_u32(),
             function.as_ptr(),
             config_json.as_ptr(),
             c"[]".as_ptr(),
@@ -222,6 +224,39 @@ fn c_abi_可从节点注册表选择编译进_dll_的平台() {
         serde_json::from_str(unsafe { CStr::from_ptr(initialized) }.to_str().unwrap()).unwrap();
     assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
     assert_eq!(initialized["output"], serde_json::json!(["c-abi-mock"]));
+}
+
+#[test]
+fn 数值平台_c_abi_可选择第三方适配器并拒绝保留值() {
+    let runtime: OnceLock<Mutex<NodeRuntime<CAbiPlatformNode>>> = OnceLock::new();
+    let function = CString::new("InitDevice").unwrap();
+    let config = CString::new(r#"["Parallel"]"#).unwrap();
+    let output = unsafe {
+        miresidian::ffi_runtime::invoke_with(
+            &runtime,
+            Platform::Custom(0x0001_0002).as_u32(),
+            function.as_ptr(),
+            config.as_ptr(),
+            c"[]".as_ptr(),
+        )
+    };
+    let output: serde_json::Value =
+        serde_json::from_str(unsafe { CStr::from_ptr(output) }.to_str().unwrap()).unwrap();
+    assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
+    assert_eq!(output["output"], serde_json::json!(["c-abi-mock"]));
+
+    let invalid = unsafe {
+        miresidian::ffi_runtime::invoke_with(
+            &OnceLock::<Mutex<NodeRuntime<TestNode>>>::new(),
+            2,
+            function.as_ptr(),
+            config.as_ptr(),
+            c"[]".as_ptr(),
+        )
+    };
+    let invalid: serde_json::Value =
+        serde_json::from_str(unsafe { CStr::from_ptr(invalid) }.to_str().unwrap()).unwrap();
+    assert_eq!(invalid["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
 }
 
 #[test]

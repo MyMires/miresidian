@@ -15,7 +15,7 @@ use serde::Serialize;
 use crate::{
     DeviceNode, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
     MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus,
-    NodeRuntime,
+    NodeRuntime, Platform,
 };
 
 const INTERNAL_ERROR_RESPONSE: &str =
@@ -66,14 +66,15 @@ pub unsafe fn invoke<N: DeviceNode>(
 
 /// 使用显式平台适配器调用 DLL，并返回 DLL 持有的 JSON C 字符串指针。
 ///
-/// 此路径对应 `NodeRuntime::invoke_with`：`platform` 必须是节点 DLL 已注册的稳定适配器标识；
+/// 此路径对应 `NodeRuntime::invoke_with`：`platform` 必须是节点 DLL 已注册的平台枚举数值；
 /// `InitDevice` 的 Config 不发布也不接受 `平台适配` 选择器。
 ///
 /// # Safety
-/// platform 与 function 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
+/// function 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
+/// platform 必须是有效的已注册平台枚举值。
 pub unsafe fn invoke_with<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    platform: *const c_char,
+    platform: u32,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
@@ -122,7 +123,7 @@ unsafe fn invoke_node<N: DeviceNode>(
 
 unsafe fn invoke_node_with<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    platform: *const c_char,
+    platform: u32,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
@@ -168,13 +169,17 @@ unsafe fn dispatch<N: DeviceNode>(
 
 unsafe fn dispatch_with<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
-    platform: *const c_char,
+    platform: u32,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
 ) -> Result<Vec<String>, (MiresidianStatus, String)> {
-    let platform = unsafe { copy_required_text(platform, "platform") }
-        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let platform = Platform::from_abi(platform).ok_or_else(|| {
+        (
+            MIRESIDIAN_STATUS_INVALID_ARGUMENT,
+            "参数 platform 不是有效的平台枚举值".to_owned(),
+        )
+    })?;
     let operation = unsafe { copy_required_text(function, "function") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
     let config = unsafe { parse_json_array(config_json, "config_json") }
@@ -182,7 +187,7 @@ unsafe fn dispatch_with<N: DeviceNode>(
     let input = unsafe { parse_json_array(input_json, "input_json") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
     let platforms = N::platform_registry();
-    let adapter = platforms.adapter(&platform).ok_or_else(|| {
+    let adapter = platforms.adapter(platform).ok_or_else(|| {
         (
             MIRESIDIAN_STATUS_INVALID_ARGUMENT,
             format!("未注册的平台适配器 {platform}"),
