@@ -12,5 +12,5 @@ local-ipc = ["dep:interprocess"]
 
 [dependencies]
 getrandom = "0.3"
-miresidian_codec = { version = "=0.5.3", path = "../codec" }
+miresidian_codec = { version = "=0.6.0", path = "../codec" }
 interprocess = { version = "2.4", optional = true }

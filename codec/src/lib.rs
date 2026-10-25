@@ -159,6 +159,24 @@ pub fn decode_value<T: DeviceInput>(
     T::parse_device_text(&definition::value_at(values, index, field, default)?, field)
 }
 
+/// 从平台参数通道提取带完整定义的规范化文本。
+///
+/// 该入口与宏生成的参数解码共用默认值、参数名前缀和显示值规则。运行时使用它生成
+/// 稳定通道键，因此语义相同的 Config 文本会定位到同一已初始化通道。
+pub fn normalize_value_with_definition(
+    values: &[String],
+    index: usize,
+    field: &str,
+    definition: &str,
+    default: Option<&str>,
+) -> MiresidianResult<String> {
+    let default = (!definition::has_option_pairs(definition))
+        .then_some(default)
+        .flatten();
+    let value = definition::value_at(values, index, field, default)?;
+    Ok(definition::normalize_option_value(value, definition))
+}
+
 /// 从平台参数通道解码带完整平台描述的强类型值。
 ///
 /// 属性宏使用此入口，使选项描述中的显示值在进入 `DeviceInput` 前规范化为实际值。
@@ -169,12 +187,8 @@ pub fn decode_value_with_definition<T: DeviceInput>(
     definition: &str,
     default: Option<&str>,
 ) -> MiresidianResult<T> {
-    let default = (!definition::has_option_pairs(definition))
-        .then_some(default)
-        .flatten();
-    let value = definition::value_at(values, index, field, default)?;
     T::parse_device_text(
-        &definition::normalize_option_value(value, definition),
+        &normalize_value_with_definition(values, index, field, definition, default)?,
         field,
     )
 }

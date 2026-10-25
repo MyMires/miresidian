@@ -55,10 +55,10 @@ cargo install miresidian_testflow_windows
 
 随后直接使用 `cargo miresidian-pack` 与 `cargo miresidian-testflow-windows`；两者均不进入节点 DLL 的运行时依赖图。
 
-普通自定义操作必须传入创建该对象时完全相同的 `Config[]`；运行时据此定位通道。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
+普通自定义操作以业务 `Config[]` 定位通道。运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，因此语义相同的配置会定位到同一通道；框架保留的配置不属于通道键。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
-`miresidian::ffi_runtime::invoke`。节点需将普通调用的 Config 调整为通道键；其余宏生成代码无需手写。
+`miresidian::ffi_runtime::invoke`。节点无需复刻首次初始化时的原始 Config 文本；其余宏生成代码无需手写。
 
 具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自身目录；
 例如串口通信节点使用以下结构：
@@ -102,7 +102,7 @@ cargo install miresidian_testflow_windows
 
 ```toml
 [dependencies]
-miresidian = { version = "0.3.1", features = ["lease"] }
+miresidian = { version = "0.6.0", features = ["lease"] }
 ```
 
 仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：

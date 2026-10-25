@@ -1,7 +1,8 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 //!
-//! 运行时按 Config 键管理多个通道对象：`InitDevice` 以 Config 精确匹配复用或创建对象，
-//! 其余方法以 Config 定位唯一对象执行。共享调用由 `shared` 模块在全部已创建通道上批量执行。
+//! 运行时按规范化后的业务 Config 键管理多个通道对象：`InitDevice` 以等价 Config 复用或
+//! 创建对象，其余方法以同一规则定位唯一对象。共享调用由 `shared` 模块在全部已创建通道上
+//! 批量执行。
 
 #[cfg(feature = "lease")]
 use crate::lease::local_ipc::LocalLease;
@@ -12,11 +13,12 @@ use crate::{
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
     InvocationOutput, LeaseAccess, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    normalize_value_with_definition,
 };
 
 /// 一个按 Config 键登记的通道对象。
 pub(super) struct Channel<N> {
-    /// 创建该对象时的完整 Config 数组；作为定位键原样保留。
+    /// 规范化后的业务 Config；既是定位键，也是后续操作读取的已连接配置。
     pub(super) config: Vec<String>,
     /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
     pub(super) node: Arc<Mutex<N>>,
@@ -68,7 +70,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         !self.channels.is_empty()
     }
 
-    /// 以 Config 精确匹配定位通道对象。
+    /// 以规范化后的业务 Config 定位通道对象。
     fn find_channel(&self, config: &[String]) -> Option<&Channel<N>> {
         self.channels
             .iter()
@@ -81,6 +83,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
         let (node_config, access, execution) = self.split_init_config(config)?;
+        let channel_config = self.normalize_channel_config(node_config)?;
         if let Some(active) = self.shared_execution
             && active != execution
         {
@@ -93,7 +96,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 ),
             });
         }
-        if self.find_channel(node_config).is_some() {
+        if self.find_channel(&channel_config).is_some() {
             return Ok(InvocationOutput::new(vec![
                 CHANNEL_REUSED_MESSAGE.to_owned(),
             ]));
@@ -118,7 +121,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         match candidate.init_device(node_config, input) {
             Ok(output) => {
                 self.channels.push(Channel {
-                    config: node_config.to_vec(),
+                    config: channel_config,
                     node: Arc::new(Mutex::new(candidate)),
                     #[cfg(feature = "lease")]
                     lease,
@@ -142,18 +145,19 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let config = self.node_config(config)?;
+        let config = self.normalize_channel_config(self.node_config(config)?)?;
         let index = self
             .channels
             .iter()
-            .position(|channel| channel.config.as_slice() == config)
+            .position(|channel| channel.config == config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
         {
-            let mut node = self.channels[index]
+            let channel = &self.channels[index];
+            let mut node = channel
                 .node
                 .lock()
                 .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-            node.close_device(config, input)?;
+            node.close_device(&channel.config, input)?;
         }
         #[cfg(feature = "lease")]
         if let Some(mut lease) = self.channels[index].lease.take() {
@@ -209,16 +213,16 @@ impl<N: DeviceNode> NodeRuntime<N> {
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
-        let config = self.node_config(config)?;
+        let config = self.normalize_channel_config(self.node_config(config)?)?;
         let channel = self
-            .find_channel(config)
+            .find_channel(&config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
 
         let mut node = channel
             .node
             .lock()
             .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-        node.invoke(operation, config, input)
+        node.invoke(operation, &channel.config, input)
     }
 
     /// 将框架保留的共享执行方式从初始化或后续定位 Config 中剥离。
@@ -233,6 +237,25 @@ impl<N: DeviceNode> NodeRuntime<N> {
             });
         }
         Ok(&config[..config.len().min(count)])
+    }
+
+    /// 生成稳定通道键并补齐有效的默认值。该规则与宏生成参数解析保持一致，
+    /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
+    fn normalize_channel_config(&self, config: &[String]) -> MiresidianResult<Vec<String>> {
+        N::descriptor()
+            .init_config
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                normalize_value_with_definition(
+                    config,
+                    index,
+                    parameter.name,
+                    parameter.definition,
+                    parameter.default_value,
+                )
+            })
+            .collect()
     }
 
     fn split_init_config<'a>(

@@ -4,20 +4,30 @@ use miresidian::{ByteTextFormat, Invocation, MiresidianResult, NodeRuntime, enco
 
 #[miresidian::node("编解码宏测试节点")]
 #[derive(Default)]
-struct CodecMacroNode;
+struct CodecMacroNode {
+    connection: String,
+}
 
 #[miresidian::node_impl]
 impl CodecMacroNode {
     #[miresidian::output("初始化格式")]
     fn init_device(
         &mut self,
+        #[miresidian::config("传输方式:Serial-串口/Tcp-网络")] transport: String,
+        #[miresidian::config("地址:127.0.0.1")] address: String,
         #[miresidian::config("初始化格式:GBK")] format: ByteTextFormat,
     ) -> MiresidianResult<String> {
+        self.connection = format!("{transport}:{address}");
         Ok(format.to_string())
     }
 
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
+    }
+
+    #[miresidian::operation("读取连接")]
+    fn read_connection(&mut self) -> MiresidianResult<String> {
+        Ok(self.connection.clone())
     }
 
     #[miresidian::operation("编解码回显")]
@@ -37,7 +47,11 @@ fn 属性宏生成的调度复用根框架编解码规则() {
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
-            vec!["初始化格式:ASCII".to_owned()],
+            vec![
+                "Serial".to_owned(),
+                "127.0.0.1".to_owned(),
+                "初始化格式:ASCII".to_owned(),
+            ],
             Vec::new(),
         ))
         .expect("宏生成的 Config 调度应解析 ByteTextFormat");
@@ -46,9 +60,48 @@ fn 属性宏生成的调度复用根框架编解码规则() {
     let output = runtime
         .invoke(&Invocation::new(
             "编解码回显",
-            vec!["初始化格式:ASCII".to_owned()],
+            vec![
+                "Serial".to_owned(),
+                "127.0.0.1".to_owned(),
+                "初始化格式:ASCII".to_owned(),
+            ],
             vec!["base64:AP8K".to_owned(), "十六进制".to_owned()],
         ))
         .expect("宏生成的 Input 调度应解析 Vec<u8> 与 ByteTextFormat");
     assert_eq!(output.as_slice(), ["HEX", "00 FF 0A"]);
+}
+
+#[test]
+fn 等价业务配置定位并复用同一通道() {
+    let mut runtime = NodeRuntime::<CodecMacroNode>::new();
+    let initialized = runtime
+        .invoke(&Invocation::new(
+            "InitDevice",
+            vec!["串口".to_owned()],
+            Vec::new(),
+        ))
+        .expect("显示值与缺省配置应可初始化");
+    assert_eq!(initialized.as_slice(), ["GBK"]);
+
+    let reused = runtime
+        .invoke(&Invocation::new(
+            "InitDevice",
+            vec![
+                "传输方式:Serial".to_owned(),
+                "地址:127.0.0.1".to_owned(),
+                "初始化格式:GBK".to_owned(),
+            ],
+            Vec::new(),
+        ))
+        .expect("参数名前缀、实际值和显式默认值应命中已有通道");
+    assert_eq!(reused.as_slice(), [miresidian::CHANNEL_REUSED_MESSAGE]);
+
+    let connection = runtime
+        .invoke(&Invocation::new(
+            "读取连接",
+            vec!["传输方式:串口".to_owned()],
+            Vec::new(),
+        ))
+        .expect("等价 Config 应定位到已初始化通道");
+    assert_eq!(connection.as_slice(), ["Serial:127.0.0.1"]);
 }

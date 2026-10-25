@@ -11,4 +11,4 @@ crate-type = ["cdylib"]
 [workspace]
 
 [dependencies]
-miresidian = { version = "0.5.3", path = "../../.." }
+miresidian = { version = "0.6.0", path = "../../.." }

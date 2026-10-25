@@ -58,7 +58,7 @@ pub mod codec {
     pub use miresidian_codec::{
         ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
         decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
-        parse_byte_text_format, transcode_text,
+        normalize_value_with_definition, parse_byte_text_format, transcode_text,
     };
 }
 
@@ -71,8 +71,8 @@ pub use miresidian_abi::{
 pub use miresidian_codec::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
     InvocationOutput, MiresidianError, MiresidianResult, decode_text_to_bytes, decode_value,
-    decode_value_with_definition, encode_bytes_to_text, encode_value, parse_byte_text_format,
-    transcode_text,
+    decode_value_with_definition, encode_bytes_to_text, encode_value,
+    normalize_value_with_definition, parse_byte_text_format, transcode_text,
 };
 /// 供具体节点使用的属性宏。
 ///
