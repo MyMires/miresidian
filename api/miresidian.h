@@ -11,7 +11,7 @@
 #define MIRESIDIAN_CALL
 #endif
 
-#define MIRESIDIAN_ABI_VERSION 5
+#define MIRESIDIAN_ABI_VERSION 6
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,8 +40,17 @@ MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke(
     const char *function,
     const char *config_json,
     const char *input_json);
+/*
+ * platform 是已编译进 DLL 的 PlatformAdapter 稳定标识。
+ * 此显式选型路径对应 Rust 的 NodeRuntime::invoke_with：InitDevice 的 Config 不得包含平台适配选择器。
+ */
+MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke_with(
+    const char *platform,
+    const char *function,
+    const char *config_json,
+    const char *input_json);
 
-#define MIRESIDIAN_ABI_VERSION 5
+#define MIRESIDIAN_ABI_VERSION 6
 
 #ifdef __cplusplus
 }

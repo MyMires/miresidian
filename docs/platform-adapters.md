@@ -40,7 +40,7 @@ struct ExampleNode;
 struct MyPlatformAdapter;
 ```
 
-`platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在 `miresidian_invoke` 首次调用时用节点生成的注册表创建运行时。因此，外部平台先调用原有 C ABI 的 `GetInitConfig`，再在 `InitDevice` 的 `Config[]` 中传入注册的 id 即可选中适配器，无需新增 C 导出函数。
+`platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择 id；需要显式选型时改用 `miresidian_invoke_with(platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。
 
 `RuntimeInvocation::Shared` 使用 `SharedInvocation { slots }`。每个槽位对应一个已初始化通道；不足的槽位由运行时补为跳过，超过通道数的槽位会被拒绝。`SharedResponse` 的槽位数始终等于已初始化通道数。
 

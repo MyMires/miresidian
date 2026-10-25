@@ -40,7 +40,7 @@
 - 常量使用 `SCREAMING_SNAKE_CASE`。
 - 默认保持私有；仅当跨 crate、宏生成代码或调用方确实需要时才暴露 `pub` API。
 - Rust 内部采用惯用命名，例如 `invoke`、`init_device`、`close_device`。
-- C ABI 导出符号和对外 Operation 名称以契约为准。当前稳定调用入口为 `miresidian_invoke`。
+- C ABI 导出符号和对外 Operation 名称以契约为准。当前稳定调用入口为 `miresidian_invoke` 与 `miresidian_invoke_with`。
 - 物理量、超时、长度等应通过名称或文档表明单位，例如 `timeout_ms`、`voltage_v`、`maximum_bytes`。
 - 禁止散落的魔法数字；协议常量、默认值和状态码必须定义为具名常量或明确的枚举成员。
 
@@ -59,7 +59,7 @@
 - C ABI 文本统一使用 UTF-8，并明确空指针、空数组、空字符串与错误值的含义。
 - 由 Rust 分配并交给外部调用方读取的内存，其所有权、有效期与回收策略必须由 ABI 文档明确。当前 JSON 文本 ABI 在 DLL 当前线程中保存响应；返回指针只在同一线程下一次调用前有效，调用方应立即复制且不得释放。
 - ABI 的函数名、参数顺序、调用约定、所有权和版本必须记录在公开头文件与 ABI 文档中。任何破坏性修改必须新增 ABI 版本，而不是覆盖旧入口。
-- 当前统一调用模型为 `Function + Config + Input -> Output`。`operation` 是 Rust 内部节点调度语义，`miresidian_invoke` 是稳定 C ABI 导出名称。
+- 当前统一调用模型为 `Function + Config + Input -> Output`。`operation` 是 Rust 内部节点调度语义，`miresidian_invoke` 与 `miresidian_invoke_with` 是稳定 C ABI 导出名称。
 
 ## 5. 设备节点、并发与资源
 

@@ -5,8 +5,8 @@
 
 use std::{ffi::c_char, ptr};
 
-/// 当前固定 C ABI 的版本号。仅在 C 导出契约不兼容时递增。
-pub const MIRESIDIAN_ABI_VERSION: u32 = 5;
+/// 当前固定 C ABI 的版本号。新增 C 导出入口或改变既有 C 导出契约时递增。
+pub const MIRESIDIAN_ABI_VERSION: u32 = 6;
 
 /// C ABI 调用成功。
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
@@ -22,8 +22,8 @@ pub type MiresidianStatus = i32;
 
 /// 旧版 Rust 源码兼容保留的 UTF-8 文本数组结构。
 ///
-/// C ABI v5 的 `miresidian_invoke` 不使用此结构，也不导出 `miresidian_free_text_array`；
-/// v5 调用方应读取其返回的 `result_json`，且不得释放该指针。
+/// C ABI v6 的 `miresidian_invoke` 不使用此结构，也不导出 `miresidian_free_text_array`；
+/// v6 调用方应读取其返回的 `result_json`，且不得释放该指针。
 #[repr(C)]
 #[derive(Debug)]
 pub struct MiresidianTextArray {
@@ -58,6 +58,7 @@ mod tests {
         assert!(header.contains("MIRESIDIAN_STATUS_INTERNAL_ERROR = 3"));
         assert!(header.contains("miresidian_abi_version(void)"));
         assert!(header.contains("miresidian_invoke("));
+        assert!(header.contains("miresidian_invoke_with("));
         assert_eq!(header, include_str!("../../api/miresidian.h"));
     }
 

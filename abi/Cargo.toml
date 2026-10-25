@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 [package.metadata.miresidian]
-abi_version = 5
+abi_version = 6
 
 [lib]
 path = "src/lib.rs"

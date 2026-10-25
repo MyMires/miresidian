@@ -10,14 +10,15 @@
 Function + Config[] + Input[] -> Output[]
 ```
 
-原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出 ABI 版本查询与唯一业务入口：
+原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出 ABI 版本查询与两个业务调用入口：
 
 | C ABI 入口 | 结果形式 |
 | --- | --- |
 | `miresidian_abi_version` | 返回当前 ABI 版本号。 |
-| `miresidian_invoke` | 返回 DLL 持有的 `result_json`，固定为 `{ "status": 状态码, "message": 消息, "output": [...] }`。 |
+| `miresidian_invoke` | 使用 InitDevice Config 选择平台，返回 DLL 持有的 `result_json`。 |
+| `miresidian_invoke_with` | 显式传入已注册的平台 id，语义对应 `NodeRuntime::invoke_with`，返回相同 `result_json`。 |
 
-`miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求。`config_json`
+`miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求；`miresidian_invoke_with` 在其前额外传入 `platform`。`config_json`
 与 `input_json` 是 UTF-8 JSON 字符串数组；原生入口不会直接传递字符串指针数组。完整的参数
 顺序、返回文本生命周期与状态码见 [C ABI](c-abi.md)。
 

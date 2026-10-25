@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-26
+
+### Added
+
+- C ABI 新增 `miresidian_invoke_with(platform, function, config_json, input_json)`；由节点注册表解析平台 id，并走 `NodeRuntime::invoke_with` 的显式适配路径。
+
+### Changed
+
+- C ABI 升级至 v6；宏生成的每个节点 DLL 同时导出显式平台入口。
+
 ## [0.8.0] - 2026-10-26
 
 ### Added

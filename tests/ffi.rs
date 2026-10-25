@@ -4,6 +4,7 @@ use miresidian::{
     DeviceNode, Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
     MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianResult, NodeDescriptor,
     NodeRuntime, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    TB_LV_TEST_PLATFORM,
 };
 use std::{
     ffi::{CStr, CString},
@@ -114,6 +115,51 @@ fn call(function: &str, config_json: &str) -> serde_json::Value {
         .to_str()
         .expect("输出必须为 UTF-8");
     serde_json::from_str(output).expect("输出必须为 JSON 响应对象")
+}
+
+fn call_with(function: &str, config_json: &str) -> serde_json::Value {
+    let runtime: OnceLock<Mutex<NodeRuntime<TestNode>>> = OnceLock::new();
+    let platform = CString::new(TB_LV_TEST_PLATFORM).expect("平台标识不含 NUL");
+    let function = CString::new(function).expect("固定操作名不含 NUL");
+    let config_json = CString::new(config_json).expect("JSON 不含 NUL");
+    let output = unsafe {
+        miresidian::ffi_runtime::invoke_with(
+            &runtime,
+            platform.as_ptr(),
+            function.as_ptr(),
+            config_json.as_ptr(),
+            c"[]".as_ptr(),
+        )
+    };
+    let output = unsafe { CStr::from_ptr(output) }
+        .to_str()
+        .expect("输出必须为 UTF-8");
+    serde_json::from_str(output).expect("输出必须为 JSON 响应对象")
+}
+
+#[test]
+fn 显式平台_c_abi_等价于_invoke_with() {
+    let metadata = call_with("GetInitConfig", "[]");
+    assert_eq!(metadata["status"], MIRESIDIAN_STATUS_OK);
+    assert_eq!(
+        metadata["output"],
+        serde_json::json!(["共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"])
+    );
+
+    let initialized = call_with("InitDevice", r#"["Parallel"]"#);
+    assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
+
+    let duplicated_selector = call_with("InitDevice", r#"["tb_lv_test_platform"]"#);
+    assert_eq!(
+        duplicated_selector["status"],
+        MIRESIDIAN_STATUS_INVALID_ARGUMENT
+    );
+    assert!(
+        duplicated_selector["message"]
+            .as_str()
+            .unwrap()
+            .contains("不应在 Config 中重复选择")
+    );
 }
 
 #[test]

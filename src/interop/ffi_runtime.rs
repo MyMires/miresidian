@@ -64,6 +64,29 @@ pub unsafe fn invoke<N: DeviceNode>(
     })
 }
 
+/// 使用显式平台适配器调用 DLL，并返回 DLL 持有的 JSON C 字符串指针。
+///
+/// 此路径对应 `NodeRuntime::invoke_with`：`platform` 必须是节点 DLL 已注册的稳定适配器标识；
+/// `InitDevice` 的 Config 不发布也不接受 `平台适配` 选择器。
+///
+/// # Safety
+/// platform 与 function 必须指向有效 UTF-8 C 字符串。非空 JSON 参数必须同样有效且以 NUL 结尾。
+pub unsafe fn invoke_with<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    platform: *const c_char,
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
+) -> *const c_char {
+    let (status, message, output) =
+        unsafe { invoke_node_with(runtime, platform, function, config_json, input_json) };
+    store_response(InvocationResponse {
+        status,
+        message,
+        output,
+    })
+}
+
 fn store_response(response: InvocationResponse) -> *const c_char {
     let json = serde_json::to_string(&response)
         .ok()
@@ -97,6 +120,26 @@ unsafe fn invoke_node<N: DeviceNode>(
     }
 }
 
+unsafe fn invoke_node_with<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    platform: *const c_char,
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
+) -> (MiresidianStatus, String, Vec<String>) {
+    match catch_unwind(AssertUnwindSafe(|| unsafe {
+        dispatch_with(runtime, platform, function, config_json, input_json)
+    })) {
+        Ok(Ok(values)) => (MIRESIDIAN_STATUS_OK, String::new(), values),
+        Ok(Err((status, message))) => (status, message, Vec::new()),
+        Err(_) => (
+            MIRESIDIAN_STATUS_INTERNAL_ERROR,
+            "Miresidian 内部发生未预期错误".to_owned(),
+            Vec::new(),
+        ),
+    }
+}
+
 unsafe fn dispatch<N: DeviceNode>(
     runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
     function: *const c_char,
@@ -119,6 +162,42 @@ unsafe fn dispatch<N: DeviceNode>(
             )
         })?
         .invoke(&Invocation::new(operation, config, input))
+        .map(|value| value.into_values())
+        .map_err(|error| (status_for_error(&error), error.to_string()))
+}
+
+unsafe fn dispatch_with<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    platform: *const c_char,
+    function: *const c_char,
+    config_json: *const c_char,
+    input_json: *const c_char,
+) -> Result<Vec<String>, (MiresidianStatus, String)> {
+    let platform = unsafe { copy_required_text(platform, "platform") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let operation = unsafe { copy_required_text(function, "function") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let config = unsafe { parse_json_array(config_json, "config_json") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let input = unsafe { parse_json_array(input_json, "input_json") }
+        .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
+    let platforms = N::platform_registry();
+    let adapter = platforms.adapter(&platform).ok_or_else(|| {
+        (
+            MIRESIDIAN_STATUS_INVALID_ARGUMENT,
+            format!("未注册的平台适配器 {platform}"),
+        )
+    })?;
+    runtime
+        .get_or_init(|| Mutex::new(NodeRuntime::with_platforms(platforms)))
+        .lock()
+        .map_err(|_| {
+            (
+                MIRESIDIAN_STATUS_INTERNAL_ERROR,
+                "节点状态锁已损坏".to_owned(),
+            )
+        })?
+        .invoke_with(adapter.as_ref(), Invocation::new(operation, config, input))
         .map(|value| value.into_values())
         .map_err(|error| (status_for_error(&error), error.to_string()))
 }

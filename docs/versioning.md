@@ -5,10 +5,10 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.8.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `<node package> 0.8.0` | 每个节点独立使用语义化版本。 |
-| ABI 版本 | `5` | 仅在 C ABI 不兼容时递增。 |
-| crate 发布版本 | `miresidian_abi 0.8.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| 框架版本 | `miresidian 0.9.0` | 管理运行时与过程宏，使用语义化版本。 |
+| 实例项目版本 | `<node package> 0.9.0` | 每个节点独立使用语义化版本。 |
+| ABI 版本 | `6` | 新增 C 导出入口或改变既有 C 导出契约时递增。 |
+| crate 发布版本 | `miresidian_abi 0.9.0` | 当前四个公开 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
 ## 唯一版本来源
 
@@ -19,14 +19,14 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 ```toml
 # 根 Cargo.toml
 [workspace.package]
-version = "0.8.0"
+version = "0.9.0"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.8.0"
+version = "0.9.0"
 
 [dependencies]
-miresidian = { version = "0.8.0" }
+miresidian = { version = "0.9.0" }
 
 ```
 
@@ -55,7 +55,7 @@ miresidian = { version = "0.8.0" }
 
 ## ABI 更新规则
 
-- 新增 `miresidian_invoke` 可识别的常驻查询或节点操作，不改变 ABI 版本。
+- 在既有 `miresidian_invoke` 中新增可识别操作不改变 ABI 版本；新增 C 导出入口或改变既有导出契约时递增 ABI 版本。
 - 改变 C 导出函数、参数顺序、编码、返回文本生命周期或内存所有权时，必须递增 ABI 版本。
 - ABI 版本与框架、实例语义版本互相独立，不能用其中一个代替另一个。
 

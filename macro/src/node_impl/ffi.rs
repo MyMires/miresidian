@@ -25,6 +25,25 @@ pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::To
             }
         }
 
+        /// 使用显式平台注册 id 调用 DLL；对应 Rust 的 `NodeRuntime::invoke_with`。
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn miresidian_invoke_with(
+            platform: *const ::std::ffi::c_char,
+            function: *const ::std::ffi::c_char,
+            config_json: *const ::std::ffi::c_char,
+            input_json: *const ::std::ffi::c_char,
+        ) -> *const ::std::ffi::c_char {
+            unsafe {
+                ::miresidian::ffi_runtime::invoke_with(
+                    &#runtime,
+                    platform,
+                    function,
+                    config_json,
+                    input_json,
+                )
+            }
+        }
+
         /// 返回当前固定 C ABI 的版本号。
         #[unsafe(no_mangle)]
         pub extern "C" fn miresidian_abi_version() -> u32 {
