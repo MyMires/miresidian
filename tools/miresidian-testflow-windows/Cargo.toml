@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian TestFlow Windows 自包含 BAT 生成与执行工具。"
 license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
 keywords = ["miresidian", "cargo-subcommand", "windows", "testing"]
 categories = ["command-line-utilities", "development-tools::testing"]

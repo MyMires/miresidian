@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 节点发布包整理工具。"
 license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
 keywords = ["miresidian", "cargo-subcommand", "windows", "ffi"]
 categories = ["command-line-utilities", "development-tools::build-utils"]

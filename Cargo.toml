@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
 license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
 autobins = false
 

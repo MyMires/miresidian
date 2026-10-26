@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 数据编解码、参数解析与跨语言值模型。"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
 
 [dependencies]
