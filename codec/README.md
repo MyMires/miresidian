@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian_codec = "0.2"
+miresidian_codec = "0.10.0"
 ```
 
 数据格式与编码规则见框架仓库的 `docs/data-codec.md`。

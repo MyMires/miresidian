@@ -96,10 +96,12 @@
 - 提交前至少通过以下检查：
 
   ```text
-  cargo fmt --check
-  cargo clippy -- -D warnings
-  cargo test
-  cargo build --release
+  cargo fmt --all -- --check
+  cargo clippy --workspace --all-targets --locked -- -D warnings
+  cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+  cargo test --workspace --all-targets --locked
+  cargo test --workspace --all-targets --all-features --locked
+  cargo build --workspace --release --locked
   ```
 
 - 发布前还应验证目标 x64 与 x86 的 DLL、导出符号和 ABI 行为。

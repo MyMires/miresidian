@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian_abi = "0.2"
+miresidian_abi = "0.10.0"
 ```
 
 完整 C ABI 调用约定见框架仓库的 `docs/c-abi.md`。

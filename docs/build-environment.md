@@ -8,8 +8,11 @@
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-targets --locked
+cargo test --workspace --all-targets --all-features --locked
+cargo build --workspace --release --locked
 ```
 
 ## 节点项目
