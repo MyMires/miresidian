@@ -1,85 +1,26 @@
 //! Rust 标识符到测试平台名称的转换规则。
 
-use super::definition::ExecutionMode;
-use syn::{Attribute, Ident, LitStr, Result, Token, parse::Parse, punctuated::Punctuated};
+use syn::{Attribute, Expr, Lit, LitStr, Result, Token, punctuated::Punctuated};
 
-/// `#[operation]` 属性的完整参数：名称与兼容保留的执行方式。
-pub(super) struct OperationAttribute {
-    values: Punctuated<OperationArgument, Token![,]>,
-}
-
-/// 单个 `#[operation]` 参数；名称是字符串，执行方式是裸标识符。
-enum OperationArgument {
-    Name(LitStr),
-    Execution(Ident),
-}
-
-impl Parse for OperationAttribute {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        Ok(Self {
-            values: input.parse_terminated(OperationArgument::parse, Token![,])?,
-        })
-    }
-}
-
-impl OperationArgument {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        if input.peek(LitStr) {
-            return Ok(Self::Name(input.parse()?));
-        }
-        Ok(Self::Execution(input.parse()?))
-    }
-}
-
-/// 解析 `#[operation]` 的名称与兼容保留的执行方式；运行时实际策略由初始化配置决定。
+/// 解析 `#[operation]` 的可选平台名称。
 ///
-/// 形式为 `#[operation]`、`#[operation("名称")]` 或 `#[operation("名称", parallel|sequential)]`；
-/// 未声明执行方式时默认顺序执行。
-pub(super) fn operation_name(
-    attribute: &Attribute,
-    method: &syn::Ident,
-) -> Result<(LitStr, ExecutionMode)> {
+/// 形式仅为 `#[operation]` 或 `#[operation("名称")]`。共享调用策略是运行时级配置，
+/// 因此拒绝第二个参数，避免产生未生效的声明。
+pub(super) fn operation_name(attribute: &Attribute, method: &syn::Ident) -> Result<LitStr> {
     if matches!(attribute.meta, syn::Meta::Path(_)) {
-        return Ok((platform_method_name(method), ExecutionMode::Sequential));
+        return Ok(platform_method_name(method));
     }
-    let arguments: OperationAttribute = attribute.parse_args()?;
-    let mut name = None;
-    let mut execution = None;
-    for argument in arguments.values {
-        match argument {
-            OperationArgument::Name(value) => {
-                if name.replace(value).is_some() {
-                    return Err(syn::Error::new_spanned(
-                        attribute,
-                        "#[operation] 只能声明一个名称",
-                    ));
-                }
-            }
-            OperationArgument::Execution(value) => {
-                if execution.replace(parse_execution(&value)?).is_some() {
-                    return Err(syn::Error::new_spanned(
-                        attribute,
-                        "#[operation] 只能声明一个执行方式",
-                    ));
-                }
-            }
-        }
+    let arguments = attribute.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+    if arguments.len() == 1
+        && let Some(Expr::Lit(literal)) = arguments.first()
+        && let Lit::Str(name) = &literal.lit
+    {
+        return Ok(name.clone());
     }
-    let name = name
-        .ok_or_else(|| syn::Error::new_spanned(attribute, "#[operation] 必须声明一个字符串名称"))?;
-    Ok((name, execution.unwrap_or(ExecutionMode::Sequential)))
-}
-
-/// 解析执行方式关键字；仅接受 `parallel` 与 `sequential`。
-fn parse_execution(value: &Ident) -> Result<ExecutionMode> {
-    match value.to_string().as_str() {
-        "parallel" => Ok(ExecutionMode::Parallel),
-        "sequential" => Ok(ExecutionMode::Sequential),
-        other => Err(syn::Error::new_spanned(
-            value,
-            format!("未知执行方式 {other:?}；只支持 parallel 或 sequential"),
-        )),
-    }
+    Err(syn::Error::new_spanned(
+        attribute,
+        "#[operation] 只接受一个可选的字符串名称；共享执行方式由 InitDevice 配置决定",
+    ))
 }
 /// 自动生成参数名称。
 pub(super) fn parameter_name(argument: &syn::PatType) -> Result<LitStr> {

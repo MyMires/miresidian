@@ -1,4 +1,6 @@
-//! `#[operation]` 声明未知执行方式关键字时必须在编译期失败。
+#![allow(unused_imports)]
+
+//! `#[operation]` 不再接受已废弃的操作级执行方式。
 
 use miresidian_macro::{node, node_impl, operation};
 

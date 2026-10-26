@@ -8,10 +8,10 @@ use crate::{
     OperationDescriptor, ParameterDescriptor, SharedResponse,
 };
 
-/// 在全部已创建对象上按预设执行方式运行有效通道。
+/// 在输入槽位对应的已创建通道上按预设执行方式运行有效调用。
 ///
-/// 输入槽位不足时补齐跳过槽位；超过已初始化通道数时拒绝请求。因此结果槽位数始终等于
-/// 已初始化通道数。
+/// 第 N 个输入槽位对应第 N 个已创建通道，结果与输入槽位保持相同顺序和数量。
+/// 超过已初始化通道数的输入会被拒绝。
 pub(super) fn invoke_shared<N: DeviceNode>(
     nodes: &[Channel<N>],
     operation: &str,
@@ -59,7 +59,7 @@ fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>
 /// 单个通道的执行计划；`None` 表示该通道被跳过。
 type ChannelPlan = Option<Vec<String>>;
 
-/// 校验平台适配器提供的槽位，并补齐遗漏通道的跳过槽位。
+/// 校验平台适配器提供的槽位，保留其数量与顺序。
 fn channel_plans(
     slots: &[Option<Vec<String>>],
     parameters: &[ParameterDescriptor],
@@ -71,15 +71,13 @@ fn channel_plans(
             message: "共享输入槽位数量超过已初始化通道数".to_owned(),
         });
     }
-    let mut plans = slots
+    Ok(slots
         .iter()
         .map(|slot| {
             slot.as_ref()
                 .and_then(|values| validate_slot(values, parameters))
         })
-        .collect::<Vec<_>>();
-    plans.resize(channel_count, None);
-    Ok(plans)
+        .collect())
 }
 
 /// 参数数目不符、空参数或缺少无默认值参数的槽位视为跳过。
@@ -126,16 +124,25 @@ fn run_parallel<N: DeviceNode>(
             .iter()
             .enumerate()
             .map(|(index, plan)| {
+                let Some(arguments) = plan else {
+                    return None;
+                };
                 let operation = operation.clone();
-                scope.spawn(move || execute_channel(&nodes[index], &operation, plan, index))
+                Some(scope.spawn(move || {
+                    execute_channel(&nodes[index], &operation, &Some(arguments.clone()), index)
+                }))
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|handle| handle.join())
+            .map(|handle| handle.map(|handle| handle.join()))
             .collect::<Vec<_>>()
     });
     let mut outputs = Vec::with_capacity(results.len());
     for (index, result) in results.into_iter().enumerate() {
+        let Some(result) = result else {
+            outputs.push(None);
+            continue;
+        };
         match result {
             Ok(Ok(output)) => outputs.push(output),
             Ok(Err(error)) => return Err(error),

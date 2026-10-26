@@ -32,7 +32,6 @@ const OPERATIONS: [OperationDescriptor; 1] = [OperationDescriptor {
     name: "Query",
     inputs: &QUERY_INPUTS,
     outputs: &QUERY_OUTPUTS,
-    execution: miresidian::ExecutionMode::Sequential,
     channel_inputs: &QUERY_INPUTS,
 }];
 const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
@@ -137,6 +136,49 @@ impl PlatformAdapter for MockPlatformAdapter {
             RuntimeResponse::Shared(_) => Ok(InvocationOutput::new(vec!["mock-shared".to_owned()])),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ReplacementDefaultAdapter;
+
+impl PlatformAdapter for ReplacementDefaultAdapter {
+    fn platform(&self) -> Platform {
+        Platform::Custom(Platform::CUSTOM_MIN + 1)
+    }
+
+    fn identifier(&self) -> &'static str {
+        TB_LV_TEST_PLATFORM
+    }
+
+    fn decode(&self, invocation: Invocation) -> MiresidianResult<RuntimeInvocation> {
+        Ok(RuntimeInvocation::Single(invocation))
+    }
+
+    fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
+        match response {
+            RuntimeResponse::Output(output) => Ok(output),
+            RuntimeResponse::Shared(_) => Ok(InvocationOutput::empty()),
+        }
+    }
+}
+
+#[test]
+fn 替换默认平台标识时同步更新默认平台数值() {
+    let replacement = Platform::Custom(Platform::CUSTOM_MIN + 1);
+    let registry = PlatformRegistry::default().with_adapter(ReplacementDefaultAdapter);
+
+    assert_eq!(registry.default_platform(), replacement);
+    assert!(registry.adapter(Platform::TbLvTestPlatform).is_none());
+    assert!(registry.adapter(replacement).is_some());
+
+    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(registry);
+    assert_eq!(
+        runtime
+            .invoke(&request(GET_FRAMEWORK_VERSION_OPERATION, &[], &[]))
+            .expect("替换后的默认平台必须仍可调用")
+            .as_slice(),
+        [MIRESIDIAN_VERSION]
+    );
 }
 
 fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
@@ -338,7 +380,7 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
     let output = runtime
         .invoke(&request("Query", &[], &["共享", "one"]))
         .unwrap();
-    assert_eq!(output.as_slice(), ["A:one", ""]);
+    assert_eq!(output.as_slice(), ["A:one"]);
 
     let extra_slot = runtime
         .invoke(&request("Query", &[], &["共享", "one", "two", "three"]))
@@ -465,6 +507,29 @@ fn 显式适配器调用不发布或接受平台选择_config() {
 }
 
 #[test]
+fn 并行共享输出严格对齐实际输入槽位() {
+    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]))
+        .unwrap();
+    runtime
+        .invoke(&request(INIT_DEVICE_OPERATION, &["B", "Parallel"], &[]))
+        .unwrap();
+
+    let response = runtime
+        .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
+            "Query",
+            vec![Some(vec!["one".to_owned()])],
+        )))
+        .expect("并行共享调用应成功");
+    let RuntimeResponse::Shared(response) = response else {
+        panic!("共享命令必须返回结构化共享结果");
+    };
+    assert_eq!(response.slots.len(), 1);
+    assert_eq!(response.slots[0].as_ref().unwrap().as_slice(), ["A:one"]);
+}
+
+#[test]
 fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
     let mut runtime = NodeRuntime::<MemoryNode>::new();
     runtime
@@ -483,7 +548,6 @@ fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
     let RuntimeResponse::Shared(response) = response else {
         panic!("共享命令必须返回结构化共享结果");
     };
-    assert_eq!(response.slots.len(), 2);
+    assert_eq!(response.slots.len(), 1);
     assert_eq!(response.slots[0].as_ref().unwrap().as_slice(), ["A:one"]);
-    assert!(response.slots[1].is_none());
 }

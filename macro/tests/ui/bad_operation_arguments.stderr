@@ -1,0 +1,5 @@
+error: #[operation] 只接受一个可选的字符串名称；共享执行方式由 InitDevice 配置决定
+  --> tests/ui/bad_operation_arguments.rs:21:5
+   |
+21 |     #[operation("查询", concurrent)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

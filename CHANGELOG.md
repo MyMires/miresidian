@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `#[miresidian::operation]` 仅接受可选的平台名称；共享调用策略统一由 `InitDevice` 的 `共享执行方式` 配置决定。
+- 共享调用的输出槽位改为与请求输入槽位严格一一对齐；未提供输入的后续通道不再产生空输出槽位，并行模式只为有效输入创建任务。
+- `PlatformRegistry` 替换默认平台的文本标识时，会同步更新默认平台数值，避免后续默认调用指向未注册适配器。
+- C ABI 头文件收敛为 `miresidian_abi` crate 中的 `abi/api/miresidian.h` 单一来源；根 crate 的 C 头文件测试改为验证该文件，且移除重复的 ABI 版本宏定义。
+
+### Removed
+
+- 删除未纳入根 crate 编译图的遗留 `foundation.rs` 和重复 C ABI 头文件副本。
+
 ## [0.10.0] - 2026-10-26
 
 ### Added

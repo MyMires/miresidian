@@ -114,8 +114,6 @@ pub struct OperationDescriptor {
     pub inputs: &'static [ParameterDescriptor],
     /// 该操作返回的有序输出。
     pub outputs: &'static [ParameterDescriptor],
-    /// 保留的操作声明执行方式；共享调用实际采用运行时初始化配置。
-    pub execution: ExecutionMode,
     /// 共享调用时用于判定通道参数串合法性的 Input 来源参数；不含 `config` 标注参数。
     pub channel_inputs: &'static [ParameterDescriptor],
 }

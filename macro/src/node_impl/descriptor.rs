@@ -30,7 +30,6 @@ pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream
     let name = &operation.name;
     let inputs = parameters(&operation.parameters);
     let outputs = outputs(&operation.outputs);
-    let execution = execution_mode(operation.execution);
     let channel_parameters = operation
         .parameters
         .iter()
@@ -41,16 +40,7 @@ pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream
     quote! {
         ::miresidian::OperationDescriptor {
             name: #name, inputs: &[#(#inputs),*], outputs: &[#(#outputs),*],
-            execution: #execution, channel_inputs: &[#(#channel_inputs),*],
+            channel_inputs: &[#(#channel_inputs),*],
         }
-    }
-}
-/// 生成共享执行方式的描述常量。
-fn execution_mode(execution: super::definition::ExecutionMode) -> proc_macro2::TokenStream {
-    match execution {
-        super::definition::ExecutionMode::Sequential => {
-            quote!(::miresidian::ExecutionMode::Sequential)
-        }
-        super::definition::ExecutionMode::Parallel => quote!(::miresidian::ExecutionMode::Parallel),
     }
 }

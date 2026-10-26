@@ -61,7 +61,6 @@ mod tests {
         assert!(header.contains("miresidian_abi_version(void)"));
         assert!(header.contains("miresidian_invoke("));
         assert!(header.contains("miresidian_invoke_with("));
-        assert_eq!(header, include_str!("../../api/miresidian.h"));
     }
 
     #[test]

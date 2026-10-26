@@ -7,7 +7,7 @@ fn public_c_header_compiles_as_c11() {
     let output = std::env::temp_dir().join("miresidian-c-header-smoke.o");
     let status = Command::new("cc")
         .args(["-std=c11", "-Wall", "-Werror", "-I"])
-        .arg(manifest.join("api"))
+        .arg(manifest.join("abi/api"))
         .arg("-c")
         .arg(manifest.join("tests/c_abi_smoke.c"))
         .arg("-o")

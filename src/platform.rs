@@ -78,13 +78,21 @@ impl PlatformRegistry {
         }
     }
 
-    /// 注册或替换一个可由 `平台适配` 选择的适配器。平台数值与文本标识均保持唯一。
+    /// 注册或替换一个可由 `平台适配` 选择的适配器。平台数值与文本标识均保持唯一；
+    /// 若替换了默认适配器的文本标识，默认平台数值也随之更新，确保默认调用始终可解析。
     pub fn register<A: PlatformAdapter>(&mut self, adapter: A) {
         let platform = adapter.platform();
+        let replaces_default = self
+            .adapters
+            .get(&self.default_platform)
+            .is_some_and(|default| default.identifier() == adapter.identifier());
         self.adapters.retain(|registered, existing| {
             *registered == platform || existing.identifier() != adapter.identifier()
         });
         self.adapters.insert(platform, Arc::new(adapter));
+        if replaces_default {
+            self.default_platform = platform;
+        }
     }
 
     /// 链式注册一个适配器。
@@ -150,7 +158,8 @@ pub enum RuntimeInvocation {
     Shared(SharedInvocation),
 }
 
-/// 共享调用的结构化参数。每个槽位对应一个已初始化通道；`None` 表示跳过该通道。
+/// 共享调用的结构化参数。第 N 个槽位对应第 N 个已初始化通道；`None` 表示跳过该通道。
+/// 返回槽位与此数组保持相同顺序和数量。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedInvocation {
     pub operation: String,
@@ -173,7 +182,7 @@ pub enum RuntimeResponse {
     Shared(SharedResponse),
 }
 
-/// 共享调用结果。槽位数始终与运行时内已初始化通道数一致。
+/// 共享调用结果。槽位与请求输入保持相同顺序和数量。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedResponse {
     pub slots: Vec<Option<InvocationOutput>>,

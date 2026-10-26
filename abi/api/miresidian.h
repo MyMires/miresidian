@@ -55,8 +55,6 @@ MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke_with(
     const char *config_json,
     const char *input_json);
 
-#define MIRESIDIAN_ABI_VERSION 7
-
 #ifdef __cplusplus
 }
 #endif

@@ -10,10 +10,9 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 - 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`；
 - 通过 `DeviceNode` 定义节点生命周期、自定义操作与编译进 DLL 的平台适配器注册表；
 - 通过 `NodeRuntime` 按完整 Config 管理多通道对象、临时端口探测和资源关闭；
-- 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由操作标注选择顺序或并行分发；
+- 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由 `InitDevice` 的共享执行方式配置统一选择顺序、并行或广播分发；
 - 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
 - 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
-- 提供基于成熟 `serialport` crate 的串口通信节点 `SerialNode`，包含串口参数验证、端口探测和 UTF-8 文本收发。
 
 已导出 C ABI v7：`miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。默认入口使用 `function + config_json + input_json`；显式平台入口额外传入 `uint32_t platform`；字符串数组统一编码为 UTF-8 JSON 文本，DLL 返回内部持有的 JSON 响应文本，固定包含 `status`、`message` 与 `output`。调用方不提供输出缓冲区、不传容量，也不得释放返回指针。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
 
@@ -32,7 +31,9 @@ src/
 ├── runtime/
 │   ├── contract.rs        # 调用契约与固定操作名称
 │   ├── descriptor.rs      # 节点与操作描述信息
-│   ├── lifecycle.rs       # 多通道初始化、关闭与调用调度
+│   ├── lifecycle.rs       # 通道状态、生命周期和节点操作调度
+│   ├── lifecycle/
+│   │   └── routing.rs     # 平台选择与框架保留 Config 解析
 │   ├── shared.rs          # 共享调用的参数校验与顺序/并行/广播分发
 │   └── node.rs            # 节点实现接口
 ├── platform.rs            # 平台适配抽象与结构化运行时命令
@@ -40,7 +41,6 @@ src/
 │   └── tb_lv_test_platform.rs # 当前 TB LV Test Platform 兼容适配器
 ├── interop.rs             # C ABI 入口
 ├── interop/
-│   ├── ffi.rs             # 公共 ABI 类型与状态码
 │   └── ffi_runtime.rs     # 宏生成 DLL 入口使用的 ABI 支撑
 
 ```
@@ -58,37 +58,14 @@ cargo install miresidian_testflow_windows
 
 随后直接使用 `cargo miresidian-pack` 与 `cargo miresidian-testflow-windows`；两者均不进入节点 DLL 的运行时依赖图。
 
-普通自定义操作以业务 `Config[]` 定位通道。运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，因此语义相同的配置会定位到同一通道；框架保留的配置不属于通道键。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
+普通自定义操作以业务 `Config[]` 定位通道。运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，因此语义相同的配置会定位到同一通道；框架保留的配置不属于通道键。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道；Output 与实际提供的输入槽位保持相同顺序和数量。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
 
 对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
 `miresidian::ffi_runtime::invoke`。节点无需复刻首次初始化时的原始 Config 文本；其余宏生成代码无需手写。
 
 平台适配边界、`#[node(..., platforms(AdapterType))]` 的 DLL 注册方式与当前兼容平台的约定见 [平台适配器说明](docs/platform-adapters.md)。
 
-具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自身目录；
-例如串口通信节点使用以下结构：
-
-```text
-../miresidian_serial/src/
-├── lib.rs                  # 模块入口与 SerialNode 公开导出
-├── node.rs                 # 节点状态与平台方法
-├── transport.rs            # 串口会话、参数校验与文本收发
-├── lease.rs                # 跨 DLL 租约模块入口
-└── lease/
-    ├── client.rs           # 每个 DLL 内的租约客户端
-    ├── protocol.rs         # 客户端与代理共用的回环协议
-    └── broker.rs           # 持有物理串口的本地代理和端口池
-
-../miresidian_serial/tests/
-└── node.rs                 # 通过公开 API 验证 SerialNode 平台契约
-
-../miresidian_serial/tools/
-├── serial_smoke.testflow     # 串口节点烟测流程
-└── serial_smoke.bat          # 由 TestFlow 工具生成的入口
-```
-
-因此新增 TCP、USB、CAN 等节点时，只需在各自独立的节点项目中引入通信库；
-`miresidian` 框架本身不会依赖这些具体传输库。
+具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自己的独立项目中；新增 TCP、USB、CAN 等节点时，只需引入所需通信库，`miresidian` 框架本身不会依赖任何具体传输实现。
 
 ## crate 边界
 
@@ -159,15 +136,16 @@ macro/src/
 ## 验证
 
 ```powershell
-cargo fmt --check
-cargo clippy -- -D warnings
-cargo test
-cargo build --release
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-targets --locked
+cargo test --workspace --all-targets --all-features --locked
+cargo build --workspace --release --locked
 ```
 
 编码、文档、FFI 与测试约束见 [docs/coding-standards.md](docs/coding-standards.md)。
 数据格式、文本编码与数组表示规则见 [docs/data-codec.md](docs/data-codec.md)。
-串口通信节点的配置与操作说明见 [../miresidian_serial/docs/串口通信.md](../miresidian_serial/docs/串口通信.md)。
 C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
 构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。
 框架、实例项目与 ABI 的版本、修订记录和发布流程见 [docs/versioning.md](docs/versioning.md)。
