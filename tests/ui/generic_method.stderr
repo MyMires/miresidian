@@ -1,0 +1,5 @@
+error: 平台方法不能带泛型参数
+ --> tests/ui/generic_method.rs:5:13
+  |
+5 |     fn query<T>(&mut self, value: T) -> miresidian::MiresidianResult<()> { let _ = value; Ok(()) }
+  |             ^^^

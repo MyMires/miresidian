@@ -1,0 +1,14 @@
+error[E0599]: no associated function or constant named `__miresidian_close` found for struct `MissingClose` in the current scope
+ --> tests/ui/missing_close.rs:2:1
+  |
+2 | #[node("缺少关闭")]
+  | ^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `MissingClose`
+3 | struct MissingClose;
+  | ------------------- associated function or constant `__miresidian_close` not found for this struct
+  |
+note: if you're trying to build a new `MissingClose`, consider using `MissingClose::init_device` which returns `Result<MissingClose, MiresidianError>`
+ --> tests/ui/missing_close.rs:6:5
+  |
+6 |     fn init_device() -> miresidian::MiresidianResult<Self> { Ok(Self) }
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)

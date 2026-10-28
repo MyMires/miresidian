@@ -1,0 +1,31 @@
+error[E0407]: method `__miresidian_dispatch_query` is not a member of trait `ExternalContract`
+  --> tests/ui/trait_impl.rs:12:5
+   |
+12 |     #[operation]
+   |     ^^^^^^^^^^^^ not a member of trait `ExternalContract`
+   |
+   = note: this error originates in the attribute macro `operation` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0438]: const `__MIRESIDIAN_REGISTER_query` is not a member of trait `ExternalContract`
+  --> tests/ui/trait_impl.rs:12:5
+   |
+12 |     #[operation]
+   |     ^^^^^^^^^^^^ not a member of trait `ExternalContract`
+   |
+   = note: this error originates in the attribute macro `operation` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no associated function or constant named `__miresidian_dispatch_query` found for struct `TraitNode` in the current scope
+  --> tests/ui/trait_impl.rs:13:8
+   |
+ 4 | struct TraitNode;
+   | ---------------- associated function or constant `__miresidian_dispatch_query` not found for this struct
+...
+13 |     fn query(&mut self) -> miresidian::MiresidianResult<()> { Ok(()) }
+   |        ^^^^^ associated function or constant not found in `TraitNode`
+   |
+help: there is a method `__miresidian_close` with a similar name
+  --> tests/ui/trait_impl.rs:8:5
+   |
+ 8 |     #[operation]
+   |     ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `operation` (in Nightly builds, run with -Z macro-backtrace for more info)

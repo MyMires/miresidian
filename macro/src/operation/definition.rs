@@ -1,139 +1,163 @@
-//! 节点实现中的属性解析、签名校验与内部定义模型。
+//! 方法级属性解析；参数名称、来源、默认值及输出标注沿用既有规则。
 
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
-    Attribute, Error, FnArg, GenericArgument, ImplItem, ImplItemFn, ItemImpl, LitStr,
-    PathArguments, Result, ReturnType, Token, Type, punctuated::Punctuated,
+    Attribute, Error, FnArg, GenericArgument, ImplItemFn, LitStr, PathArguments, Result,
+    ReturnType, Token, Type, punctuated::Punctuated,
 };
 
-/// 一个 `#[node_impl]` 块解析完成后的完整声明模型。
-///
-/// 后续代码生成只读取该模型，因此解析阶段与描述、调度、ABI 生成阶段不会互相耦合。
-pub(super) struct NodeDefinition {
-    pub(super) init: InitMethod,
-    pub(super) close: FixedMethod,
-    pub(super) port_probe: Option<FixedMethod>,
-    pub(super) operations: Vec<OperationMethod>,
-}
-/// 单个配置或输入参数的 Rust 类型与平台声明。
 #[derive(Clone)]
 pub(super) struct Parameter {
     pub(super) ty: Type,
     pub(super) name: LitStr,
     pub(super) rust_name: LitStr,
-    /// 平台参数完整描述，用于将显示值规范化为实际值。
     pub(super) definition: LitStr,
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
 }
 
-/// 参数应从外部 `invoke` 的哪个数组读取。
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum ParameterSource {
-    /// 从 `config` 数组读取。
     Config,
-    /// 从 `input` 数组读取。
     Input,
 }
-/// 固定的初始化方法；其参数在平台侧属于 Config。
+
 pub(super) struct InitMethod {
     pub(super) method: syn::Ident,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
+    pub(super) has_output: bool,
 }
-/// 由 `#[operation]` 声明的普通平台操作。
+
 pub(super) struct OperationMethod {
     pub(super) method: syn::Ident,
     pub(super) name: LitStr,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
 }
-/// 固定入口方法；其参数在平台侧属于 Input。
+
 pub(super) struct FixedMethod {
     pub(super) method: syn::Ident,
     pub(super) parameters: Vec<Parameter>,
 }
 
-/// 从 `impl` 块提取各类节点方法，并移除仅供编译期使用的属性。
-pub(super) fn parse(item_impl: &mut ItemImpl) -> Result<NodeDefinition> {
-    if item_impl.trait_.is_some() {
+pub(super) enum NodeMethod {
+    Init(InitMethod),
+    Close(FixedMethod),
+    PortProbe(FixedMethod),
+    Operation(OperationMethod),
+}
+
+/// 单个方法即生成入口，不依赖外层 impl 扫描或宏执行顺序。
+pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<NodeMethod> {
+    if !method.sig.generics.params.is_empty() || method.sig.generics.where_clause.is_some() {
         return Err(Error::new_spanned(
-            &*item_impl,
-            "#[node_impl] 只能标注在节点结构体的固有 impl 块上，不能标注 trait impl",
+            &method.sig.generics,
+            "平台方法不能带泛型参数",
         ));
     }
-    if !item_impl.generics.params.is_empty() {
+    if method.sig.asyncness.is_some()
+        || method.sig.unsafety.is_some()
+        || method.sig.constness.is_some()
+        || method.sig.abi.is_some()
+    {
         return Err(Error::new_spanned(
-            &item_impl.generics,
-            "#[node_impl] 暂不支持带泛型参数的 impl；请为每个具体节点类型声明独立 impl",
+            &method.sig,
+            "平台方法必须是普通同步 Rust 函数",
         ));
     }
-    let mut init_method = None;
-    let mut close_method = None;
-    let mut port_probe_method = None;
-    let mut operation_methods = Vec::new();
-    for item in &mut item_impl.items {
-        let ImplItem::Fn(method) = item else { continue };
-        if let Some(attribute) = take_attribute(&mut method.attrs, "operation") {
-            let name = operation_name(&attribute, &method.sig.ident)?;
-            operation_methods.push(parse_operation(method, name)?);
-            continue;
+    let name = operation_name(attribute, &method.sig.ident)?;
+    let identifier = method.sig.ident.clone();
+    let fixed_name = match identifier.to_string().as_str() {
+        "init_device" => Some("InitDevice"),
+        "close_device" => Some("CloseDevice"),
+        "get_port_no" => Some("GetPortNO"),
+        _ => None,
+    };
+    if let Some(expected) = fixed_name
+        && !matches!(attribute.meta, syn::Meta::Path(_))
+        && name.value() != expected
+    {
+        return Err(Error::new_spanned(
+            attribute,
+            "生命周期与探测入口的平台名称固定，不接受重命名",
+        ));
+    }
+    match identifier.to_string().as_str() {
+        "init_device" => {
+            require_associated_function(method)?;
+            let inner = output_value_type(&method.sig.output).ok_or_else(|| {
+                Error::new_spanned(
+                    &method.sig.output,
+                    "初始化必须返回 MiresidianResult<Self> 或 MiresidianResult<(Self, T)>",
+                )
+            })?;
+            let (has_output, business_type): (bool, Type) = match inner {
+                ty if is_self(ty) => (false, syn::parse_quote!(())),
+                Type::Tuple(tuple) if tuple.elems.len() == 2 && is_self(&tuple.elems[0]) => {
+                    (true, tuple.elems[1].clone())
+                }
+                _ => {
+                    return Err(Error::new_spanned(
+                        inner,
+                        "初始化必须返回 MiresidianResult<Self> 或 MiresidianResult<(Self, T)>",
+                    ));
+                }
+            };
+            let return_type = syn::parse_quote!(-> MiresidianResult<#business_type>);
+            let outputs = take_output(&mut method.attrs, &return_type)?;
+            Ok(NodeMethod::Init(InitMethod {
+                method: identifier,
+                parameters: parse_parameters(method, ParameterSource::Config)?,
+                outputs,
+                has_output,
+            }))
         }
-        match method.sig.ident.to_string().as_str() {
-            "init_device" => {
-                if init_method.is_some() {
-                    return Err(Error::new_spanned(method, "只能声明一个 init_device 方法"));
-                }
-                init_method = Some(parse_init(method)?);
-            }
-            "close_device" => {
-                if close_method.is_some() {
-                    return Err(Error::new_spanned(method, "只能声明一个 close_device 方法"));
-                }
-                close_method = Some(parse_fixed(method)?);
-            }
-            "get_port_no" => {
-                if port_probe_method.is_some() {
-                    return Err(Error::new_spanned(method, "只能声明一个 get_port_no 方法"));
-                }
-                port_probe_method = Some(parse_fixed(method)?);
-            }
-            _ => {}
+        "close_device" => {
+            require_mut_receiver(method)?;
+            Ok(NodeMethod::Close(FixedMethod {
+                method: identifier,
+                parameters: parse_parameters(method, ParameterSource::Input)?,
+            }))
+        }
+        "get_port_no" => {
+            require_associated_function(method)?;
+            Ok(NodeMethod::PortProbe(FixedMethod {
+                method: identifier,
+                parameters: parse_parameters(method, ParameterSource::Input)?,
+            }))
+        }
+        _ => {
+            require_mut_receiver(method)?;
+            Ok(NodeMethod::Operation(OperationMethod {
+                method: identifier,
+                name,
+                parameters: parse_parameters(method, ParameterSource::Input)?,
+                outputs: take_output(&mut method.attrs, &method.sig.output)?,
+            }))
         }
     }
-    Ok(NodeDefinition {
-        init: init_method
-            .ok_or_else(|| Error::new_spanned(&*item_impl, "缺少 init_device 方法"))?,
-        close: close_method
-            .ok_or_else(|| Error::new_spanned(&*item_impl, "缺少 close_device 方法"))?,
-        port_probe: port_probe_method,
-        operations: operation_methods,
-    })
 }
-fn parse_init(method: &mut ImplItemFn) -> Result<InitMethod> {
-    require_mut_receiver(method)?;
-    Ok(InitMethod {
-        method: method.sig.ident.clone(),
-        parameters: parse_parameters(method, ParameterSource::Config)?,
-        outputs: take_output(&mut method.attrs, &method.sig.output)?,
-    })
+
+fn is_self(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("Self"))
 }
-fn parse_operation(method: &mut ImplItemFn, name: LitStr) -> Result<OperationMethod> {
-    require_mut_receiver(method)?;
-    Ok(OperationMethod {
-        method: method.sig.ident.clone(),
-        name,
-        parameters: parse_parameters(method, ParameterSource::Input)?,
-        outputs: take_output(&mut method.attrs, &method.sig.output)?,
-    })
+
+fn require_associated_function(method: &ImplItemFn) -> Result<()> {
+    if method
+        .sig
+        .inputs
+        .iter()
+        .any(|argument| matches!(argument, FnArg::Receiver(_)))
+    {
+        return Err(Error::new_spanned(
+            &method.sig,
+            "init_device 和 get_port_no 必须是无 self 的关联函数",
+        ));
+    }
+    Ok(())
 }
-fn parse_fixed(method: &mut ImplItemFn) -> Result<FixedMethod> {
-    require_mut_receiver(method)?;
-    Ok(FixedMethod {
-        method: method.sig.ident.clone(),
-        parameters: parse_parameters(method, ParameterSource::Input)?,
-    })
-}
+
 fn require_mut_receiver(method: &ImplItemFn) -> Result<()> {
     let Some(FnArg::Receiver(receiver)) = method.sig.inputs.first() else {
         return Err(Error::new_spanned(
@@ -146,6 +170,7 @@ fn require_mut_receiver(method: &ImplItemFn) -> Result<()> {
     }
     Ok(())
 }
+
 /// 解析方法参数。未标注参数采用方法类别的默认来源；`config` 与 `input` 可逐参数覆盖。
 fn parse_parameters(
     method: &mut ImplItemFn,
@@ -155,7 +180,7 @@ fn parse_parameters(
         .sig
         .inputs
         .iter_mut()
-        .skip(1)
+        .filter(|argument| !matches!(argument, FnArg::Receiver(_)))
         .map(|argument| {
             let FnArg::Typed(argument) = argument else {
                 return Err(Error::new_spanned(argument, "只允许一个 self 接收者"));
@@ -206,7 +231,10 @@ fn contains_option_pairs(value: &str) -> bool {
     })
 }
 
-fn take_output(attributes: &mut Vec<Attribute>, return_type: &ReturnType) -> Result<Vec<LitStr>> {
+pub(super) fn take_output(
+    attributes: &mut Vec<Attribute>,
+    return_type: &ReturnType,
+) -> Result<Vec<LitStr>> {
     let expected_count = output_count(return_type);
     match take_attribute(attributes, "output") {
         Some(attribute) => {

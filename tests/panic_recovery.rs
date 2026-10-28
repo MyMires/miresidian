@@ -8,21 +8,19 @@ use std::{
 static CLEANUP: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 #[miresidian::node("异常恢复测试")]
-#[derive(Default)]
 struct RecoveryNode {
     name: String,
     calls: usize,
 }
 
-#[miresidian::node_impl]
 impl RecoveryNode {
-    fn init_device(
-        &mut self, #[miresidian::config("地址")] name: String
-    ) -> MiresidianResult<()> {
-        self.name = name;
-        assert_ne!(self.name, "init-panic", "模拟初始化 panic");
-        Ok(())
+    #[miresidian::operation]
+    fn init_device(#[miresidian::config("地址")] name: String) -> MiresidianResult<Self> {
+        let node = Self { name, calls: 0 };
+        assert_ne!(node.name, "init-panic", "模拟初始化 panic");
+        Ok(node)
     }
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         CLEANUP.lock().unwrap().push(format!("close:{}", self.name));
         assert!(!self.name.contains("close-panic"), "模拟关闭 panic");
@@ -31,11 +29,14 @@ impl RecoveryNode {
         }
         Ok(())
     }
+    #[miresidian::operation]
     fn get_port_no(
-        &mut self,
-        #[miresidian::input("模式")] mode: String,
+        #[miresidian::input("模式")] mode: String
     ) -> MiresidianResult<Option<String>> {
-        self.name = "probe".to_owned();
+        let _probe = Self {
+            name: "probe".to_owned(),
+            calls: 0,
+        };
         assert_ne!(mode, "panic", "模拟探测 panic");
         Ok(None)
     }
@@ -184,13 +185,13 @@ fn init_probe_close_and_drop_panics_leave_ffi_usable() {
         0
     );
     let events = CLEANUP.lock().unwrap();
-    for name in [
-        "init-panic",
-        "probe",
-        "close-panic",
-        "drop-panic",
-        "close-panic-drop-panic",
-    ] {
+    // Constructors and static probes own their temporary resources; the runtime
+    // cannot close an instance that was never returned.
+    for name in ["init-panic", "probe"] {
+        assert!(events.contains(&format!("drop:{name}")));
+        assert!(!events.contains(&format!("close:{name}")));
+    }
+    for name in ["close-panic", "drop-panic", "close-panic-drop-panic"] {
         assert!(events.contains(&format!("close:{name}")));
         assert!(events.contains(&format!("drop:{name}")));
     }

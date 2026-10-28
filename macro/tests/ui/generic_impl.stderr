@@ -1,5 +1,0 @@
-error: #[node_impl] 暂不支持带泛型参数的 impl；请为每个具体节点类型声明独立 impl
- --> tests/ui/generic_impl.rs:6:5
-  |
-6 | impl<T> GenericNode<T> {}
-  |     ^^^

@@ -3,24 +3,27 @@
 use miresidian::{ByteTextFormat, Invocation, MiresidianResult, NodeRuntime, encode_bytes_to_text};
 
 #[miresidian::node("编解码宏测试节点")]
-#[derive(Default)]
 struct CodecMacroNode {
     connection: String,
 }
 
-#[miresidian::node_impl]
 impl CodecMacroNode {
+    #[miresidian::operation]
     #[miresidian::output("初始化格式")]
     fn init_device(
-        &mut self,
         #[miresidian::config("传输方式:Serial-串口/Tcp-网络")] transport: String,
         #[miresidian::config("地址:127.0.0.1")] address: String,
         #[miresidian::config("初始化格式:GBK")] format: ByteTextFormat,
-    ) -> MiresidianResult<String> {
-        self.connection = format!("{transport}:{address}");
-        Ok(format.to_string())
+    ) -> MiresidianResult<(Self, String)> {
+        Ok((
+            Self {
+                connection: format!("{transport}:{address}"),
+            },
+            format.to_string(),
+        ))
     }
 
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

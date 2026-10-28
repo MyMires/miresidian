@@ -11,16 +11,16 @@
 //! use miresidian::MiresidianResult;
 //!
 //! #[miresidian::node("示例节点")]
-//! #[derive(Default)]
 //! struct ExampleNode;
 //!
-//! #[miresidian::node_impl]
 //! impl ExampleNode {
+//!     #[miresidian::operation]
 //!     #[miresidian::output("状态")]
-//!     fn init_device(&mut self) -> MiresidianResult<String> {
-//!         Ok("已连接".to_owned())
+//!     fn init_device() -> MiresidianResult<(Self, String)> {
+//!         Ok((Self, "已连接".to_owned()))
 //!     }
 //!
+//!     #[miresidian::operation]
 //!     fn close_device(&mut self) -> MiresidianResult<()> {
 //!         Ok(())
 //!     }
@@ -32,6 +32,10 @@
 //!     }
 //! }
 //! ```
+
+#[doc(hidden)]
+#[path = "macro_support.rs"]
+pub mod __private;
 
 pub mod interop;
 pub mod platform;
@@ -78,7 +82,7 @@ pub use miresidian_codec::{
 /// 供具体节点使用的属性宏。
 ///
 /// 这是框架节点项目的必选代码生成能力。
-pub use miresidian_macro::{config, input, lease, node, node_impl, operation, output};
+pub use miresidian_macro::{config, input, lease, node, operation, output};
 pub use platform::{
     Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
     SharedInvocation, SharedResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,

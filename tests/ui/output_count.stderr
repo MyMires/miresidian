@@ -1,0 +1,5 @@
+error: #[output] 声明了 1 个输出名称，但该返回类型需要 2 个输出名称
+ --> tests/ui/output_count.rs:5:5
+  |
+5 |     #[miresidian::output("结果")]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

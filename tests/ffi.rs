@@ -20,7 +20,6 @@ static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     lease_activation: miresidian::LeaseActivation::Disabled,
 };
 
-#[derive(Default)]
 struct TestNode;
 
 impl DeviceNode for TestNode {
@@ -28,8 +27,8 @@ impl DeviceNode for TestNode {
         &DESCRIPTOR
     }
 
-    fn init_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<InvocationOutput> {
-        Ok(InvocationOutput::empty())
+    fn init_device(_: &[String], _: &[String]) -> MiresidianResult<(Self, InvocationOutput)> {
+        Ok((Self, InvocationOutput::empty()))
     }
 
     fn close_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<()> {
@@ -46,7 +45,6 @@ impl DeviceNode for TestNode {
     }
 }
 
-#[derive(Default)]
 struct CAbiPlatformNode;
 
 impl DeviceNode for CAbiPlatformNode {
@@ -58,8 +56,8 @@ impl DeviceNode for CAbiPlatformNode {
         PlatformRegistry::default().with_adapter(CAbiMockAdapter)
     }
 
-    fn init_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<InvocationOutput> {
-        Ok(InvocationOutput::empty())
+    fn init_device(_: &[String], _: &[String]) -> MiresidianResult<(Self, InvocationOutput)> {
+        Ok((Self, InvocationOutput::empty()))
     }
 
     fn close_device(&mut self, _: &[String], _: &[String]) -> MiresidianResult<()> {

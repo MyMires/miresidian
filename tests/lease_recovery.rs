@@ -12,21 +12,20 @@ use std::{
 };
 
 #[miresidian::node("租约恢复测试", lease(activation = required, resource = "resource", configuration = ["setting"]))]
-#[derive(Default)]
 struct LeasedNode {
     calls: usize,
 }
 
-#[miresidian::node_impl]
 impl LeasedNode {
+    #[miresidian::operation]
     fn init_device(
-        &mut self,
         #[miresidian::config("资源")] resource: String,
         #[miresidian::config("配置")] setting: u32,
-    ) -> MiresidianResult<()> {
+    ) -> MiresidianResult<Self> {
         let _ = (resource, setting);
-        Ok(())
+        Ok(Self { calls: 0 })
     }
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

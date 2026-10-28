@@ -34,7 +34,7 @@ impl<N: DeviceNode> Channel<N> {
         input: &[String],
         access: LeaseAccess,
     ) -> MiresidianResult<(Self, InvocationOutput)> {
-        let mut node = catch_node(INIT_DEVICE_OPERATION, || Ok(N::default()))?;
+        let mut node = None;
         #[cfg(feature = "lease")]
         let mut lease = None;
         #[cfg(not(feature = "lease"))]
@@ -42,7 +42,7 @@ impl<N: DeviceNode> Channel<N> {
         let initialized = (|| {
             #[cfg(feature = "lease")]
             if matches!(access, LeaseAccess::Lease) {
-                lease = catch_node(INIT_DEVICE_OPERATION, || node.lease_request(node_config))?
+                lease = catch_node(INIT_DEVICE_OPERATION, || N::lease_request(node_config))?
                     .map(|request| {
                         LocalLease::acquire(
                             request.resource().clone(),
@@ -52,9 +52,9 @@ impl<N: DeviceNode> Channel<N> {
                     })
                     .transpose()?;
             }
-            let output = catch_node(INIT_DEVICE_OPERATION, || {
-                node.init_device(node_config, input)
-            })?;
+            let (created, output) =
+                catch_node(INIT_DEVICE_OPERATION, || N::init_device(node_config, input))?;
+            node = Some(created);
             #[cfg(feature = "lease")]
             if let Some(lease) = &lease {
                 lease
@@ -68,7 +68,7 @@ impl<N: DeviceNode> Channel<N> {
                 Self {
                     config,
                     state: Mutex::new(ChannelState {
-                        node,
+                        node: node.expect("successful initialization returns a node"),
                         fault: None,
                         #[cfg(feature = "lease")]
                         lease,
@@ -78,7 +78,9 @@ impl<N: DeviceNode> Channel<N> {
             )),
             Err(error) => {
                 // 节点先清理并析构，之后才释放租约所持有的配置锁。
-                let _ = cleanup_node(node, node_config, &[]);
+                if let Some(node) = node {
+                    let _ = cleanup_node(node, node_config, &[]);
+                }
                 #[cfg(feature = "lease")]
                 if let Some(mut lease) = lease {
                     let _ = lease.release();

@@ -18,6 +18,7 @@ use crate::{
 };
 
 pub(super) use channel::Channel;
+pub(in crate::runtime) use channel::{catch_node, cleanup_node};
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
 pub struct NodeRuntime<N: DeviceNode> {
@@ -112,6 +113,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform_selector_enabled: bool,
         command: RuntimeInvocation,
     ) -> MiresidianResult<RuntimeResponse> {
+        N::validate_definition()?;
         match command {
             RuntimeInvocation::Single(invocation) => self
                 .invoke_single(&invocation, adapter_identifier, platform_selector_enabled)
@@ -308,11 +310,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let mut probe = channel::catch_node(GET_PORT_NO_OPERATION, || Ok(N::default()))?;
-        let port = channel::catch_node(GET_PORT_NO_OPERATION, || probe.get_port_no(config, input));
-        let cleanup = channel::cleanup_node(probe, config, &[]);
-        let port = port?;
-        cleanup?;
+        let port = channel::catch_node(GET_PORT_NO_OPERATION, || N::get_port_no(config, input))?;
 
         match port {
             Some(port) => Ok(InvocationOutput::new(vec!["1".to_owned(), port])),

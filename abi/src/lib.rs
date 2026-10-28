@@ -1,6 +1,6 @@
 //! Miresidian C ABI 的公共类型。
 //!
-//! 实际导出函数由每个节点 crate 上的 `#[miresidian::node_impl]` 生成；运行时 crate
+//! 实际导出函数由每个节点 crate 上的 `#[miresidian::node]` 生成；运行时 crate
 //! 本身不绑定任何具体设备，也不导出某个节点 DLL。
 
 use std::{ffi::c_char, ptr};

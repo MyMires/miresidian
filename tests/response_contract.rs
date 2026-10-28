@@ -31,18 +31,15 @@ impl PlatformAdapter for DiagnosticAdapter {
 }
 
 #[miresidian::node("响应契约测试", platforms(DiagnosticAdapter))]
-#[derive(Default)]
 struct ContractNode;
 
-#[miresidian::node_impl]
 impl ContractNode {
-    fn init_device(
-        &mut self,
-        #[miresidian::config("地址")] address: String,
-    ) -> MiresidianResult<()> {
+    #[miresidian::operation]
+    fn init_device(#[miresidian::config("地址")] address: String) -> MiresidianResult<Self> {
         let _ = address;
-        Ok(())
+        Ok(Self)
     }
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

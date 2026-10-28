@@ -12,7 +12,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.11.2", features = ["lease"] }
+miresidian = { version = "=0.12.0", features = ["lease"] }
 ```
 
 在需要租约的节点结构体上声明资源键与配置字段。例如 CAN 节点可声明：
@@ -23,22 +23,21 @@ miresidian = { version = "=0.11.2", features = ["lease"] }
     resource = "channel_name",
     configuration = ["bit_rate", "data_bit_rate"]
 ))]
-#[derive(Default)]
 struct CanNode;
 
-#[miresidian::node_impl]
 impl CanNode {
+    #[miresidian::operation]
     fn init_device(
-        &mut self,
         channel_name: String,
         bit_rate: u32,
         data_bit_rate: u32,
-    ) -> miresidian::MiresidianResult<()> {
+    ) -> miresidian::MiresidianResult<Self> {
         // 在此建立实际设备连接；示例只演示租约声明。
         let _ = (channel_name, bit_rate, data_bit_rate);
-        Ok(())
+        Ok(Self)
     }
 
+    #[miresidian::operation]
     fn close_device(&mut self) -> miresidian::MiresidianResult<()> {
         Ok(())
     }

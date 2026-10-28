@@ -44,7 +44,6 @@ const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     lease_activation: miresidian::LeaseActivation::Disabled,
 };
 
-#[derive(Default)]
 struct MemoryNode {
     address: String,
 }
@@ -58,18 +57,21 @@ impl DeviceNode for MemoryNode {
         "9.8.7"
     }
     fn init_device(
-        &mut self,
         config: &[String],
         _input: &[String],
-    ) -> MiresidianResult<InvocationOutput> {
+    ) -> MiresidianResult<(Self, InvocationOutput)> {
         if config.len() != 1 {
             return Err(MiresidianError::InvalidArgument {
                 field: "地址".to_owned(),
                 message: "需要一个配置值".to_owned(),
             });
         }
-        self.address = config[0].clone();
-        Ok(InvocationOutput::new(vec!["已连接".to_owned()]))
+        Ok((
+            Self {
+                address: config[0].clone(),
+            },
+            InvocationOutput::new(vec!["已连接".to_owned()]),
+        ))
     }
 
     fn close_device(&mut self, _config: &[String], _input: &[String]) -> MiresidianResult<()> {
@@ -98,11 +100,7 @@ impl DeviceNode for MemoryNode {
         }
     }
 
-    fn get_port_no(
-        &mut self,
-        _config: &[String],
-        _input: &[String],
-    ) -> MiresidianResult<Option<String>> {
+    fn get_port_no(_config: &[String], _input: &[String]) -> MiresidianResult<Option<String>> {
         Ok(Some("COM7".to_owned()))
     }
 }
@@ -341,7 +339,7 @@ fn shutdown_resets_execution_and_platform_selection() {
 }
 
 #[test]
-fn port_probe_uses_a_temporary_node() {
+fn port_probe_does_not_require_a_node_instance() {
     let mut runtime = NodeRuntime::<MemoryNode>::new();
 
     let result = runtime

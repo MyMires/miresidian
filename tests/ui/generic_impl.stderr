@@ -1,0 +1,5 @@
+error: 节点结构体不能带泛型参数
+ --> tests/ui/generic_impl.rs:3:19
+  |
+3 | struct GenericNode<T>(T);
+  |                   ^^^

@@ -4,12 +4,12 @@ use crate::{
     InvocationOutput, MiresidianResult, NodeDescriptor, PlatformRegistry, lease::LeaseRequest,
 };
 
-/// 由 `#[miresidian::node_impl]` 为具体驱动生成的运行时适配器。
+/// 由 `#[miresidian::node]` 和方法级 `#[miresidian::operation]` 为具体驱动生成的运行时适配器。
 ///
 /// 驱动作者不应手写此 trait。宏会从 `operation`、`config`、`input` 与 `output`
 /// 标注生成实现、强类型转换和描述元数据。
-pub trait DeviceNode: Default + Send + 'static {
-    /// 返回此节点类型的编译期元数据。
+pub trait DeviceNode: Send + Sized + 'static {
+    /// 返回此节点类型的只读静态元数据；宏生成实现会缓存已汇总的方法描述。
     fn descriptor() -> &'static NodeDescriptor;
 
     /// 返回编译进当前节点 DLL 的平台适配器。默认仅提供 TB LV Test Platform。
@@ -26,25 +26,34 @@ pub trait DeviceNode: Default + Send + 'static {
         "未声明"
     }
 
-    /// 使用初始化调用建立设备连接。
+    /// 校验汇总后的平台契约，拒绝重复名称与框架保留操作名称。
+    ///
+    /// 运行时在处理请求前执行；方法排序不依赖链接器的注册顺序。
+    fn validate_definition() -> MiresidianResult<()> {
+        validate_descriptor(Self::descriptor())
+    }
+
+    /// 构造已初始化节点并返回原有平台业务输出。
+    ///
+    /// 构造失败时没有可由运行时关闭的实例；初始化函数应通过资源所有权、Drop 或显式回滚
+    /// 回收已取得的资源。返回实例后，运行时负责后续失败与正常关闭时的清理。
     ///
     /// `config` 与 `input` 保留外部调用的两个独立参数通道。通常初始化参数来自
     /// `config`；驱动方法将参数标注为 `#[miresidian::input]` 时，该参数改从
     /// `input` 读取。两个切片的下标分别按各自通道中的参数顺序计算。
     fn init_device(
-        &mut self,
         config: &[String],
         input: &[String],
-    ) -> MiresidianResult<InvocationOutput>;
+    ) -> MiresidianResult<(Self, InvocationOutput)>;
 
-    /// 返回由结构体级 `lease(...)` 声明生成的请求；普通节点返回 `None`。
-    fn lease_request(&self, _config: &[String]) -> MiresidianResult<Option<LeaseRequest>> {
+    /// 返回由结构体级 `lease(...)` 声明生成的请求；在构造节点前执行。普通节点返回 `None`。
+    fn lease_request(_config: &[String]) -> MiresidianResult<Option<LeaseRequest>> {
         Ok(None)
     }
 
     /// 释放节点持有的全部资源。
     ///
-    /// 框架在业务 panic 后仍会尽力调用本方法，再析构对象。实现应支持部分初始化或
+    /// 框架在业务 panic 后仍会尽力调用本方法，再析构对象。实现应支持业务调用后
     /// 部分失败状态下的清理；清理错误不会阻止框架移除原通道并释放租约。
     ///
     /// 默认情况下关闭参数来自 `input`。节点作者可通过参数上的 `config` 或
@@ -62,16 +71,38 @@ pub trait DeviceNode: Default + Send + 'static {
         input: &[String],
     ) -> MiresidianResult<InvocationOutput>;
 
-    /// 使用临时节点实例探测端口。
+    /// 无需构造节点即可探测端口；临时探测资源由关联函数自行回收。
     ///
     /// 未标注参数默认来自 `input`，也可以通过方法参数标注改从 `config` 读取。
     ///
     /// 返回 `Ok(None)` 表示旧版 `GetPortNO` 结果 `["0", ""]`。
-    fn get_port_no(
-        &mut self,
-        _config: &[String],
-        _input: &[String],
-    ) -> MiresidianResult<Option<String>> {
+    fn get_port_no(_config: &[String], _input: &[String]) -> MiresidianResult<Option<String>> {
         Ok(None)
     }
+}
+
+/// Validate an assembled descriptor before exposing platform queries or invoking code.
+#[doc(hidden)]
+pub fn validate_descriptor(descriptor: &NodeDescriptor) -> MiresidianResult<()> {
+    let mut names = std::collections::HashSet::new();
+    for operation in descriptor.operations {
+        if matches!(
+            operation.name,
+            crate::GET_FUNCTIONS_OPERATION
+                | crate::GET_FRAMEWORK_VERSION_OPERATION
+                | crate::GET_PROJECT_VERSION_OPERATION
+                | crate::GET_INIT_CONFIG_OPERATION
+                | crate::GET_PORT_NO_OPERATION
+                | crate::INIT_DEVICE_OPERATION
+                | crate::CLOSE_DEVICE_OPERATION
+                | crate::CLOSE_ALL_DEVICES_OPERATION
+        ) || !names.insert(operation.name)
+        {
+            return Err(crate::MiresidianError::InvalidArgument {
+                field: "节点声明".to_owned(),
+                message: format!("重复或保留的平台操作名称：{}", operation.name),
+            });
+        }
+    }
+    Ok(())
 }

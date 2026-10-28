@@ -30,20 +30,19 @@ impl PlatformAdapter for MacroPlatformAdapter {
 }
 
 #[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter))]
-#[derive(Default)]
 struct MixedChannelNode;
 
-#[miresidian::node_impl]
 impl MixedChannelNode {
+    #[miresidian::operation]
     fn init_device(
-        &mut self,
         #[miresidian::config("设备地址")] address: String,
         #[miresidian::config("超时毫秒")] timeout_ms: u64,
         #[miresidian::input("初始化令牌")] token: String,
-    ) -> MiresidianResult<String> {
-        Ok(format!("{address}:{timeout_ms}:{token}"))
+    ) -> MiresidianResult<(Self, String)> {
+        Ok((Self, format!("{address}:{timeout_ms}:{token}")))
     }
 
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

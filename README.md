@@ -1,6 +1,6 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.11.2**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.12.0**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -36,22 +36,22 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.11.2"
+miresidian = "=0.12.0"
 ```
 
 ```rust
 use miresidian::MiresidianResult;
 
 #[miresidian::node("回显节点")]
-#[derive(Default)]
 struct EchoNode;
 
-#[miresidian::node_impl]
 impl EchoNode {
-    fn init_device(&mut self) -> MiresidianResult<()> {
-        Ok(())
+    #[miresidian::operation]
+    fn init_device() -> MiresidianResult<Self> {
+        Ok(Self)
     }
 
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

@@ -2,3 +2,5 @@
 GetFrameworkVersion()
 GetProjectVersion()
 GetFunctions()
+InitDevice()
+回显(注册验证)

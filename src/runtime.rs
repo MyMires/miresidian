@@ -2,6 +2,7 @@
 //!
 //! 此处不包含具体通信实现；属性宏和节点 crate 只需通过公开类型接入统一运行时。
 
+mod construction;
 mod contract;
 mod descriptor;
 mod lifecycle;
@@ -20,3 +21,8 @@ pub use descriptor::{
 };
 pub use lifecycle::NodeRuntime;
 pub use node::DeviceNode;
+#[doc(hidden)]
+pub use node::validate_descriptor;
+
+#[doc(hidden)]
+pub use construction::finish_initialization;

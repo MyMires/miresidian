@@ -9,22 +9,21 @@ use miresidian::{
     resource = "port_name",
     configuration = ["baud_rate", "data_bits"]
 ))]
-#[derive(Default)]
 struct DeclarativeLeaseNode {}
 
-#[miresidian::node_impl]
 impl DeclarativeLeaseNode {
+    #[miresidian::operation]
     #[miresidian::output("状态")]
     fn init_device(
-        &mut self,
         #[miresidian::config("端口名称")] port_name: String,
         #[miresidian::config("波特率")] baud_rate: u32,
         #[miresidian::config("数据位")] data_bits: u8,
-    ) -> MiresidianResult<String> {
+    ) -> MiresidianResult<(Self, String)> {
         let _ = (port_name, baud_rate, data_bits);
-        Ok("已初始化".to_owned())
+        Ok((Self {}, "已初始化".to_owned()))
     }
 
+    #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         Ok(())
     }

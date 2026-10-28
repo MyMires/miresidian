@@ -43,7 +43,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.89.0
       - run: cargo check --workspace --all-targets --all-features --locked
       - run: cargo test -p miresidian_lease --all-targets --all-features --locked
-      - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --test response_contract --all-features --locked
+      - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --test response_contract --test method_registry --test init_outputs --test lease_initialization --all-features --locked
 
   windows-tools:
     name: Windows 工具端到端验证
@@ -52,15 +52,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-gnu
+          targets: x86_64-pc-windows-gnu, i686-pc-windows-gnu
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc
+          install: mingw-w64-x86_64-gcc mingw-w64-i686-gcc
       - name: 配置 MinGW 链接器
         shell: powershell
         run: |
           "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "C:\msys64\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: 安装框架 Cargo 子命令
         shell: powershell
         run: |
@@ -71,9 +72,25 @@ jobs:
         working-directory: tools/fixtures/smoke-node
         shell: powershell
         run: |
-          cargo miresidian-pack x64 工具冒烟节点
+          cargo miresidian-pack
           cargo miresidian-testflow-windows tools/smoke.testflow
           $env:MIRESIDIAN_TESTFLOW_NO_PAUSE = 1
           cmd.exe /d /c tools\smoke.bat
           if ($LASTEXITCODE -ne 0) { throw "TestFlow 失败，退出码：$LASTEXITCODE" }
           if (-not (Test-Path dist/工具冒烟节点/windows-x64/miresidian_tool_smoke_node.dll)) { throw '未生成 x64 DLL' }
+          if (-not (Test-Path dist/工具冒烟节点/windows-x86/miresidian_tool_smoke_node.dll)) { throw '未生成 x86 DLL' }
+      - name: 32 位宿主加载 DLL 并验证方法注册
+        working-directory: tools/fixtures/smoke-node
+        shell: powershell
+        run: |
+          $env:MIRESIDIAN_DLL_PATH = (Resolve-Path dist).Path
+          $env:MIRESIDIAN_DLL_NAME = 'miresidian_tool_smoke_node.dll'
+          $env:MIRESIDIAN_FLOW_FILE = (Resolve-Path tools/smoke.testflow).Path
+          $env:MIRESIDIAN_FUNCTION = 'GetFunctions'
+          $env:MIRESIDIAN_CONFIG_JSON = '[]'
+          $env:MIRESIDIAN_INPUT_JSON = '[]'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'tools/miresidian-testflow-windows/src/runner.ps1'
+          $runner = Join-Path $env:RUNNER_TEMP 'miresidian-smoke-x86.ps1'
+          Get-Content -Raw -Encoding utf8 $source | Set-Content -Encoding utf8 $runner
+          & "$env:SystemRoot\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File $runner
+          if ($LASTEXITCODE -ne 0) { throw "x86 注册烟测失败，退出码：$LASTEXITCODE" }

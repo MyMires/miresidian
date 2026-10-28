@@ -1,0 +1,5 @@
+error: init_device 和 get_port_no 必须是无 self 的关联函数
+ --> tests/ui/init_receiver.rs:5:5
+  |
+5 |     fn init_device(&mut self) -> miresidian::MiresidianResult<Self> { Ok(Self) }
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

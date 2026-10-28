@@ -1,0 +1,7 @@
+error: #[operation] 只接受一个可选的字符串名称；共享执行方式由 InitDevice 配置决定
+ --> tests/ui/bad_operation_arguments.rs:4:5
+  |
+4 |     #[operation("查询", concurrent)]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `operation` (in Nightly builds, run with -Z macro-backtrace for more info)

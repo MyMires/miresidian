@@ -75,6 +75,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -94,8 +103,9 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "miresidian"
-version = "0.11.2"
+version = "0.12.0"
 dependencies = [
+ "inventory",
  "miresidian_abi",
  "miresidian_codec",
  "miresidian_lease",
@@ -106,11 +116,11 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.11.2"
+version = "0.12.0"
 
 [[package]]
 name = "miresidian_codec"
-version = "0.11.2"
+version = "0.12.0"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -119,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_lease"
-version = "0.11.2"
+version = "0.12.0"
 dependencies = [
  "getrandom",
  "miresidian_codec",
@@ -127,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.11.2"
+version = "0.12.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -137,7 +147,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_tool_smoke_node"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "miresidian",
 ]

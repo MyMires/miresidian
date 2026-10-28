@@ -1,7 +1,0 @@
-error: 缺少 init_device 方法
- --> tests/ui/missing_init.rs:6:1
-  |
-6 | / impl MissingInit {
-7 | |     fn close_device(&mut self) {}
-8 | | }
-  | |_^

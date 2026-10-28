@@ -1,0 +1,5 @@
+error: 同一参数不能同时标注 #[config] 和 #[input]
+ --> tests/ui/parameter_conflict.rs:5:80
+  |
+5 |     fn query(&mut self, #[miresidian::config("配置")] #[miresidian::input("输入")] value: u32) -> miresidian::MiresidianResult<()> { ...
+  |                                                                                    ^^^^^^^^^^
