@@ -91,9 +91,7 @@ impl<N: DeviceNode> Channel<N> {
     pub(in crate::runtime) fn ensure_active(&self) -> MiresidianResult<()> {
         self.state
             .lock()
-            .map_err(|_| {
-                MiresidianError::Failure("节点状态锁已损坏；请关闭通道后重新初始化".to_owned())
-            })?
+            .map_err(|_| MiresidianError::NodeStatePoisoned)?
             .ensure_active()
     }
 
@@ -102,9 +100,10 @@ impl<N: DeviceNode> Channel<N> {
         operation: &str,
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let mut state = self.state.lock().map_err(|_| {
-            MiresidianError::Failure("节点状态锁已损坏；请关闭通道后重新初始化".to_owned())
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| MiresidianError::NodeStatePoisoned)?;
         state.ensure_active()?;
         let result = catch_node(operation, || {
             state.node.invoke(operation, &self.config, input)
@@ -144,9 +143,7 @@ impl<N> ChannelState<N> {
         if let Some(lease) = &self.lease
             && let Err(error) = lease.validate()
         {
-            let error = MiresidianError::Failure(format!(
-                "租约已失效，通道停止访问设备；请关闭后重新初始化: {error}"
-            ));
+            let error = MiresidianError::LeaseInvalidated(error.to_string());
             self.fault = Some(error.clone());
             return Err(error);
         }

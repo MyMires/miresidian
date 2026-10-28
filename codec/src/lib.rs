@@ -14,7 +14,7 @@ mod value;
 
 use std::{fmt, str::FromStr};
 
-pub use error::{MiresidianError, MiresidianResult};
+pub use error::{ErrorCategory, MiresidianError, MiresidianResult};
 pub use output::InvocationOutput;
 pub use value::{DeviceScalar, DeviceValue};
 

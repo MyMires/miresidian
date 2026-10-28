@@ -5,6 +5,7 @@ use interprocess::ConnectWaitMode;
 use interprocess::local_socket::{
     ConnectOptions, GenericNamespaced, Listener, ListenerOptions, Stream, ToNsName, prelude::*,
 };
+use sha2::{Digest, Sha256};
 use std::{
     io,
     sync::{Arc, Mutex},
@@ -13,7 +14,19 @@ use std::{
 };
 
 fn service_name() -> String {
-    format!("miresidian-lease-v2-{}", user_scope())
+    let scope = user_scope();
+    // 可隔离协调服务的会话寿命；资源文件锁始终按用户和资源键全局共享。
+    let scope = match std::env::var_os("MIRESIDIAN_LEASE_SERVICE_NAMESPACE") {
+        Some(namespace) => {
+            let mut hash = Sha256::new();
+            hash.update(scope.as_bytes());
+            hash.update([0]);
+            hash.update(namespace.as_encoded_bytes());
+            format!("{:x}", hash.finalize())
+        }
+        None => scope,
+    };
+    format!("miresidian-lease-v2-{scope}")
 }
 
 pub(super) fn connect_or_start() -> Result<Stream, LeaseError> {

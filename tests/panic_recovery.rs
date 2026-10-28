@@ -210,7 +210,7 @@ fn shared_panic_isolation_covers_all_execution_modes() {
             .invoke(&request("执行", &[], &["共享", "panic", second]))
             .unwrap_err();
         assert!(error.to_string().contains("通道 1"));
-        assert!(matches!(error, MiresidianError::NodePanicked { .. }));
+        assert_eq!(error.code(), "NODE_PANICKED");
         assert!(matches!(
             runtime.invoke(&request("执行", &["shared-broken"], &["ok"])),
             Err(MiresidianError::NodePanicked { .. })

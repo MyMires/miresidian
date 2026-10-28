@@ -78,10 +78,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 .platforms
                 .platform_by_identifier(selected)
                 .map(|platform| (platform, true))
-                .ok_or_else(|| MiresidianError::InvalidArgument {
-                    field: PLATFORM_ADAPTER_NAME.to_owned(),
-                    message: format!("未注册的平台适配器 {selected}"),
-                });
+                .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(selected.to_string()));
         }
         if let Some(platform) = self.platforms.platform_by_identifier(value) {
             return Ok((platform, true));
@@ -101,10 +98,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         };
         self.platforms
             .adapter(identifier)
-            .ok_or_else(|| MiresidianError::InvalidArgument {
-                field: PLATFORM_ADAPTER_NAME.to_owned(),
-                message: format!("未注册的平台适配器 {identifier}"),
-            })
+            .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(identifier.to_string()))
     }
 
     /// 返回操作的共享调度描述；未知操作返回 `None`。

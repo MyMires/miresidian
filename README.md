@@ -2,6 +2,8 @@
 
 Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架。它为不同语言的测试平台提供统一、可演进的调用模型。最低 Rust 版本为 **1.89**。
 
+版本管理为 **P0 提交门禁**：相关更新必须同步版本、依赖、锁文件、带日期的修订记录与标签。首次检出执行 `git config core.hooksPath .githooks`；提交前执行 `python3 tools/check_versions.py --base HEAD`。详见 [版本管理规范](docs/versioning.md)。当前框架版本为 **0.11.0**，C ABI 为 **v7**。
+
 ## 当前基础层
 
 当前实现已经具备可编译、可测试的运行时。数据编解码、参数解析、跨语言值模型与通用错误类型位于独立的 `miresidian_codec` crate；`miresidian` 保持兼容重导出：
@@ -14,7 +16,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 - 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
 - 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
 
-已导出 C ABI v7：`miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。默认入口使用 `function + config_json + input_json`；显式平台入口额外传入 `uint32_t platform`；字符串数组统一编码为 UTF-8 JSON 文本，DLL 返回内部持有的 JSON 响应文本，固定包含 `status`、`message` 与 `output`。调用方不提供输出缓冲区、不传容量，也不得释放返回指针。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
+已导出 C ABI v7：`miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。默认入口使用 `function + config_json + input_json`；显式平台入口额外传入 `uint32_t platform`；字符串数组统一编码为 UTF-8 JSON 文本，DLL 返回内部持有的 JSON 响应文本，固定包含 `status`、`code`、`message` 与 `output`。调用方不提供输出缓冲区、不传容量，也不得释放返回指针。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
 
 ## 运行时源码结构
 
@@ -85,7 +87,7 @@ cargo install miresidian_testflow_windows
 
 ```toml
 [dependencies]
-miresidian = { version = "0.10.0", features = ["lease"] }
+miresidian = { version = "0.11.0", features = ["lease"] }
 ```
 
 仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：

@@ -41,13 +41,14 @@ const char *result_json = miresidian_invoke(
 
 ## 响应体
 
-返回文本始终是同一种 JSON 对象，字段顺序固定为 status、message、output。
+返回文本始终是同一种 JSON 对象，字段顺序固定为 status、code、message、output。
 
 成功时：
 
 ~~~json
 {
   "status": 0,
+  "code": "OK",
   "message": "",
   "output": ["业务输出1", "业务输出2"]
 }
@@ -58,12 +59,13 @@ const char *result_json = miresidian_invoke(
 ~~~json
 {
   "status": 2,
+  "code": "NOT_INITIALIZED",
   "message": "设备尚未初始化",
   "output": []
 }
 ~~~
 
-status 为状态码，message 为成功时的空字符串或失败诊断，output 始终为业务字符串数组。
+status 为数值型状态分类；code 为稳定机器代码，成功时为 `OK`；message 为成功时的空字符串或失败诊断；output 始终为业务字符串数组。调用方应以 status 和 code 判断结果，不应解析 message 文本。
 JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得自行按逗号拆分文本。
 
 GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。`CloseAllDevices` 也不要求先初始化：它会幂等地清理当前运行时持有的全部通道。
@@ -87,3 +89,27 @@ GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；Ge
 `CloseDevice` 无论关闭、析构或租约释放是否失败，都移除原通道并报告错误。`CloseAllDevices` 尝试全部通道后汇总清理错误。租约失效返回 `status = 2`，禁止继续访问设备，须先关闭再初始化。框架不会在故障对象上自动恢复业务调用。
 
 FFI 在持有全局运行时锁的栈内捕获额外的运行时异常，清理全部通道后允许重新初始化；外部 Rust 调用者污染全局锁时也先清理再恢复。`panic = "abort"`、内存访问违规与进程级崩溃无法由此机制恢复。
+
+## 稳定响应代码
+
+`MiresidianError::category()` 与 `code()` 是运行时错误分类的唯一来源；FFI 只把类别映射为数值状态。附加通道上下文不改变类别或代码。
+
+| status | code | 含义 |
+| --- | --- | --- |
+| 0 | `OK` | 成功，业务结果位于 output。 |
+| 1 | `INVALID_ARGUMENT` | UTF-8、JSON、参数类型、数量或配置不合法。 |
+| 1 | `INVALID_OPERATION` | 未知操作。 |
+| 1 | `INVALID_PLATFORM_ID` | 零值或未分配的保留平台编号。 |
+| 1 | `UNKNOWN_PLATFORM_ADAPTER` | 平台未在节点 DLL 中注册。 |
+| 2 | `NOT_INITIALIZED` | 尚未初始化。 |
+| 2 | `UNKNOWN_CHANNEL` | 配置未对应已登记通道。 |
+| 2 | `NOT_SUPPORTED` | 节点不支持该能力。 |
+| 2 | `LEASE_INVALIDATED` | 租约失效，须关闭后重新初始化。 |
+| 2 | `OPERATION_FAILED` | 业务执行或汇总清理失败。 |
+| 3 | `NODE_PANICKED` | 节点发生已捕获的 panic。 |
+| 3 | `NODE_STATE_POISONED` | 节点状态锁已污染。 |
+| 3 | `INTERNAL_ERROR` | 其他框架异常或响应构造失败。 |
+
+默认入口和显式平台入口使用同一响应模型；解析错误、panic 和兜底响应也包含四个字段。成功无输出时 output 为 `[]`，失败时 output 为 `[]`。两个版本查询分别从 output[0] 读取版本字符串。
+
+增加 code 是兼容字段扩展：既有 status、message、output 的类型、导出函数、内存所有权和生命周期不变，C ABI 保持 v7。旧调用方可忽略新增字段，新调用方消费旧 DLL 时应允许 code 缺失；Windows TestFlow 执行器按此规则兼容并在提供 code 时显示它。

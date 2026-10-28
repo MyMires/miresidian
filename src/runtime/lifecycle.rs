@@ -58,13 +58,10 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform: Platform,
         request: Invocation,
     ) -> MiresidianResult<InvocationOutput> {
-        let adapter =
-            self.platforms
-                .adapter(platform)
-                .ok_or_else(|| MiresidianError::InvalidArgument {
-                    field: PLATFORM_ADAPTER_NAME.to_owned(),
-                    message: format!("未注册的平台适配器 {platform}"),
-                })?;
+        let adapter = self
+            .platforms
+            .adapter(platform)
+            .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))?;
         self.invoke_with(adapter.as_ref(), request)
     }
 

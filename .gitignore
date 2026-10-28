@@ -1,3 +1,6 @@
 /target
 /dist/
 .vscode
+
+# Python 版本门禁缓存
+__pycache__/

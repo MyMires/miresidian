@@ -155,11 +155,14 @@ function Format-Response([string]$Response) {
     if ([string]::IsNullOrWhiteSpace($message)) {
         $message = '（无）'
     }
+    $code = [string]$payload.code
+    if ([string]::IsNullOrWhiteSpace($code)) { $code = '（旧版响应未提供）' }
     $outputItems = @($payload.output)
 
     Write-Output ''
     Write-Output '==================== DLL 调用结果 ===================='
     Write-Output ('状态 : {0} ({1})' -f $statusText, $status)
+    Write-Output ('代码 : {0}' -f $code)
     Write-Output ('消息 : {0}' -f $message)
     Write-Output ('输出 : {0} 项' -f $outputItems.Count)
     if ($outputItems.Count -eq 0) {
@@ -178,7 +181,11 @@ function Get-SuccessPayload([string]$Response, [string]$Context) {
     if ([int]$payload.status -ne 0) {
         $message = [string]$payload.message
         if ([string]::IsNullOrWhiteSpace($message)) { $message = '（无错误说明）' }
-        throw "$Context 失败（status=$($payload.status)）：$message"
+        $classification = "status=$($payload.status)"
+        if (-not [string]::IsNullOrWhiteSpace([string]$payload.code)) {
+            $classification += ", code=$($payload.code)"
+        }
+        throw "$Context 失败（$classification）：$message"
     }
     return $payload
 }

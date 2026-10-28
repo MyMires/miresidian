@@ -35,10 +35,12 @@ enum {
  * 保留的常驻查询包括 GetFrameworkVersion（框架版本）与 GetProjectVersion（项目版本）。
  * 二者都通过 miresidian_invoke 返回 result_json 的 output[0]。
  *
- * JSON 字段顺序固定为 status、message、output。成功时为：
- *   {"status":0,"message":"","output":[..业务输出]}
+ * code 为稳定机器代码，成功时为 OK；失败时例如 NOT_INITIALIZED、INVALID_ARGUMENT。
+ * 调用方按 status/code 判断结果，不应解析 message。旧调用方可忽略新增 code 字段。
+ * JSON 字段顺序固定为 status、code、message、output。成功时为：
+ *   {"status":0,"code":"OK","message":"","output":[..业务输出]}
  * 失败时为：
- *   {"status":错误码,"message":"错误信息","output":[]}
+ *   {"status":状态码,"code":"稳定错误码","message":"错误信息","output":[]}
  */
 MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
 MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke(

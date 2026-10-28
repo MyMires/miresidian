@@ -106,12 +106,7 @@ fn execute_channel<N: DeviceNode>(
     channel
         .invoke(operation, arguments)
         .map(Some)
-        .map_err(|error| match error {
-            MiresidianError::NodePanicked { operation } => MiresidianError::NodePanicked {
-                operation: format!("通道 {} 的 {operation}", index + 1),
-            },
-            other => MiresidianError::Failure(format!("通道 {} 执行失败: {other}", index + 1)),
-        })
+        .map_err(|error| error.with_context(format!("通道 {} 执行失败", index + 1)))
 }
 
 /// 为各通道分发独立线程执行。

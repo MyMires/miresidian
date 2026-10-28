@@ -27,3 +27,5 @@ cargo install miresidian_testflow_windows
 - BAT 默认在结束后暂停；自动化环境设置 `MIRESIDIAN_TESTFLOW_NO_PAUSE=1` 可保留退出码且跳过暂停。
 
 因此流程文件、测试数据与硬件环境始终归节点项目维护；流程解析、DLL 调用和响应格式化由框架 TestFlow 工具统一维护。
+
+DLL 返回 `status、code、message、output`；执行器显示稳定 `code`，错误诊断包含 status/code，业务结果仍读取 output。为兼容旧 DLL，code 缺失时沿用数值 status 判断，不解析 message 文本。

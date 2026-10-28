@@ -71,6 +71,11 @@ struct Session {
 
 impl Session {
     fn start(role: &str, resource: &str) -> Self {
+        let namespace = if role == "conflicting-namespace" {
+            format!("{resource}:other")
+        } else {
+            resource.to_owned()
+        };
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--ignored",
@@ -80,6 +85,7 @@ impl Session {
             ])
             .env("MIRESIDIAN_LEASE_TEST_ROLE", role)
             .env("MIRESIDIAN_LEASE_TEST_RESOURCE", resource)
+            .env("MIRESIDIAN_LEASE_SERVICE_NAMESPACE", namespace)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -132,19 +138,29 @@ impl Drop for Session {
 #[test]
 fn service_owner_exit_preserves_configuration_and_invalidates_runtime() {
     let resource = format!("lease-recovery:{}", std::process::id());
-    let mut owner = Session::start("owner", &resource);
+    // 场景及其手工客户端均在独立子进程运行，环境不会污染并行测试或真实服务。
+    let mut coordinator = Session::start("coordinator", &resource);
+    assert_eq!(coordinator.receive(), "completed");
+    assert!(coordinator.child.wait().unwrap().success());
+}
+
+fn run_owner_exit_scenario(resource: &str) {
+    let mut owner = Session::start("owner", resource);
     let generation = owner.receive();
-    let mut survivor = Session::start("runtime", &resource);
+    let mut survivor = Session::start("runtime", resource);
     assert_eq!(survivor.receive(), "ready");
     assert_eq!(survivor.command("invoke"), "ok:1");
     owner.terminate();
+    let mut competitor = Session::start("conflicting-namespace", resource);
+    assert_eq!(competitor.receive(), "incompatible");
+    assert!(competitor.child.wait().unwrap().success());
 
     assert!(survivor.child.try_wait().unwrap().is_none());
     assert!(matches!(
-        acquire(&resource, 9),
+        acquire(resource, 9),
         Err(LeaseError::IncompatibleConfiguration)
     ));
-    let mut replacement = compatible(&resource);
+    let mut replacement = compatible(resource);
     replacement.validate().unwrap();
     assert_ne!(generation, format!("ready:{:?}", replacement.generation()));
 
@@ -154,12 +170,12 @@ fn service_owner_exit_preserves_configuration_and_invalidates_runtime() {
     // 失效后仍持有配置锁，直到资源关闭。
     replacement.release().unwrap();
     assert!(matches!(
-        acquire(&resource, 9),
+        acquire(resource, 9),
         Err(LeaseError::IncompatibleConfiguration)
     ));
     assert_eq!(survivor.command("close"), "closed:false");
 
-    let mut changed = acquire(&resource, 9).expect("全部设备关闭后允许新配置");
+    let mut changed = acquire(resource, 9).expect("全部设备关闭后允许新配置");
     changed.release().unwrap();
     assert_eq!(survivor.command("init"), "ok");
     assert_eq!(survivor.command("invoke"), "ok:1");
@@ -171,6 +187,19 @@ fn service_owner_exit_preserves_configuration_and_invalidates_runtime() {
 fn lease_process_helper() {
     let role = std::env::var("MIRESIDIAN_LEASE_TEST_ROLE").unwrap();
     let resource = std::env::var("MIRESIDIAN_LEASE_TEST_RESOURCE").unwrap();
+    if role == "coordinator" {
+        run_owner_exit_scenario(&resource);
+        emit("completed");
+        return;
+    }
+    if role == "conflicting-namespace" {
+        assert!(matches!(
+            acquire(&resource, 9),
+            Err(LeaseError::IncompatibleConfiguration)
+        ));
+        emit("incompatible");
+        return;
+    }
     if role == "owner" {
         let lease = compatible(&resource);
         emit(&format!("ready:{:?}", lease.generation()));
