@@ -8,7 +8,7 @@
 
 ```toml
 [dependencies]
-miresidian_abi = "0.11.1"
+miresidian_abi = "0.11.2"
 ```
 
 完整 C ABI 调用约定见[C ABI](../docs/c-abi.md)。

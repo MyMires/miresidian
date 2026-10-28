@@ -1,6 +1,6 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.11.1**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.11.2**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -19,11 +19,11 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 | 你的目标 | 阅读入口 |
 | --- | --- |
 | 理清项目分层、类型关系和源码位置 | [架构总览：依赖图、UML 类图与调用时序](docs/architecture.md) |
-| 开发一个设备节点 | [宏驱动开发](docs/宏驱动开发.md) → [数据编解码](docs/data-codec.md) |
-| 从 C、C#、Python 或 LabVIEW 调用 DLL | [C ABI](docs/c-abi.md) → [平台调用契约](docs/platform-contract.md) |
-| 接入新的测试平台 | [平台适配器](docs/platform-adapters.md) |
+| 开发一个设备节点 | [节点开发与数据编解码](docs/宏驱动开发.md) |
+| 从 C、C#、Python 或 LabVIEW 调用 DLL | [平台接入与 C ABI](docs/c-abi.md) |
+| 接入新的测试平台 | [平台适配器](docs/c-abi.md#平台适配器) |
 | 为节点启用跨进程资源租约 | [租约接入与协议](lease/README.md) |
-| 构建、测试或发布 | [构建环境](docs/build-environment.md) → [打包工具](tools/miresidian-pack/README.md) → [版本管理](docs/versioning.md) |
+| 构建、测试或发布 | [构建环境](docs/coding-standards.md#构建环境) → [打包工具](tools/miresidian-pack/README.md) → [版本管理](docs/versioning.md) |
 
 完整主题索引、开发工具和维护规则统一收录于[文档中心](docs/README.md)。
 
@@ -36,7 +36,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.11.1"
+miresidian = "=0.11.2"
 ```
 
 ```rust
@@ -72,4 +72,4 @@ impl EchoNode {
 
 版本管理是 **P0 提交门禁**。首次检出先检查已有钩子配置，再执行 `git config core.hooksPath .githooks`；存在自定义钩子时须先整合。相关更新必须同步版本、精确依赖、锁文件、带日期的修订与标签，详见[版本管理规范](docs/versioning.md)。
 
-本地工具链与完整验证命令见[构建环境](docs/build-environment.md)，提交前的代码、文档与测试要求见[编码规范](docs/coding-standards.md)。
+本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。

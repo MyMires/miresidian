@@ -8,7 +8,7 @@
 
 ```toml
 [dependencies]
-miresidian_codec = "0.11.1"
+miresidian_codec = "0.11.2"
 ```
 
-数据格式与编码规则见[数据编解码](../docs/data-codec.md)。
+数据格式与编码规则见[数据编解码](../docs/宏驱动开发.md#数据编解码)。

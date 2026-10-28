@@ -2,7 +2,7 @@
 
 [文档中心](README.md) · [项目首页](../README.md)
 
-本文从依赖、核心类型和调用过程三个角度描述当前实现。图表使用 Mermaid，支持 Mermaid 的 Markdown 阅读器可直接渲染；纯文本环境可结合下方职责表和源码链接阅读。图表是人工维护的设计视图，省略辅助类型和次要方法；精确字段、泛型约束和签名以链接的源码及 Rustdoc 为准。
+本文从依赖、核心类型和调用过程三个角度描述当前实现。图表使用 Mermaid，支持 Mermaid 的 Markdown 阅读器可直接渲染；纯文本环境可结合下方职责表和源码链接阅读。图表是人工维护的设计视图，省略辅助类型和次要方法；精确字段、泛型约束和签名以链接的源码及 Rustdoc 为准。图中使用中文说明职责，括号内保留源码标识符，便于搜索定位。
 
 ## crate 与节点边界
 
@@ -38,7 +38,7 @@ flowchart TB
 
 ```mermaid
 classDiagram
-    class DeviceNode {
+    class DeviceNode["节点接口（DeviceNode）"] {
         <<trait>>
         +descriptor()
         +platform_registry()
@@ -46,10 +46,10 @@ classDiagram
         +invoke(operation, config, input)
         +close_device(config, input)
     }
-    class ExampleNode {
+    class ExampleNode["业务节点示例（ExampleNode）"] {
         业务状态与通信对象
     }
-    class NodeRuntime {
+    class NodeRuntime["节点运行时（NodeRuntime）"] {
         -channels
         -platforms
         -active_platform
@@ -59,109 +59,135 @@ classDiagram
         +invoke_with_platform(platform, request)
         +shutdown()
     }
-    class Channel {
-        <<internal>>
+    class Channel["设备通道（Channel）"] {
+        <<内部类型>>
         config
         state
     }
-    class ChannelState {
-        <<internal>>
+    class ChannelState["通道状态（ChannelState）"] {
+        <<内部类型>>
         node
         fault
         lease
     }
-    class LocalLease {
+    class LocalLease["本地资源租约（LocalLease）"] {
         +validate()
         +release()
     }
-    class PlatformRegistry {
+    class PlatformRegistry["平台注册表（PlatformRegistry）"] {
         +register(adapter)
         +adapter(platform)
     }
-    class PlatformAdapter {
+    class PlatformAdapter["平台适配接口（PlatformAdapter）"] {
         <<trait>>
         +platform()
         +identifier()
         +decode(request)
         +encode(response)
     }
-    class TbLvTestPlatformAdapter
-    class NodeDescriptor {
+    class TbLvTestPlatformAdapter["TB 平台适配器（TbLvTestPlatformAdapter）"]
+    class NodeDescriptor["节点描述（NodeDescriptor）"] {
         name
         init_config
         operations
     }
-    class OperationDescriptor {
+    class OperationDescriptor["操作描述（OperationDescriptor）"] {
         name
         inputs
         outputs
         channel_inputs
     }
-    class ParameterDescriptor {
+    class ParameterDescriptor["参数描述（ParameterDescriptor）"] {
         name
         definition
         default_value
     }
+    note for DeviceNode "节点与运行时之间的接口，由属性宏生成实现。"
+    note for NodeRuntime "管理多通道并选择平台；invoke 发起调用，shutdown 关闭全部通道。"
+    note for ChannelState "节点、故障原因和可选租约由同一把互斥锁保护。"
+    note for PlatformAdapter "decode 解析平台请求；encode 编码平台输出。"
     DeviceNode <|.. ExampleNode : 宏生成实现
     NodeRuntime "1" *-- "0..*" Channel : 按 Config 管理
     Channel "1" *-- "1" ChannelState : Mutex 保护
     ChannelState "1" *-- "1" ExampleNode : 持有 N
     ChannelState "1" *-- "0..1" LocalLease : feature 与声明启用时
-    NodeRuntime "1" *-- "1" PlatformRegistry
+    NodeRuntime "1" *-- "1" PlatformRegistry : 持有已注册平台
     PlatformRegistry "1" o-- "1..*" PlatformAdapter : Arc 共享
-    PlatformAdapter <|.. TbLvTestPlatformAdapter
+    PlatformAdapter <|.. TbLvTestPlatformAdapter : 实现接口
     DeviceNode ..> NodeDescriptor : 返回静态元数据
     NodeDescriptor "1" o-- "0..*" OperationDescriptor : 静态切片
     NodeDescriptor "1" o-- "0..*" ParameterDescriptor : 初始化与探测参数
     OperationDescriptor "1" o-- "0..*" ParameterDescriptor : 输入与输出
 ```
 
+`+` 表示公开成员，`-` 表示私有成员；`trait` 表示 Rust 接口。关系中的 `1` 表示一个，`0..1` 表示可选，`0..*` 表示零到多个，`1..*` 表示至少一个。
+
 `<|..` 表示 trait 实现，`*--` 表示对象持有，`o--` 表示共享引用或静态描述关联，`..>` 表示使用关系。`Channel` 与 `ChannelState` 是内部实现类型，不属于公开 Rust API。
 
-运行时以规范化后的业务 Config 定位通道，框架保留配置不进入通道键。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。共享调用的分发策略由 `ExecutionMode` 决定，具体槽位与错误规则见[平台调用契约](platform-contract.md)。
+### 图中成员的中文含义
+
+方法和字段保留实际源码名称，下表补充中文对照；它们是职责摘要，完整参数与返回类型以源码为准。
+
+| 所属类型 | 成员名称与含义 |
+| --- | --- |
+| 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 初始化设备；`invoke` 执行业务操作；`close_device` 关闭设备 |
+| 运行时 `NodeRuntime` | `channels` 通道集合；`platforms` 平台注册表；`active_platform` 当前平台；`shared_execution` 共享执行方式 |
+| 运行时调用方法 | `invoke` 按配置选择平台并调用；`invoke_with` 使用指定适配器调用；`invoke_with_platform` 按平台编号调用；`shutdown` 关闭全部通道 |
+| 通道 `Channel` / `ChannelState` | `config` 规范化通道键；`state` 加锁状态；`node` 业务对象；`fault` 故障原因；`lease` 可选租约 |
+| 租约 `LocalLease` | `validate` 校验连接及服务代次；`release` 释放租约与配置锁 |
+| 平台注册与适配 | `register` 注册适配器；`adapter` 按平台查找适配器；`platform` 平台编号；`identifier` 文本标识；`decode` 解析请求；`encode` 编码响应 |
+| 节点与操作描述 | `name` 名称；`init_config` 初始化配置；`operations` 操作清单；`inputs` 输入参数；`outputs` 输出参数；`channel_inputs` 共享调用使用的输入参数 |
+| 参数描述 | `definition` 原样发布的描述文本；`default_value` 可选默认值 |
+
+运行时以规范化后的业务 Config 定位通道，框架保留配置不进入通道键。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。共享调用的分发策略由 `ExecutionMode` 决定，具体槽位与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
 类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle.rs)、[Channel / ChannelState](../src/runtime/lifecycle/channel.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../lease/src/local_ipc/client.rs)。
 
 ## 一次业务调用的时序
 
-下图展示已初始化通道上的成功调用。`miresidian_invoke_with` 额外选择已注册的平台；默认入口通过运行时配置选择平台。两者在适配完成后进入同一调度链。
+下图按编号展示已初始化通道上的成功调用：先解析请求与选择通道，再执行业务，最后编码响应。`miresidian_invoke_with` 额外选择已注册的平台；默认入口通过运行时配置选择平台。两者在适配完成后进入同一调度链。
 
 ```mermaid
 sequenceDiagram
-    participant Host as 测试平台
-    participant FFI as 宏生成入口 / ffi_runtime
-    participant Runtime as NodeRuntime
-    participant Adapter as PlatformAdapter
-    participant Channel as Channel
-    participant Lease as LocalLease（可选）
-    participant Node as 宏生成的 DeviceNode 实现
-    participant Codec as miresidian_codec
+    autonumber
+    participant Host as 测试平台（宿主）
+    participant FFI as 跨语言入口<br/>ffi_runtime
+    participant Runtime as 节点运行时<br/>NodeRuntime
+    participant Adapter as 平台适配器<br/>PlatformAdapter
+    participant Channel as 设备通道<br/>Channel
+    participant Lease as 可选资源租约<br/>LocalLease
+    participant Node as 宏生成的节点接口<br/>DeviceNode 实现
+    participant Codec as 数据编解码<br/>miresidian_codec
     participant Device as 节点业务方法与设备
-    Host->>FFI: function + config_json + input_json
-    FFI->>FFI: 校验 C 字符串与 JSON，构造 Invocation
-    FFI->>Runtime: 加锁并调用 invoke / invoke_with
-    Runtime->>Adapter: decode(Invocation)
-    Adapter-->>Runtime: RuntimeInvocation
-    Runtime->>Channel: 按规范化 Config 定位并执行
-    opt 已获取资源租约
-        Channel->>Lease: validate()
-        Lease-->>Channel: 当前连接与服务代次有效
+    Host->>FFI: 提交函数名、配置数组与输入数组
+    Note over Host,FFI: function 为函数名；config_json 和 input_json 为 JSON 字符串数组
+    FFI->>FFI: 校验文本与 JSON，构造请求（Invocation）
+    FFI->>Runtime: 加锁并发起调用（invoke / invoke_with）
+    Runtime->>Adapter: 解析平台请求（decode）
+    Adapter-->>Runtime: 返回结构化命令（RuntimeInvocation）
+    Runtime->>Channel: 按规范化配置找到通道并执行
+    Note over Runtime,Channel: 这里使用已初始化通道；框架保留配置不参与通道键
+    opt 通道已获取资源租约
+        Channel->>Lease: 校验租约（validate）
+        Lease-->>Channel: 确认连接与服务代次仍有效
     end
-    Channel->>Node: invoke(operation, config, input)
-    Node->>Codec: 解析强类型参数
-    Codec-->>Node: Rust 参数值
-    Node->>Device: 调用业务方法
-    Device-->>Node: 业务返回值
-    Node->>Codec: 编码业务返回值
-    Codec-->>Node: 平台文本输出
-    Node-->>Channel: InvocationOutput
-    Channel-->>Runtime: InvocationOutput
-    Runtime->>Runtime: 封装 RuntimeResponse
-    Runtime->>Adapter: encode(RuntimeResponse)
-    Adapter-->>Runtime: InvocationOutput
-    Runtime-->>FFI: 文本输出或统一错误
-    FFI->>FFI: 构造 status / code / message / output
-    FFI-->>Host: DLL 当前线程持有的 JSON 指针
+    Channel->>Node: 按操作名分发业务（invoke）
+    Note over Node,Codec: 宏生成包装负责类型转换，业务方法接收 Rust 参数
+    Node->>Codec: 将平台文本解析为强类型参数
+    Codec-->>Node: 返回 Rust 参数值
+    Node->>Device: 执行设备业务方法
+    Device-->>Node: 返回业务结果
+    Node->>Codec: 将业务结果编码为平台文本
+    Codec-->>Node: 返回文本输出
+    Node-->>Channel: 返回业务输出（InvocationOutput）
+    Channel-->>Runtime: 交回通道业务输出
+    Runtime->>Runtime: 封装运行时响应（RuntimeResponse）
+    Runtime->>Adapter: 编码平台响应（encode）
+    Adapter-->>Runtime: 返回适配后的文本输出
+    Runtime-->>FFI: 返回结果或统一错误
+    FFI->>FFI: 组装状态、稳定代码、消息与业务输出
+    Note over FFI: 对应字段依次为 status、code、message、output
+    FFI-->>Host: 返回 DLL 当前线程持有的 JSON 指针
     Note over Host,FFI: 宿主立即复制文本；同一线程下一次调用前有效；不得释放
 ```
 
@@ -190,3 +216,20 @@ sequenceDiagram
 源码使用新式 Rust 模块结构，不使用 `mod.rs`。入口文件负责声明与导出；同一概念具有多个协作职责时采用 `概念.rs + 概念/`，完整规则见[编码规范](coding-standards.md)。
 
 修改时先按上表定位归属：节点标注与生成改 `macro/`，通用编解码改 `codec/`，平台协议映射改适配器，生命周期与共享调度改运行时，设备协议留在独立节点。涉及依赖、核心类型或调用链变化时同步更新本页。
+
+## 后续演进计划
+
+本节记录已确认、但尚未进入当前发布版本的工程化事项。
+
+### 国际化发布信息
+
+- 提交说明优先使用中文。
+- 公开发布前，为 README、CHANGELOG 和 Release Notes 提供中英文版本。
+- 若未来建设文档站点，再根据浏览器语言自动选择中文或英文页面；Git 提交信息与 Git 托管平台页面不支持自动切换。
+
+### 节点流程测试工具
+
+- `miresidian_testflow_windows` 将 `.testflow` 生成自包含 Windows BAT；流程解析、DLL C ABI 调用、返回格式化和自动 CloseDevice 均由框架内嵌执行器负责。
+- 当 `.testflow` 的跨平台语法、断言和报告格式稳定后，再抽取 `miresidian_testflow` 核心 crate；届时 Windows BAT 执行器只保留平台加载职责。
+- 工具应通过 C ABI 的 `GetFunctions` 与 `GetInitConfig` 自适应节点，而不包含串口业务规则。
+- 保留节点项目对流程文件、测试数据和硬件环境的所有权。

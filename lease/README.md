@@ -12,7 +12,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.11.1", features = ["lease"] }
+miresidian = { version = "=0.11.2", features = ["lease"] }
 ```
 
 在需要租约的节点结构体上声明资源键与配置字段。例如 CAN 节点可声明：
