@@ -1,5 +1,7 @@
 # miresidian_testflow_windows
 
+[文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
+
 `miresidian_testflow_windows` 将节点项目的 `.testflow` 生成可直接在 Windows 上执行的自包含 BAT。
 
 ## 用法

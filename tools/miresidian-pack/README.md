@@ -1,5 +1,7 @@
 # miresidian_pack
 
+[文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
+
 `miresidian_pack` 为 Miresidian 节点项目构建 Windows DLL，并整理为测试平台可交付的发布目录。
 
 ## 用法

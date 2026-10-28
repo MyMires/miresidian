@@ -1,5 +1,7 @@
 # 构建环境
 
+[文档中心](README.md) · [架构总览](architecture.md)
+
 本仓库仅包含 Miresidian 框架及其 ABI、编解码、过程宏和打包工具。
 
 ## 最低工具链

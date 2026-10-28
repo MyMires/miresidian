@@ -1,8 +1,53 @@
 # Miresidian Lease
 
+[文档中心](../docs/README.md) · [架构总览](../docs/architecture.md)
+
 `miresidian_lease` 定义设备类型无关的资源租约协议：资源键、配置一致性、随机租约 ID、获取、验证和释放。最低 Rust 版本为 **1.89**。
 
 协议不包含串口、TCP、USB、CAN 或其他设备字段；节点宏把其规范化配置编码为不透明字节，业务节点不直接接触租约令牌。
+
+## 节点接入
+
+节点通常只直接依赖 `miresidian`，通过 feature 启用本地 IPC 能力：
+
+```toml
+[dependencies]
+miresidian = { version = "=0.11.1", features = ["lease"] }
+```
+
+在需要租约的节点结构体上声明资源键与配置字段。例如 CAN 节点可声明：
+
+```rust
+#[miresidian::node("CAN 通信", lease(
+    activation = selectable,
+    resource = "channel_name",
+    configuration = ["bit_rate", "data_bit_rate"]
+))]
+#[derive(Default)]
+struct CanNode;
+
+#[miresidian::node_impl]
+impl CanNode {
+    fn init_device(
+        &mut self,
+        channel_name: String,
+        bit_rate: u32,
+        data_bit_rate: u32,
+    ) -> miresidian::MiresidianResult<()> {
+        // 在此建立实际设备连接；示例只演示租约声明。
+        let _ = (channel_name, bit_rate, data_bit_rate);
+        Ok(())
+    }
+
+    fn close_device(&mut self) -> miresidian::MiresidianResult<()> {
+        Ok(())
+    }
+}
+```
+
+`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 引用 `init_device` 的 Rust 参数名；宏规范化参数并生成租约请求，运行时持有租约、回滚失败初始化并在清理时释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。`selectable` 会发布资源访问方式配置，允许初始化时选择租约或直连；完整标注规则见[宏驱动开发](../docs/宏驱动开发.md)。
+
+根 crate 始终重导出租约通用模型；未启用 `lease` feature 时不启用本地 IPC，未声明租约的节点保持普通调用路径。
 
 ## 本地租约 v2
 

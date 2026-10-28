@@ -1,5 +1,7 @@
 # TB LV Test Platform 调用契约
 
+[文档中心](README.md) · [架构总览](architecture.md)
+
 本文描述 `tb_lv_test_platform` 的兼容调用约束。该平台规则由 `TbLvTestPlatformAdapter` 实现；运行时核心不依赖其 `共享` 标记或逗号协议。其他平台应通过 [平台适配器](platform-adapters.md) 实现各自映射。框架、属性宏、节点与发布文档的后续修改不得违背本文；若需要调整，必须先明确更新本文件并获得项目维护者确认。
 
 ## 调用模型与命名边界

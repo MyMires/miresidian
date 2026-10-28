@@ -1,5 +1,7 @@
 # 数据编解码规范
 
+[文档中心](README.md) · [架构总览](architecture.md)
+
 Miresidian 的 `codec` 是根框架能力，负责强类型参数、平台字符串数组与原始字节之间的稳定转换。
 设备节点只能声明 Rust 类型或调用 `decode_text_to_bytes`、`encode_bytes_to_text`、`transcode_text`；不得各自实现
 HEX、Base64、字符编码或竖线数组语法。

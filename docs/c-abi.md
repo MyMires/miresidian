@@ -1,5 +1,7 @@
 # C ABI
 
+[文档中心](README.md) · [架构总览](architecture.md)
+
 Miresidian 节点 DLL 导出默认入口 `miresidian_invoke` 与显式平台入口 `miresidian_invoke_with`。两个入口均使用 UTF-8 JSON 文本，
 不要求调用方分配输出缓冲区，不传递 Rust 结构体。
 

@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_tool_smoke_node"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 publish = false
 
@@ -11,4 +11,4 @@ crate-type = ["cdylib"]
 [workspace]
 
 [dependencies]
-miresidian = { version = "=0.11.0", path = "../../.." }
+miresidian = { version = "=0.11.1", path = "../../.." }

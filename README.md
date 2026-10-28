@@ -1,158 +1,75 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架。它为不同语言的测试平台提供统一、可演进的调用模型。最低 Rust 版本为 **1.89**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.11.1**，C ABI 为 **v7**，租约协议为 **v2**。
 
-版本管理为 **P0 提交门禁**：相关更新必须同步版本、依赖、锁文件、带日期的修订记录与标签。首次检出执行 `git config core.hooksPath .githooks`；提交前执行 `python3 tools/check_versions.py --base HEAD`。详见 [版本管理规范](docs/versioning.md)。当前框架版本为 **0.11.0**，C ABI 为 **v7**。
+**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
-## 当前基础层
+## 项目提供什么
 
-当前实现已经具备可编译、可测试的运行时。数据编解码、参数解析、跨语言值模型与通用错误类型位于独立的 `miresidian_codec` crate；`miresidian` 保持兼容重导出：
+- 统一 `Function + Config + Input -> Output` 文本调用模型，支持节点发现、版本查询、端口探测、初始化与关闭。
+- 通过属性宏生成节点元数据、强类型参数转换、操作分发和 DLL 导出，节点作者专注设备状态与通信实现。
+- 按规范化业务 Config 管理多通道，支持顺序、并行与广播共享调用，并在通道边界隔离可展开 panic。
+- 提供独立编解码和值模型，支持基础类型、一维数组、文本编码、HEX 与 Base64。
+- 通过平台适配器连接不同测试平台；需要跨进程协调资源配置的节点可启用 `lease` feature。
 
-- 使用 `operation + config + input -> output` 的统一文本调用契约；
-- 保持与既有 C# 驱动兼容的固定操作：`GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`；
-- 通过 `DeviceNode` 定义节点生命周期、自定义操作与编译进 DLL 的平台适配器注册表；
-- 通过 `NodeRuntime` 按完整 Config 管理多通道对象、临时端口探测和资源关闭；
-- 支持以 `Input[0] = "共享"` 对所有已创建通道批量执行自定义操作，并由 `InitDevice` 的共享执行方式配置统一选择顺序、并行或广播分发；
-- 提供受跨语言边界约束的逻辑值类型 `DeviceValue`。
-- 提供框架级数据编解码：基础类型、可逆数组、ASCII、GBK、UTF-8、Unicode、HEX 与 Base64。
+节点项目通常只直接依赖 `miresidian`。具体串口、TCP、USB、CAN 等通信实现和私有依赖归独立节点项目所有。框架库、过程宏、开发工具与节点 DLL 的关系见[架构总览](docs/architecture.md)。
 
-已导出 C ABI v7：`miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。默认入口使用 `function + config_json + input_json`；显式平台入口额外传入 `uint32_t platform`；字符串数组统一编码为 UTF-8 JSON 文本，DLL 返回内部持有的 JSON 响应文本，固定包含 `status`、`code`、`message` 与 `output`。调用方不提供输出缓冲区、不传容量，也不得释放返回指针。属性宏（`#[miresidian::node]`、`#[miresidian::operation]`、`#[miresidian::config]`、`#[miresidian::input]`、`#[miresidian::output]`）已经生成节点契约、类型转换、生命周期调度和 DLL 入口。
+## 从这里开始
 
-## 运行时源码结构
+| 你的目标 | 阅读入口 |
+| --- | --- |
+| 理清项目分层、类型关系和源码位置 | [架构总览：依赖图、UML 类图与调用时序](docs/architecture.md) |
+| 开发一个设备节点 | [宏驱动开发](docs/宏驱动开发.md) → [数据编解码](docs/data-codec.md) |
+| 从 C、C#、Python 或 LabVIEW 调用 DLL | [C ABI](docs/c-abi.md) → [平台调用契约](docs/platform-contract.md) |
+| 接入新的测试平台 | [平台适配器](docs/platform-adapters.md) |
+| 为节点启用跨进程资源租约 | [租约接入与协议](lease/README.md) |
+| 构建、测试或发布 | [构建环境](docs/build-environment.md) → [打包工具](tools/miresidian-pack/README.md) → [版本管理](docs/versioning.md) |
 
-`src/` 按职责分组，所有模块均采用 `模块.rs + 模块/子模块.rs` 的新式结构，不使用
-`mod.rs`：
+完整主题索引、开发工具和维护规则统一收录于[文档中心](docs/README.md)。
 
-```text
-codec/                     # 独立的数据编解码、解析和值模型 crate
-├── src/lib.rs              # 公开 API、错误和平台输出类型
-└── src/                    # 标量、数组、字节、文本与参数定义规则
+## 最小节点示例
 
-src/
-├── runtime.rs             # 节点运行时入口
-├── runtime/
-│   ├── contract.rs        # 调用契约与固定操作名称
-│   ├── descriptor.rs      # 节点与操作描述信息
-│   ├── lifecycle.rs       # 通道状态、生命周期和节点操作调度
-│   ├── lifecycle/
-│   │   ├── channel.rs     # 单通道 panic 隔离、租约校验与资源清理
-│   │   └── routing.rs     # 平台选择与框架保留 Config 解析
-│   ├── shared.rs          # 共享调用的参数校验与顺序/并行/广播分发
-│   └── node.rs            # 节点实现接口
-├── platform.rs            # 平台适配抽象与结构化运行时命令
-├── platform/
-│   └── tb_lv_test_platform.rs # 当前 TB LV Test Platform 兼容适配器
-├── interop.rs             # C ABI 入口
-├── interop/
-│   └── ffi_runtime.rs     # 宏生成 DLL 入口使用的 ABI 支撑
-
-```
-
-节点发布工具位于 `tools/miresidian-pack/`，不参与框架运行时依赖。
-
-工具的输入、输出与命令用法分别见 [打包工具说明](tools/miresidian-pack/README.md) 和 [Windows TestFlow 工具说明](tools/miresidian-testflow-windows/README.md)。
-
-工具 crate 发布后，在节点项目所在机器安装一次：
-
-```text
-cargo install miresidian_pack
-cargo install miresidian_testflow_windows
-```
-
-随后直接使用 `cargo miresidian-pack` 与 `cargo miresidian-testflow-windows`；两者均不进入节点 DLL 的运行时依赖图。
-
-普通自定义操作以业务 `Config[]` 定位通道。运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，因此语义相同的配置会定位到同一通道；框架保留的配置不属于通道键。共享调用不使用本次调用的 `Config[]`，而是按对象创建顺序把 `Input[1..]` 的每一项分发到对应通道；Output 与实际提供的输入槽位保持相同顺序和数量。详细的跳过规则、输出槽位和错误语义见[平台调用契约](docs/platform-contract.md)。
-
-对外公开的 Rust 路径保持不变，例如 `miresidian::NodeRuntime`、
-`miresidian::ffi_runtime::invoke`。节点无需复刻首次初始化时的原始 Config 文本；其余宏生成代码无需手写。
-
-平台适配边界、`#[node(..., platforms(AdapterType))]` 的 DLL 注册方式与当前兼容平台的约定见 [平台适配器说明](docs/platform-adapters.md)。
-
-具体通信实现不属于框架根 crate。每个实例节点将其通信细节与私有依赖保留在自己的独立项目中；新增 TCP、USB、CAN 等节点时，只需引入所需通信库，`miresidian` 框架本身不会依赖任何具体传输实现。
-
-## crate 边界
-
-- `miresidian`：节点项目唯一需要直接引入的运行时入口；ABI、编解码和宏为必选能力，通用租约由可选的 `lease` feature 提供。
-- `miresidian_abi`：稳定 C ABI 契约，供有直接 FFI 需求的项目使用。
-- `miresidian_codec`：跨语言数据编解码与值模型，可独立使用。
-- `miresidian_macro`：节点声明和入口生成宏；由 `miresidian` 无条件重导出，节点项目通常不直接依赖。
-- `miresidian_lease`：设备无关的资源键、配置一致性、随机租约 ID 与生命周期状态机；启用 `lease` 后由根 crate 重导出，节点不直接依赖。
-- `miresidian_pack`、`miresidian_testflow_windows`：独立的 Cargo 子命令工具，不进入节点 DLL 的运行时依赖图。
-
-默认运行时保持精简；需要跨进程协调物理资源的节点可启用 `miresidian` 的 `lease` feature。该 feature 提供通用租约协议与本地 IPC 原语，不包含任一设备的通信实现。
-
-### 可选租约能力
-
-默认不启用租约。需要它的节点 crate 必须显式声明：
+在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
 ```toml
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-miresidian = { version = "0.11.0", features = ["lease"] }
+miresidian = "=0.11.1"
 ```
 
-仅在需要跨进程协调资源的节点结构体上标记租约；未标记节点保持普通调用路径：
-
 ```rust
-#[miresidian::node("CAN 通信", lease(
-    activation = selectable,
-    resource = "channel_name",
-    configuration = ["bit_rate", "data_bit_rate"]
-))]
-struct CanNode {
-    // ...
-}
+use miresidian::MiresidianResult;
+
+#[miresidian::node("回显节点")]
+#[derive(Default)]
+struct EchoNode;
 
 #[miresidian::node_impl]
-impl CanNode {
-    fn init_device(&mut self, /* 正常的链路初始化参数 */) -> miresidian::MiresidianResult<String> {
-        todo!()
+impl EchoNode {
+    fn init_device(&mut self) -> MiresidianResult<()> {
+        Ok(())
+    }
+
+    fn close_device(&mut self) -> MiresidianResult<()> {
+        Ok(())
+    }
+
+    #[miresidian::operation("回显")]
+    #[miresidian::output("接收文本")]
+    fn echo(&mut self, #[miresidian::input("发送文本")] text: String) -> MiresidianResult<String> {
+        Ok(text)
     }
 }
 ```
 
-`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 使用 `init_device` 的 Rust 参数名；宏规范化这些值，运行时持有 LeaseToken、处理初始化回滚和关闭释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。
+宏自动生成 `miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。调用参数使用 UTF-8 JSON 字符串数组；响应固定包含 `status`、`code`、`message`、`output`。DLL 持有返回文本，调用方须立即复制且不得释放指针。完整签名与有效期以 [C ABI](docs/c-abi.md) 为准。
 
-租约 v2 使用客户端持有的跨进程文件锁保护配置，即使协调服务宿主退出，其他存活客户端仍阻止不兼容配置进入。初始化完成、复用通道和每次业务操作前均在原连接上校验租约及服务代次；失联或超时后通道停止访问设备，须先关闭再初始化。租约只协调配置，设备句柄共享、跨进程事务互斥和响应归属仍由通信实现负责。升级时应停止所有使用 v1 协议的节点进程，再统一启动 v2 节点；两代协议不能混用。详情见 [租约说明](lease/README.md)。
+尚未发布的框架可通过相邻源码路径联调，精确版本与锁文件要求见[可复现开发说明](docs/versioning.md#未发布框架的可复现开发)。
 
-节点初始化、操作、端口探测、关闭和析构中的可展开 panic 由框架捕获。业务操作 panic 后仅故障通道被隔离；版本查询、其他通道与关闭入口继续可用。`CloseDevice` 尝试清理后总会移除该通道，即使清理返回错误；随后可重新初始化。`panic = "abort"` 与进程级崩溃不属于可恢复异常。
+## 参与开发
 
-## 属性宏与节点扩展
+版本管理是 **P0 提交门禁**。首次检出先检查已有钩子配置，再执行 `git config core.hooksPath .githooks`；存在自定义钩子时须先整合。相关更新必须同步版本、精确依赖、锁文件、带日期的修订与标签，详见[版本管理规范](docs/versioning.md)。
 
-`macro/` 是声明式节点扩展的唯一代码生成边界。驱动 crate 只描述节点状态、通信实现和
-带标注的方法；不得手写平台函数列表、字符串分发、`DeviceNode` 实现或 C ABI 导出。宏项目
-与运行时、实例节点遵循同一套模块规则：入口文件只做路由，同一概念拥有多个协作职责时使用
-`概念.rs + 概念/`。
-
-```text
-macro/src/
-├── lib.rs                 # 五个属性宏的公开入口
-├── node.rs                # #[node("节点名称")] 的展开
-├── node_impl.rs           # #[node_impl] 的编排入口
-└── node_impl/
-    ├── definition.rs      # 属性解析、签名校验和声明模型
-    ├── naming.rs          # Rust 名称到平台名称的转换
-    ├── descriptor.rs      # 节点与操作元数据生成
-    ├── dispatch.rs        # 参数解析与操作调度生成
-    └── ffi.rs             # 节点 DLL 的 C ABI 导出生成
-```
-
-新增节点时先阅读 [宏驱动开发说明](docs/宏驱动开发.md)，再在
-`独立节点项目/` 中创建独立 crate。宏标注、自动命名、固定入口和可使用的数据类型均以
-该文档为准。
-
-## 验证
-
-```powershell
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --all-targets --locked
-cargo test --workspace --all-targets --all-features --locked
-cargo build --workspace --release --locked
-```
-
-编码、文档、FFI 与测试约束见 [docs/coding-standards.md](docs/coding-standards.md)。
-数据格式、文本编码与数组表示规则见 [docs/data-codec.md](docs/data-codec.md)。
-C DLL 调用约定和 Windows DLL 构建说明见 [docs/c-abi.md](docs/c-abi.md)。
-构建容器与 `cc` 链接器的安装说明见 [docs/build-environment.md](docs/build-environment.md)。
-框架、实例项目与 ABI 的版本、修订记录和发布流程见 [docs/versioning.md](docs/versioning.md)。
+本地工具链与完整验证命令见[构建环境](docs/build-environment.md)，提交前的代码、文档与测试要求见[编码规范](docs/coding-standards.md)。
