@@ -25,7 +25,7 @@ lease = ["miresidian_lease/local-ipc"]
 [workspace.package]
 version = "0.10.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 [dependencies]
 miresidian_abi = { version = "=0.10.0", path = "abi" }

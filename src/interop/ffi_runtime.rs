@@ -153,18 +153,9 @@ unsafe fn dispatch<N: DeviceNode>(
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
     let input = unsafe { parse_json_array(input_json, "input_json") }
         .map_err(|message| (MIRESIDIAN_STATUS_INVALID_ARGUMENT, message))?;
-    runtime
-        .get_or_init(|| Mutex::new(NodeRuntime::with_platforms(N::platform_registry())))
-        .lock()
-        .map_err(|_| {
-            (
-                MIRESIDIAN_STATUS_INTERNAL_ERROR,
-                "节点状态锁已损坏".to_owned(),
-            )
-        })?
-        .invoke(&Invocation::new(operation, config, input))
-        .map(|value| value.into_values())
-        .map_err(|error| (status_for_error(&error), error.to_string()))
+    invoke_runtime(runtime, N::platform_registry, |runtime| {
+        runtime.invoke(&Invocation::new(operation, config, input))
+    })
 }
 
 unsafe fn dispatch_with<N: DeviceNode>(
@@ -193,18 +184,42 @@ unsafe fn dispatch_with<N: DeviceNode>(
             format!("未注册的平台适配器 {platform}"),
         )
     })?;
-    runtime
-        .get_or_init(|| Mutex::new(NodeRuntime::with_platforms(platforms)))
-        .lock()
-        .map_err(|_| {
-            (
+    invoke_runtime(
+        runtime,
+        || platforms,
+        |runtime| runtime.invoke_with(adapter.as_ref(), Invocation::new(operation, config, input)),
+    )
+}
+
+// 在运行时锁仍由当前栈持有时捕获意外异常，避免全局 Mutex 被污染。
+fn invoke_runtime<N: DeviceNode>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    platforms: impl FnOnce() -> crate::PlatformRegistry,
+    call: impl FnOnce(&mut NodeRuntime<N>) -> crate::MiresidianResult<crate::InvocationOutput>,
+) -> Result<Vec<String>, (MiresidianStatus, String)> {
+    let mutex = runtime.get_or_init(|| Mutex::new(NodeRuntime::with_platforms(platforms())));
+    let mut runtime = match mutex.lock() {
+        Ok(runtime) => runtime,
+        Err(poisoned) => {
+            // 外部 Rust 调用者可能已污染此锁；旧对象仅清理，不恢复其业务状态。
+            let mut runtime = poisoned.into_inner();
+            let _ = runtime.shutdown();
+            mutex.clear_poison();
+            runtime
+        }
+    };
+    match catch_unwind(AssertUnwindSafe(|| call(&mut runtime))) {
+        Ok(result) => result
+            .map(|value| value.into_values())
+            .map_err(|error| (status_for_error(&error), error.to_string())),
+        Err(_) => {
+            let _ = runtime.shutdown();
+            Err((
                 MIRESIDIAN_STATUS_INTERNAL_ERROR,
-                "节点状态锁已损坏".to_owned(),
-            )
-        })?
-        .invoke_with(adapter.as_ref(), Invocation::new(operation, config, input))
-        .map(|value| value.into_values())
-        .map_err(|error| (status_for_error(&error), error.to_string()))
+                "运行时发生未预期错误，已清理全部通道；可以重新初始化".to_owned(),
+            ))
+        }
+    }
 }
 
 fn status_for_error(error: &MiresidianError) -> MiresidianStatus {
@@ -212,6 +227,7 @@ fn status_for_error(error: &MiresidianError) -> MiresidianStatus {
         MiresidianError::InvalidArgument { .. } | MiresidianError::InvalidOperation(_) => {
             MIRESIDIAN_STATUS_INVALID_ARGUMENT
         }
+        MiresidianError::NodePanicked { .. } => MIRESIDIAN_STATUS_INTERNAL_ERROR,
         MiresidianError::NotInitialized
         | MiresidianError::UnknownChannel(_)
         | MiresidianError::NotSupported(_)

@@ -4,11 +4,8 @@
 //! 创建对象，其余方法以同一规则定位唯一对象。共享调用由 `shared` 模块在全部已创建通道上
 //! 批量执行；平台选择与框架保留 Config 的解析收敛到 `routing` 子模块。
 
+mod channel;
 mod routing;
-
-#[cfg(feature = "lease")]
-use crate::{LeaseAccess, lease::local_ipc::LocalLease};
-use std::sync::{Arc, Mutex};
 
 use crate::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
@@ -20,16 +17,7 @@ use crate::{
     normalize_value_with_definition,
 };
 
-/// 一个按 Config 键登记的通道对象。
-pub(super) struct Channel<N> {
-    /// 规范化后的业务 Config；既是定位键，也是后续操作读取的已连接配置。
-    pub(super) config: Vec<String>,
-    /// 通道对象本体；共享调用在多线程间通过互斥锁复用。
-    pub(super) node: Arc<Mutex<N>>,
-    /// 框架持有的通用租约；业务节点不感知该令牌。
-    #[cfg(feature = "lease")]
-    pub(super) lease: Option<LocalLease>,
-}
+pub(super) use channel::Channel;
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
 pub struct NodeRuntime<N: DeviceNode> {
@@ -201,19 +189,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
         while let Some(channel) = self.channels.pop() {
             let channel_key = channel.config.join(",");
-            match channel.node.lock() {
-                Ok(mut node) => {
-                    if let Err(error) = node.close_device(&channel.config, &[]) {
-                        failures.push(format!("通道 [{channel_key}] 关闭失败: {error}"));
-                    }
-                }
-                Err(_) => failures.push(format!("通道 [{channel_key}] 的节点状态锁已损坏")),
-            }
-            #[cfg(feature = "lease")]
-            if let Some(mut lease) = channel.lease
-                && let Err(error) = lease.release()
-            {
-                failures.push(format!("通道 [{channel_key}] 租约释放失败: {error}"));
+            if let Err(error) = channel.close(&[]) {
+                failures.push(format!("通道 [{channel_key}] 关闭失败: {error}"));
             }
         }
 
@@ -275,49 +252,18 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 ),
             });
         }
-        if self.find_channel(&channel_config).is_some() {
+        if let Some(channel) = self.find_channel(&channel_config) {
+            channel.ensure_active()?;
             return Ok(InvocationOutput::new(vec![
                 CHANNEL_REUSED_MESSAGE.to_owned(),
             ]));
         }
 
-        // 仅在初始化成功后登记对象；失败的候选对象仍尝试关闭，以释放部分建立的资源。
-        let mut candidate = N::default();
-        #[cfg(feature = "lease")]
-        let lease = if matches!(access, LeaseAccess::Lease) {
-            candidate
-                .lease_request(node_config)?
-                .map(|request| {
-                    LocalLease::acquire(request.resource().clone(), request.configuration().clone())
-                        .map_err(|error| MiresidianError::Failure(error.to_string()))
-                })
-                .transpose()?
-        } else {
-            None
-        };
-        #[cfg(not(feature = "lease"))]
-        let _ = access;
-        match candidate.init_device(node_config, input) {
-            Ok(output) => {
-                self.channels.push(Channel {
-                    config: channel_config,
-                    node: Arc::new(Mutex::new(candidate)),
-                    #[cfg(feature = "lease")]
-                    lease,
-                });
-                self.shared_execution = Some(execution);
-                self.active_platform = Some(platform);
-                Ok(output)
-            }
-            Err(error) => {
-                let _ = candidate.close_device(&[], &[]);
-                #[cfg(feature = "lease")]
-                if let Some(mut lease) = lease {
-                    let _ = lease.release();
-                }
-                Err(error)
-            }
-        }
+        let (channel, output) = Channel::initialize(channel_config, node_config, input, access)?;
+        self.channels.push(channel);
+        self.shared_execution = Some(execution);
+        self.active_platform = Some(platform);
+        Ok(output)
     }
 
     fn close_device(
@@ -336,39 +282,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .iter()
             .position(|channel| channel.config == config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
-        {
-            let channel = &self.channels[index];
-            let mut node = channel
-                .node
-                .lock()
-                .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-            node.close_device(&channel.config, input)?;
-        }
-        let channel = self.channels.remove(index);
-        #[cfg(feature = "lease")]
-        let cleanup_failure = if let Some(mut lease) = channel.lease {
-            lease.release().err().map(|error| {
-                MiresidianError::Failure(format!(
-                    "通道 [{}] 已关闭，但租约释放失败: {error}",
-                    channel.config.join(",")
-                ))
-            })
-        } else {
-            None
-        };
-        #[cfg(not(feature = "lease"))]
-        let cleanup_failure: Option<MiresidianError> = None;
-        #[cfg(not(feature = "lease"))]
-        let _ = channel;
-
+        // 关闭尝试后始终移除对象，避免半关闭或故障节点再次参与业务调用。
+        let result = self.channels.remove(index).close(input);
         if self.channels.is_empty() {
             self.shared_execution = None;
             self.active_platform = None;
         }
-        match cleanup_failure {
-            Some(error) => Err(error),
-            None => Ok(InvocationOutput::empty()),
-        }
+        result.map(|()| InvocationOutput::empty())
     }
 
     fn close_all(
@@ -391,11 +311,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let mut probe = N::default();
-        let port = probe.get_port_no(config, input);
-        let _ = probe.close_device(&[], &[]);
+        let mut probe = channel::catch_node(GET_PORT_NO_OPERATION, || Ok(N::default()))?;
+        let port = channel::catch_node(GET_PORT_NO_OPERATION, || probe.get_port_no(config, input));
+        let cleanup = channel::cleanup_node(probe, config, &[]);
+        let port = port?;
+        cleanup?;
 
-        match port? {
+        match port {
             Some(port) => Ok(InvocationOutput::new(vec!["1".to_owned(), port])),
             None => Ok(InvocationOutput::new(vec!["0".to_owned(), String::new()])),
         }
@@ -437,11 +359,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .find_channel(&config)
             .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
 
-        let mut node = channel
-            .node
-            .lock()
-            .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-        node.invoke(operation, &channel.config, input)
+        channel.invoke(operation, input)
     }
 
     /// 生成稳定通道键并补齐有效的默认值。该规则与宏生成参数解析保持一致，

@@ -103,13 +103,15 @@ fn execute_channel<N: DeviceNode>(
     let Some(arguments) = plan else {
         return Ok(None);
     };
-    let mut node = channel
-        .node
-        .lock()
-        .map_err(|_| MiresidianError::Failure("节点状态锁已损坏".to_owned()))?;
-    node.invoke(operation, &channel.config, arguments)
+    channel
+        .invoke(operation, arguments)
         .map(Some)
-        .map_err(|error| MiresidianError::Failure(format!("通道 {} 执行失败: {error}", index + 1)))
+        .map_err(|error| match error {
+            MiresidianError::NodePanicked { operation } => MiresidianError::NodePanicked {
+                operation: format!("通道 {} 的 {operation}", index + 1),
+            },
+            other => MiresidianError::Failure(format!("通道 {} 执行失败: {other}", index + 1)),
+        })
 }
 
 /// 为各通道分发独立线程执行。

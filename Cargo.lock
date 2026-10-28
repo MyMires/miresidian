@@ -229,6 +229,7 @@ dependencies = [
  "getrandom",
  "interprocess",
  "miresidian_codec",
+ "sha2",
 ]
 
 [[package]]

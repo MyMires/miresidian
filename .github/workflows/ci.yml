@@ -26,6 +26,19 @@ jobs:
       - run: cargo build --workspace --release --locked
 
 
+  msrv:
+    name: Rust 1.89 / ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - run: cargo check --workspace --all-targets --all-features --locked
+      - run: cargo test -p miresidian_lease --all-targets --all-features --locked
+      - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --all-features --locked
+
   windows-tools:
     name: Windows 工具端到端验证
     runs-on: windows-latest

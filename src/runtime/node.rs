@@ -44,6 +44,9 @@ pub trait DeviceNode: Default + Send + 'static {
 
     /// 释放节点持有的全部资源。
     ///
+    /// 框架在业务 panic 后仍会尽力调用本方法，再析构对象。实现应支持部分初始化或
+    /// 部分失败状态下的清理；清理错误不会阻止框架移除原通道并释放租约。
+    ///
     /// 默认情况下关闭参数来自 `input`。节点作者可通过参数上的 `config` 或
     /// `input` 标注指定实际通道，因此运行时必须原样传入两组参数。
     fn close_device(&mut self, config: &[String], input: &[String]) -> MiresidianResult<()>;

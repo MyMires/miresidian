@@ -2,6 +2,15 @@
 
 本仓库仅包含 Miresidian 框架及其 ABI、编解码、过程宏和打包工具。
 
+## 最低工具链
+
+最低 Rust 版本为 **1.89**。框架使用 Rust 2024、let chains，以及 Rust 1.89 稳定的跨平台文件锁 API。
+CI 在 Linux 和 Windows 上使用 1.89 执行全工作区、全目标、全特性编译，并运行异常恢复与多进程租约回归。
+
+```bash
+cargo +1.89.0 check --workspace --all-targets --all-features --locked
+```
+
 ## 框架开发
 
 在框架根目录执行：

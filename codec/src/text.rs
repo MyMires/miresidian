@@ -60,7 +60,7 @@ pub(super) fn decode_text(value: &[u8], format: ByteTextFormat) -> MiresidianRes
 }
 
 fn decode_utf16_le(value: &[u8]) -> MiresidianResult<String> {
-    if !value.len() % 2 == 0 {
+    if !value.len().is_multiple_of(2) {
         return Err(invalid("数据", "Unicode（UTF-16LE）字节数必须为偶数"));
     }
     let units = value

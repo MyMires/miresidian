@@ -8,16 +8,8 @@ use std::{
     fmt,
 };
 
-#[cfg(feature = "local-ipc")]
-use std::{
-    io::{Read, Write},
-    sync::{Arc, Mutex},
-    thread,
-    time::Duration,
-};
-
 /// 此租约协议的当前版本。
-pub const LEASE_PROTOCOL_VERSION: u16 = 1;
+pub const LEASE_PROTOCOL_VERSION: u16 = 2;
 /// 单个逻辑资源键允许的最大 UTF-8 字节数。
 pub const MAX_RESOURCE_KEY_BYTES: usize = 512;
 /// 设备专属规范化配置允许的最大字节数。
@@ -179,6 +171,8 @@ pub enum LeaseError {
     Randomness,
     IncompatibleConfiguration,
     UnknownLease,
+    /// 服务连接、服务代次或会话校验已失效；必须关闭资源后重新获取。
+    Invalidated,
     UnknownParameter(String),
     LocalIpc(String),
 }
@@ -191,6 +185,7 @@ impl fmt::Display for LeaseError {
             Self::ConfigurationTooLarge => "资源配置过长",
             Self::Randomness => "无法从操作系统随机源生成租约标识",
             Self::IncompatibleConfiguration => "资源已由不兼容配置持有",
+            Self::Invalidated => "租约会话已失效；请关闭资源后重新获取租约",
             Self::UnknownLease => "租约不存在或已释放",
             Self::UnknownParameter(name) => {
                 return write!(formatter, "租约声明引用了不存在的初始化参数 {name}");
@@ -273,7 +268,7 @@ impl LeaseRegistry {
             .is_some_and(|actual| actual == resource)
     }
 
-    /// 释放租约；`was_last` 为真时，节点应关闭对应物理资源。
+    /// 释放租约；`was_last` 仅表示本登记表中最后一个令牌，不代表跨代物理所有权。
     pub fn release(&mut self, lease: LeaseId) -> Result<LeaseRelease, LeaseError> {
         let resource = self.leases.remove(&lease).ok_or(LeaseError::UnknownLease)?;
         let Some(entry) = self.resources.get_mut(&resource) else {
@@ -372,6 +367,11 @@ fn 本地_ipc_在独立客户端连接间共享租约状态() {
         .is_err(),
         "不兼容配置必须被另一客户端持有的租约拒绝"
     );
+    first.validate().expect("首个会话仍有效");
+    shared.validate().expect("共享会话仍有效");
+    assert_eq!(first.generation(), shared.generation());
     first.release().expect("首个客户端可释放租约");
+    assert!(first.validate().is_err(), "已释放的会话不能继续校验");
+    first.release().expect("重复释放幂等");
     shared.release().expect("共享客户端可释放租约");
 }

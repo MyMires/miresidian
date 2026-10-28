@@ -18,6 +18,8 @@ pub enum MiresidianError {
     UnknownChannel(String),
     /// 节点未实现某项可选能力。
     NotSupported(String),
+    /// 节点发生可捕获的 panic；对应通道必须关闭后重新初始化。
+    NodePanicked { operation: String },
     /// 驱动特有的运行失败。
     Failure(String),
 }
@@ -34,6 +36,12 @@ impl Display for MiresidianError {
                 write!(formatter, "未找到 Config 对应的通道: [{config}]")
             }
             Self::NotSupported(capability) => write!(formatter, "不支持的能力: {capability}"),
+            Self::NodePanicked { operation } => {
+                write!(
+                    formatter,
+                    "节点在 {operation} 时发生异常；请关闭故障通道后重新初始化"
+                )
+            }
             Self::Failure(message) => formatter.write_str(message),
         }
     }
