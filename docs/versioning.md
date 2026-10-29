@@ -19,52 +19,54 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.14.0` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `miresidian_serial 0.10.0` | 每个节点独立使用语义化版本。 |
+| 框架版本 | `miresidian 0.14.1` | 管理根运行时 crate；宏等子 crate 独立编号，使用语义化版本。 |
+| 实例项目版本 | `miresidian_serial 0.10.1` | 每个节点独立使用语义化版本。 |
 | 租约协议版本 | `2` | 独立维护 IPC 协议；协议不兼容变更须同步常量、服务端点、资源锁目录、迁移说明与回归，不能代替框架或 ABI 升级。 |
 | ABI 版本 | `7` | 新增 C 导出入口或改变既有 C 导出契约时递增。 |
-| crate 发布版本 | `miresidian_abi 0.14.0` | `miresidian`、`miresidian_abi`、`miresidian_codec`、`miresidian_macro`、`miresidian_instances` 与 `miresidian_lease` 六个框架 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| crate 发布版本 | `miresidian_abi 0.14.0` | 每个库 crate 按自身实际变更独立判断版本；内部精确依赖匹配对应 crate 的实际版本。 |
+| 开发工具版本 | `miresidian_pack 0.10.0` | pack 保持已发布 0.10.0；TestFlow 独立候选为 0.11.0。框架根版本变化不触发工具无关升版，工具发布须单独授权。 |
 
-工作区中的两个 Cargo 开发工具也继承 0.14.0 发布列车；独立烟测夹具为 0.7.0，随框架重建时同步提升自身版本。
+独立烟测节点为 0.7.1，仅依赖已发布框架 0.14.0，不要求追随尚未发布的工作区版本。框架 0.14.0 与五个必需子 crate 已发布；根 crate 0.14.1 的工程规则更新独立编号，不带动其他 crate 升版。
 
 ## 唯一版本来源
 
-- 框架版本定义在根 `Cargo.toml` 的 `[workspace.package]`。
+- 每个 crate 与工具的版本定义在各自 Cargo.toml 的 `[package].version`；workspace.package 仅共享 edition、MSRV 与许可证。
 - 实例版本定义在各实例项目的 `Cargo.toml` 的 `[package]`。
 - 节点 `Cargo.toml` 的依赖图是其框架与 ABI 版本的唯一来源；`miresidian_pack` 从实际解析到的 `miresidian` 与 `miresidian_abi` 自动写入发布清单。
 
 ```toml
 # 根 Cargo.toml
-[workspace.package]
-version = "0.14.0"
+[package]
+version = "0.14.1"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies]
-miresidian = { version = "=0.14.0", path = "../miresidian_rust", features = ["lease", "instances"] }
+miresidian = { version = "=0.14.0", features = ["lease", "instances"] }
 
 ```
 
 ## 更新与发布
 
 1. 修改前确定相关性和版本影响；运行时/工具改变必须升级对应版本。开发中可先写 Unreleased。
-2. 判断变更是 `MAJOR`、`MINOR` 还是 `PATCH`，并更新框架或实例的版本号。
-3. 变更框架版本时，更新待发布实例的 `miresidian` 依赖版本约束；重新构建的实例必须提升自身版本。
+2. 判断变更是 `MAJOR`、`MINOR` 还是 `PATCH`，只更新实际受影响组件的版本号。
+3. 节点选择采用某个已发布框架版本时，才升级依赖并重新生成锁文件、提升节点自身版本；框架发布不强制节点跟随。
 4. 变更 C ABI 时递增 ABI 版本，并同步更新 ABI crate 元数据、头文件、ABI 文档和兼容性测试。
 5. 先执行版本门禁，再运行规定的格式、Clippy、默认/全特性测试、文档和构建检查；交付 DLL 前在目标平台执行打包与冒烟验证，记录实测范围。
 6. 提交前将本次 Unreleased 条目归档到 `## [X.Y.Z] - YYYY-MM-DD`，同步当前版本示例并检查暂存区。
 7. 提交后创建不可移动的 Git 标签：框架用 `miresidian-vX.Y.Z`，实例用 `miresidian_serial-vX.Y.Z`。
 
-### crates.io 首发顺序
+### 按组件发布
 
-根 crate 依赖五个公开子 crate，因此首次发布必须按以下顺序进行：
+每个库 crate 和工具都有自己的 Cargo.toml 版本、CHANGELOG 和不可移动标签。先根据实际变化判断影响范围，只升级发生变化的组件及确实需要更新依赖的调用方，不要求所有 crate 同号。
 
-1. 对 `miresidian_abi`、`miresidian_codec`、`miresidian_macro`、`miresidian_instances`、`miresidian_lease` 分别执行 `cargo package --allow-dirty` 与测试。
-2. 按依赖顺序执行五个子 crate 的 `cargo publish`：先发布 `miresidian_abi`、`miresidian_codec`、`miresidian_macro`，再发布依赖 `miresidian_codec` 的 `miresidian_instances` 与 `miresidian_lease`；等待 crates.io 索引可解析对应版本。
-3. 在干净工作区对根 crate 执行 `cargo package`；确认它从 crates.io 解析五个子 crate 后，再执行 `cargo publish`。
-4. `miresidian_pack` 与 `miresidian_testflow_windows` 是独立开发工具，均已具备发布元数据与包级 README；配置真实的公开仓库链接后，可在根 crate 之后分别执行 `cargo publish`。
+独立组件可使用 `python3 tools/check_versions.py --component <crate> --tag` 创建自己的标签，并以 `--component <crate> --require-tag` 核对；默认钩子只处理根框架标签，不自动发布或联动其他组件。
+
+发布时逐个使用 `cargo publish -p <crate>`，禁止无差别发布整个工作区。只有某个包需要的新依赖版本尚未发布，才先发布该依赖；已经可用的依赖不重复发布。根框架、实例管理、租约、宏、编解码、ABI 与两个工具都可以独立发布。`miresidian_pack` 当前无代码变化，保持已发布 0.10.0；TestFlow 的执行脚本变化属于独立 0.11.0 候选，不随根框架上传。
+
+从旧统一列车拆分时，只有从 workspace 继承版本且没有独立旧版本标签的未发布工具占位编号，可以一次性按真实已发布版本恢复基线。已经发布的版本与已有独立标签禁止回退、覆盖或移动。
 
 发布前必须为每个公开 crate 配置真实的 `repository`；如有文档站或主页，再补充 `documentation`、`homepage`。这些 URL 不得以猜测值代替。
 
@@ -80,7 +82,7 @@ miresidian = { version = "=0.14.0", path = "../miresidian_rust", features = ["le
 
 ## 修订记录
 
-- 根 `CHANGELOG.md` 记录框架、宏和 ABI 的修订。
+- 根 `CHANGELOG.md` 记录根框架修订；各子 crate 与工具的 `CHANGELOG.md` 记录各自版本、变化及验证结果。
 - 每个实例项目维护独立 `CHANGELOG.md`，记录配置兼容性、迁移方法和测试范围。
 - 已发布条目不可改写；说明错误时，以新版本或勘误条目补充。
 
@@ -117,10 +119,12 @@ python3 tools/check_versions.py --base HEAD
 python3 ../miresidian_rust/tools/check_versions.py --repo . --base HEAD
 ```
 
-pre-commit 使用 `--staged` 读取暂存区，防止工作区已升版本但提交中遗漏；检查源码/构建/依赖变化相对基线是否升版、发布列车与精确依赖、三个锁文件、修订归档、ABI 常量/元数据/头文件和已有标签冲突。C 导出签名变化会要求 ABI 同步递增。语义兼容性仍须按本文人工判断，自动检查不能替代接口评审。
+pre-commit 使用 `--staged` 读取暂存区，防止工作区已升版本但提交中遗漏；检查源码/构建/依赖变化相对基线是否升版、各 crate 版本与内部精确依赖、三个锁文件、修订归档、ABI 常量/元数据/头文件和已有标签冲突。C 导出签名变化会要求 ABI 同步递增。语义兼容性仍须按本文人工判断，自动检查不能替代接口评审。
 
 commit-msg 拒绝未升版且未说明“版本影响：无；具体理由”的提交。post-commit 只读取 HEAD，忽略尚未提交的版本修改，仅在该提交提升版本时创建附注标签，不移动已有标签；随后必须用 `--require-tag` 确认标签指向 HEAD。纯文档提交不会移动已有版本标签。首次检出必须安装钩子；不得绕过门禁。已有自定义钩子须先整合。CI 使用完整 Git 历史和 PR 基线/推送前提交，通过 `--check-commits` 逐一检查规范生效后的每个提交，避免仅比较最终版本而漏掉中间未升版的相关提交。规范生效前的历史保留。
 
-## 未发布框架的可复现开发
+## 子节点只使用已发布框架
 
-框架与节点相邻检出时，节点同时声明 `version = "=X.Y.Z"` 与 `path`，以实际源码生成 Cargo.lock 并执行 `--locked` 检查。框架尚未发布时，不允许保留旧锁文件或伪造 registry 校验和。Cargo 生成发布包时移除 path 并保留精确版本；正式发布节点前必须先发布对应框架。安装和发布后的 crate 仍通过 crates.io 依赖，不包含具体通信依赖。
+子节点项目与独立烟测夹具必须使用 crates.io 已发布的框架精确版本，禁止声明 path/git 或通过 patch、replace、Cargo paths 覆盖到本地框架。Cargo.lock 必须由 Cargo 从真实 registry 解析，包含 registry 来源与校验和，禁止伪造或保留本地框架锁记录。
+
+框架与节点发布分开：先完成框架及内部 crate 的发布，再升级节点依赖、由 Cargo 生成锁文件并构建打包。框架版本尚未发布时，节点升级必须保持未完成状态，不允许用本地源码让构建假通过。框架工作区内部 crate 仍可使用 path 配合精确版本维护，发布包由 Cargo 规范化。

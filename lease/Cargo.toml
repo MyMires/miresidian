@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_lease"
-version.workspace = true
+version = "0.14.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 通用跨进程资源租约协议与本地 IPC 基础。"

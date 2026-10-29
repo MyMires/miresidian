@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_macro"
-version.workspace = true
+version = "0.14.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 的设备节点属性过程宏。"

@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version.workspace = true
+version = "0.14.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
@@ -26,7 +26,6 @@ instances = ["miresidian_instances/runtime"]
 lease = ["miresidian_lease/local-ipc"]
 
 [workspace.package]
-version = "0.14.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"

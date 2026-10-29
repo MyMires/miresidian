@@ -156,4 +156,4 @@ cargo +1.89.0 check --workspace --all-targets --all-features --locked
 
 ### 节点项目
 
-节点应作为独立 Cargo 项目维护，并从 crates.io 依赖发布后的框架；提交开发源码时可同时声明精确版本与相邻目录的 `path`，使未发布的新版本也能真实锁定、构建和验证；Cargo 发布包仅保留版本约束。Windows DLL 的交叉编译、`cargo miresidian-pack` 和烟测工具均由节点项目自行配置与维护。
+节点应作为独立 Cargo 项目维护，且只能从 crates.io 依赖已发布框架的精确版本；禁止 path/git 和本地覆盖。框架尚未发布时先完成发布，不得伪造锁文件或以本地构建替代 registry 验证。Windows DLL 的交叉编译、`cargo miresidian-pack` 和烟测工具均由节点项目自行配置与维护。

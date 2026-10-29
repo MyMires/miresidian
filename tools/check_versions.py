@@ -93,7 +93,41 @@ def check_lock(repo, name, expected):
             raise VersionError(f"{name} 的 {package} 应锁定 {version}，实际为 {actual}")
 
 
+FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
+CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+
+
+def check_node_sources(repo, manifest, lock_name, prefix=""):
+    # 新的 registry 约束不追溯改写旧规范下的历史提交。
+    if repo.ref and "禁止 path" not in (repo.read("AGENTS.md", optional=True) or ""):
+        return
+    def walk(table):
+        if not isinstance(table, dict):
+            return
+        for name, value in table.items():
+            package = value.get("package", name.split(":", 1)[0]) if isinstance(value, dict) else name
+            if package in FRAMEWORK_CRATES and isinstance(value, dict):
+                if any(key in value for key in ("path", "git")) or value.get("registry", "crates-io") != "crates-io":
+                    raise VersionError(f"子节点 {prefix} 的 {package} 必须依赖 crates.io 已发布版本，禁止 path/git 或其他 registry")
+            if isinstance(value, dict):
+                walk(value)
+    walk(manifest)
+    for config in (prefix + ".cargo/config.toml", prefix + ".cargo/config"):
+        text = repo.read(config, optional=True)
+        if text:
+            data = tomllib.loads(text)
+            if data.get("paths"):
+                raise VersionError("子节点禁止 Cargo paths 本地覆盖")
+            walk(data)
+    for item in repo.toml(lock_name).get("package", []):
+        if item["name"] in FRAMEWORK_CRATES:
+            if item.get("source") != CRATES_IO_SOURCE or not re.fullmatch(r"[0-9a-f]{64}", item.get("checksum", "")):
+                raise VersionError(f"{lock_name} 的 {item['name']} 必须由 Cargo 从 crates.io 解析，不能使用本地框架或缺少 registry 校验和")
+
+
 def versioned_path(name):
+    if name.startswith("tools/fixtures/"):
+        return False  # 独立测试节点只提升自身版本，不触发库和工具无关升版。
     if name in {"Cargo.toml", "Cargo.lock", "README.md", ".cargo/config.toml"}:
         return True
     if name.startswith(("src/", "abi/", "codec/", "lease/", "macro/", ".github/workflows/")):
@@ -113,8 +147,50 @@ def check_base(repo, base, version, changed):
     current, previous = version_tuple(version), version_tuple(old)
     if current < previous:
         raise VersionError(f"版本不可回退：{old} -> {version}")
-    if any(versioned_path(name) for name in changed) and current <= previous:
+    manifest = repo.toml("Cargo.toml")
+    members = manifest.get("workspace", {}).get("members", [])
+    member_change = any(any(name.startswith(member + "/") for member in members) for name in changed)
+    root_changed = [name for name in changed if not any(name.startswith(member + "/") for member in members)]
+    if member_change:
+        root_changed = [name for name in root_changed if name != "Cargo.lock"]
+    if any(versioned_path(name) for name in root_changed) and current <= previous:
         raise VersionError(f"相关代码/构建/依赖发生变化，版本仍为 {old}；必须先升级版本并归档变更记录")
+
+
+def check_member_versions(repo, base, manifest, paths, changed):
+    if not base:
+        return
+    old_root = repo.toml("Cargo.toml", base)
+    def actual(data, root):
+        value = data["package"]["version"]
+        return root["workspace"]["package"]["version"] if isinstance(value, dict) else value
+    for path in paths[1:]:
+        before = repo.read(path, base, optional=True)
+        if before is None:
+            continue
+        old, new = tomllib.loads(before), repo.toml(path)
+        old_version, new_version = actual(old, old_root), actual(new, manifest)
+        splitting_unpublished_tool = (path.startswith("tools/")
+            and old["package"]["version"] == {"workspace": True}
+            and isinstance(new["package"]["version"], str)
+            and not repo.git("rev-parse", "--verify", f"refs/tags/{new['package']['name']}-v{old_version}", optional=True))
+        prefix = path.removesuffix("Cargo.toml")
+        relevant = [name[len(prefix):] for name in changed if name.startswith(prefix)]
+        old["package"].pop("version")
+        new["package"].pop("version")
+        if old == new:
+            relevant = [name for name in relevant if name != "Cargo.toml"]
+        impact = any(name.startswith("src/") or name in {"Cargo.toml", "README.md", "build.rs"} for name in relevant)
+        if not splitting_unpublished_tool and (version_tuple(new_version) < version_tuple(old_version) or (impact and version_tuple(new_version) <= version_tuple(old_version))):
+            raise VersionError(f"{path} 发生相关变更，必须独立提升该 crate 版本")
+        if new_version != old_version:
+            tag = f"{new['package']['name']}-v{new_version}"
+            existing = repo.git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", optional=True)
+            if existing:
+                head = repo.git("rev-parse", repo.ref or "HEAD").strip()
+                committed = component_version(repo, new["package"]["name"], repo.ref or "HEAD")
+                if repo.staged or existing.strip() != head or committed != new_version:
+                    raise VersionError(f"{tag} 已存在，禁止复用或移动标签；请使用新版本")
 
 
 def abi_signature(header):
@@ -164,36 +240,43 @@ def validate(repo, base):
         manifests = ["Cargo.toml"] + [f"{member}/Cargo.toml" for member in manifest["workspace"]["members"]]
         members = [repo.toml(path) for path in manifests]
         names = {member["package"]["name"] for member in members}
-        for path, member in zip(manifests, members):
+        check_member_versions(repo, base, manifest, manifests, changed)
+        versions = {}
+        for member in members:
             declared = member["package"]["version"]
-            if declared != version and declared != {"workspace": True}:
-                raise VersionError(f"{path} 未跟随发布列车 {version}")
-            expected[member["package"]["name"]] = version
+            versions[member["package"]["name"]] = version if member is manifest else (
+                manifest["workspace"]["package"]["version"] if declared == {"workspace": True} else declared)
+        versions[name] = version
+        for path, member in zip(manifests, members):
+            member_name = member["package"]["name"]
+            member_version = versions[member_name]
+            version_tuple(member_version)
+            if path != "Cargo.toml" and repo.read(path.removesuffix("Cargo.toml") + "CHANGELOG.md", optional=True):
+                check_changelog(repo, path.removesuffix("Cargo.toml") + "CHANGELOG.md", member_version)
+            expected[member_name] = member_version
             for dependency, specification in member.get("dependencies", {}).items():
-                if dependency in names and exact_dependency(specification) != version:
-                    raise VersionError(f"{path} 的 {dependency} 未精确依赖发布列车 {version}")
+                if dependency in names and exact_dependency(specification) != versions[dependency]:
+                    raise VersionError(f"{path} 的 {dependency} 未精确依赖对应 crate 版本 {versions[dependency]}")
         check_abi(repo, base)
         fixtures = sorted(path for path in repo.files() if path.startswith("tools/fixtures/") and path.endswith("Cargo.toml"))
         for path in fixtures:
             fixture = repo.toml(path)
-            if exact_dependency(fixture["dependencies"]["miresidian"]) != version:
-                raise VersionError(f"{path} 的框架版本与发布列车不一致")
+            fixture_framework = exact_dependency(fixture["dependencies"]["miresidian"])
             prefix = path.removesuffix("Cargo.toml")
+            check_node_sources(repo, fixture, prefix + "Cargo.lock", prefix)
             fixture_version = fixture["package"]["version"]
             check_changelog(repo, prefix + "CHANGELOG.md", fixture_version)
-            check_lock(repo, prefix + "Cargo.lock", {**{n: v for n, v in expected.items() if n in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}}, fixture["package"]["name"]: fixture_version})
+            check_lock(repo, prefix + "Cargo.lock", {"miresidian": fixture_framework, fixture["package"]["name"]: fixture_version})
             if base and any(item.startswith(prefix) for item in changed):
                 old = repo.read(path, base, optional=True)
                 if old and version_tuple(fixture_version) <= version_tuple(tomllib.loads(old)["package"]["version"]):
                     raise VersionError(f"{path} 随框架重建时必须同步提升夹具自身版本")
     else:
+        check_node_sources(repo, manifest, "Cargo.lock")
         dependency = manifest.get("dependencies", {}).get("miresidian")
         if dependency:
             framework = exact_dependency(dependency)
-            locked = repo.toml("Cargo.lock").get("package", [])
-            expected.update({entry["name"]: framework for entry in locked if entry["name"] in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}})
-            if "miresidian" not in expected:
-                raise VersionError("Cargo.lock 未锁定 miresidian")
+            expected["miresidian"] = framework
     check_lock(repo, "Cargo.lock", expected)
     tag = f"{name}-v{version}"
     existing = repo.git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", optional=True)
@@ -205,9 +288,27 @@ def validate(repo, base):
     return version, tag
 
 
+def component_version(repo, name, ref=None):
+    root = repo.toml("Cargo.toml", ref)
+    for path in ["Cargo.toml"] + [f"{member}/Cargo.toml" for member in root.get("workspace", {}).get("members", [])]:
+        data = repo.toml(path, ref)
+        if data["package"]["name"] == name:
+            value = data["package"]["version"]
+            return root["workspace"]["package"]["version"] if isinstance(value, dict) else value
+    raise VersionError(f"工作区没有组件 {name}")
+
+
 def check_message(repo, version, base, message):
     previous = repo.read("Cargo.toml", base, optional=True) if base else None
     if previous and own_version(tomllib.loads(previous)) == version:
+        root = repo.toml("Cargo.toml")
+        for member in root.get("workspace", {}).get("members", []):
+            package = repo.toml(f"{member}/Cargo.toml")["package"]["name"]
+            try:
+                if component_version(repo, package) != component_version(repo, package, base):
+                    return
+            except VersionError:
+                return
         if not re.search(r"版本影响\s*[:：]\s*无[，,；;：:\s]+\S", message):
             raise VersionError("未升版的纯测试/规范提交必须说明：版本影响：无；具体理由")
 
@@ -216,6 +317,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".")
     parser.add_argument("--base", help="相关代码变化必须相对此 Git 引用提升版本")
+    parser.add_argument("--component", help="独立组件名称；标签操作只作用于此组件")
     parser.add_argument("--staged", action="store_true", help="只读取暂存区，防止未暂存版本号掩盖漏改")
     parser.add_argument("--message-file", help="commit-msg 检查提交说明中的版本影响")
     parser.add_argument("--check-commits", action="store_true", help="逐提交检查基线之后已启用 AGENTS 规范的提交")
@@ -230,6 +332,9 @@ def main():
         base = None
     try:
         version, tag = validate(repo, base)
+        if args.component:
+            version = component_version(repo, args.component)
+            tag = f"{args.component}-v{version}"
         if args.message_file:
             check_message(repo, version, base, Path(args.message_file).read_text(encoding="utf-8"))
         if args.check_commits and base:
@@ -243,7 +348,7 @@ def main():
                 check_message(snapshot, commit_version, previous, repo.git("log", "-1", "--format=%B", commit))
         if args.tag:
             previous = repo.read("Cargo.toml", "HEAD^", optional=True)
-            if previous and own_version(tomllib.loads(previous)) == version:
+            if not args.component and previous and own_version(tomllib.loads(previous)) == version:
                 print("版本未变化，本次无需创建新标签")
                 return
             existing = repo.git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", optional=True)

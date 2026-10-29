@@ -11,4 +11,8 @@
 - 提交前执行 `python3 tools/check_versions.py --base HEAD`；暂存后钩子执行同一脚本的 `--staged` 检查。不得绕过门禁或移动既有标签。
 - 提交后执行 `python3 tools/check_versions.py --require-tag` 核对版本提交，最终回复必须报告版本、提交、标签和验证结果。
 
+子节点项目（含独立烟测夹具）必须仅依赖 crates.io 已发布的框架版本；禁止 path、git 与 patch/replace/paths 等本地覆盖。框架未发布时先发布，不得用本地依赖绕过。框架工作区内部 crate 的 path 不属于子节点依赖。
+
 其他编码、文档和测试规则见 [编码规范](docs/coding-standards.md)。
+
+框架各 crate 与开发工具按各自实际变更独立判断版本，不因框架根 crate 升版而无关跟升。内部精确依赖应匹配被依赖 crate 的实际版本。

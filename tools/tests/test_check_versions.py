@@ -43,6 +43,8 @@ version = "{locked or version}"
 [[package]]
 name = "miresidian"
 version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0000000000000000000000000000000000000000000000000000000000000000"
 ''')
         self.write("CHANGELOG.md", f"# Changes\n\n## [Unreleased]\n\n## [{version}] - 2026-10-29\n\n- 修改设备行为。\n")
 
@@ -125,6 +127,28 @@ version = "0.11.0"
         result = self.check("--base", "HEAD", "--staged", "--message-file", str(self.repo / ".git/COMMIT_EDITMSG"))
         self.assertEqual(result.returncode, 0)
 
+    def test_node_local_framework_dependency_is_rejected(self):
+        path = self.repo / "Cargo.toml"
+        path.write_text(path.read_text().replace('miresidian = "=0.11.0"', 'miresidian = { version = "=0.11.0", path = "../framework" }'))
+        result = self.check()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("禁止 path/git", result.stderr)
+
+    def test_node_local_override_and_path_lock_are_rejected(self):
+        path = self.repo / "Cargo.toml"
+        original = path.read_text()
+        for override in ['\n[patch.crates-io]\nmiresidian = { path = "../framework" }\n', '\n[replace]\n"miresidian:0.11.0" = { package = "miresidian", path = "../framework" }\n']:
+            path.write_text(original + override)
+            self.assertNotEqual(self.check().returncode, 0)
+        path.write_text(original)
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text().replace('source = "registry+https://github.com/rust-lang/crates.io-index"\n', ''))
+        self.assertNotEqual(self.check().returncode, 0)
+
+    def test_node_cargo_paths_override_is_rejected(self):
+        self.write(".cargo/config.toml", 'paths = ["../framework"]\n')
+        self.assertNotEqual(self.check().returncode, 0)
+
     def framework_release(self, version, abi_version, extra=False, dependency=None):
         self.write("Cargo.toml", f'''[package]
 name = "miresidian"
@@ -171,13 +195,88 @@ version = "{version}"
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("不一致", result.stderr)
 
-    def test_internal_dependency_must_follow_release_train(self):
+    def test_tools_change_versions_independently_of_root(self):
+        self.framework_release("0.1.0", 7)
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('members = ["abi"]', 'members = ["abi", "tool"]'))
+        self.write("tool/Cargo.toml", '[package]\nname = "test_tool"\nversion = "0.1.0"\n')
+        self.write("tool/src/main.rs", 'fn main() {}\n')
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text() + '\n[[package]]\nname = "test_tool"\nversion = "0.1.0"\n')
+        self.commit()
+        self.write("tool/Cargo.toml", '[package]\nname = "test_tool"\nversion = "0.2.0"\n')
+        self.write("tool/src/main.rs", 'fn main() { println!("updated"); }\n')
+        lock.write_text(lock.read_text().replace('name = "test_tool"\nversion = "0.1.0"', 'name = "test_tool"\nversion = "0.2.0"'))
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+        self.write("tool/Cargo.toml", '[package]\nname = "test_tool"\nversion = "0.1.0"\n')
+        self.assertNotEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_component_tag_is_created_without_tagging_the_root(self):
+        self.framework_release("0.1.0", 7)
+        head = self.commit()
+        self.assertEqual(self.check("--component", "miresidian_abi", "--tag").returncode, 0)
+        self.assertEqual(self.git("rev-parse", "miresidian_abi-v0.1.0^{commit}"), head)
+        self.assertEqual(self.check("--component", "miresidian_abi", "--require-tag").returncode, 0)
+        self.assertNotIn("miresidian-v0.1.0", self.git("tag"))
+
+    def test_registry_policy_does_not_rewrite_old_local_dependency_history(self):
+        base = self.git("rev-parse", "HEAD")
+        self.release("0.2.0")
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('miresidian = "=0.11.0"', 'miresidian = { version = "=0.11.0", path = "../framework" }'))
+        self.commit()
+        self.release("0.3.0")
+        self.write("AGENTS.md", "子节点禁止 path、git 和本地覆盖\n")
+        self.commit()
+        self.assertEqual(self.check("--base", base, "--check-commits").returncode, 0)
+
+    def test_internal_dependency_must_match_target_crate_version(self):
         self.framework_release("0.1.0", 7)
         self.commit()
         self.framework_release("0.2.0", 7, dependency="0.1.0")
         result = self.check("--base", "HEAD")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("未精确依赖发布列车", result.stderr)
+        self.assertIn("未精确依赖对应 crate 版本", result.stderr)
+
+    def independent_framework(self, root_version, library_version):
+        self.framework_release(root_version, 7, dependency=library_version)
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('version.workspace = true', f'version = "{root_version}"').replace(f'version = "{root_version}"\n[dependencies]', '[dependencies]'))
+        library = self.repo / "abi/Cargo.toml"
+        library.write_text(library.read_text().replace('version.workspace = true', f'version = "{library_version}"'))
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text().replace(f'name = "miresidian_abi"\nversion = "{root_version}"', f'name = "miresidian_abi"\nversion = "{library_version}"'))
+        self.write("abi/CHANGELOG.md", f"## [{library_version}] - 2026-10-30\n\n- 独立维护 ABI 库。\n")
+
+    def test_root_update_does_not_bump_library_version(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.commit()
+        self.independent_framework("0.2.0", "0.1.0")
+        self.write("src/lib.rs", "pub fn value() -> u32 { 2 }\n")
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_library_update_does_not_bump_root_version(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('miresidian_abi = { version = "=0.1.0", path = "abi" }\n', ''))
+        self.commit()
+        library = self.repo / "abi/Cargo.toml"
+        library.write_text(library.read_text().replace('version = "0.1.0"', 'version = "0.1.1"'))
+        self.write("abi/src/lib.rs", "pub const MIRESIDIAN_ABI_VERSION: u32 = 7;\npub const NEW_API: bool = true;\n")
+        self.write("abi/CHANGELOG.md", "## [0.1.1] - 2026-10-30\n\n- 修复独立库。\n")
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text().replace('name = "miresidian_abi"\nversion = "0.1.0"', 'name = "miresidian_abi"\nversion = "0.1.1"'))
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_existing_component_tag_cannot_be_reused(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.commit()
+        self.git("tag", "miresidian_abi-v0.2.0")
+        self.independent_framework("0.2.0", "0.2.0")
+        self.git("add", ".")
+        result = self.check("--base", "HEAD", "--staged")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("禁止复用", result.stderr)
 
     def test_c_export_whitespace_does_not_require_abi_increment(self):
         self.framework_release("0.1.0", 7)

@@ -1,6 +1,6 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.14.0**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.14.1**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -67,7 +67,7 @@ impl EchoNode {
 
 宏自动生成 `miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。调用参数使用 UTF-8 JSON 字符串数组；响应固定包含 `status`、`code`、`message`、`output`。DLL 持有返回文本，调用方须立即复制且不得释放指针。完整签名与有效期以 [C ABI](docs/c-abi.md) 为准。
 
-尚未发布的框架可通过相邻源码路径联调，精确版本与锁文件要求见[可复现开发说明](docs/versioning.md#未发布框架的可复现开发)。
+子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
 ## 参与开发
 

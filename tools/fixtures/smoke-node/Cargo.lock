@@ -104,6 +104,8 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 [[package]]
 name = "miresidian"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54b8cc9fa2c9bd4297e533c473fd6bd6c9d369a4c452f540df0b0babab2f18da"
 dependencies = [
  "inventory",
  "miresidian_abi",
@@ -118,10 +120,14 @@ dependencies = [
 [[package]]
 name = "miresidian_abi"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f393e668a9ba33680f5bb318db40c3f27a24822ebe3ffaed9baf323225d2defa"
 
 [[package]]
 name = "miresidian_codec"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48e626ba863feca29c9af08eb920fe9e6260a2e70398b5f567db3e11d68df718"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -131,6 +137,8 @@ dependencies = [
 [[package]]
 name = "miresidian_instances"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85569a8026cb0747800a811828758babb922a909277077030c2acaea21a32324"
 dependencies = [
  "miresidian_codec",
 ]
@@ -138,6 +146,8 @@ dependencies = [
 [[package]]
 name = "miresidian_lease"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb35be4f12b082088525f9b84bead2db5b66b3cd66d5006e97ab1922092bf1ca"
 dependencies = [
  "getrandom",
  "miresidian_codec",
@@ -146,6 +156,8 @@ dependencies = [
 [[package]]
 name = "miresidian_macro"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "919fcbff2d7357778e9198be1ef1348330a41eb35b9f60f2c15a47423dd615ad"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -155,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_tool_smoke_node"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "miresidian",
 ]
