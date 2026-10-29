@@ -1,30 +1,26 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 //!
-//! 运行时按规范化后的业务 Config 键管理多个通道对象：`InitDevice` 以等价 Config 复用或
-//! 创建对象，其余方法以同一规则定位唯一对象。共享调用以一份 Config 定位一个对象，
-//! 再由 `shared` 模块处理平台各通道的输入；保留 Config 的解析收敛到 `routing` 子模块。
+//! 默认只保留一个对象；instances 策略可按规范化 `Config[0]` 或 Handle 管理多个对象。
+//! 多通道调用只定位一次对象，再按对象自己的执行策略处理各平台输入。
 
-mod channel;
+mod instance;
 mod routing;
 
 use crate::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
-    ExecutionMode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
-    GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
-    INIT_DEVICE_OPERATION, Invocation, InvocationOutput, MIRESIDIAN_VERSION, MiresidianError,
-    MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter, PlatformRegistry,
-    RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse,
-    normalize_value_with_definition,
+    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
+    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, InstanceMode,
+    Invocation, InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    MultiChannelInvocation, MultiChannelResponse, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
+    PlatformRegistry, RuntimeInvocation, RuntimeResponse, normalize_value_with_definition,
 };
 
-pub(super) use channel::Channel;
-pub(in crate::runtime) use channel::{catch_node, cleanup_node};
+pub(super) use instance::Instance;
+pub(in crate::runtime) use instance::{catch_node, cleanup_node};
 
 /// 持有全部已初始化通道对象，并执行平台生命周期规则。
 pub struct NodeRuntime<N: DeviceNode> {
-    channels: Vec<Channel<N>>,
-    /// 首个成功初始化的通道决定当前驱动运行时的共享调度方式。
-    shared_execution: Option<ExecutionMode>,
+    objects: super::instances::InstanceStore<Instance<N>>,
     /// 可由 `InitDevice` 的保留 Config 选择的平台适配器。
     platforms: PlatformRegistry,
     /// 运行时持有通道期间固定使用的平台；释放全部通道后允许重新选择。
@@ -40,8 +36,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
     /// 创建使用指定平台注册表的运行时。
     pub fn with_platforms(platforms: PlatformRegistry) -> Self {
         Self {
-            channels: vec![],
-            shared_execution: None,
+            objects: super::instances::InstanceStore::default(),
             platforms,
             active_platform: None,
         }
@@ -114,13 +109,14 @@ impl<N: DeviceNode> NodeRuntime<N> {
         command: RuntimeInvocation,
     ) -> MiresidianResult<RuntimeResponse> {
         N::validate_definition()?;
+        self.objects.set_mode(N::descriptor().instances.mode)?;
         match command {
             RuntimeInvocation::Single(invocation) => self
                 .invoke_single(&invocation, adapter_identifier, platform_selector_enabled)
                 .map(RuntimeResponse::Output),
-            RuntimeInvocation::Shared(invocation) => self
-                .invoke_shared(invocation, adapter_identifier, platform_selector_enabled)
-                .map(RuntimeResponse::Shared),
+            RuntimeInvocation::MultiChannel(invocation) => self
+                .invoke_multi_channel(invocation, adapter_identifier, platform_selector_enabled)
+                .map(RuntimeResponse::MultiChannel),
         }
     }
 
@@ -176,7 +172,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
 
     /// 返回当前是否保留着至少一个已初始化通道对象。
     pub fn is_initialized(&self) -> bool {
-        !self.channels.is_empty()
+        !self.objects.is_empty()
     }
 
     /// 关闭并释放全部已初始化通道。
@@ -186,14 +182,13 @@ impl<N: DeviceNode> NodeRuntime<N> {
     pub fn shutdown(&mut self) -> MiresidianResult<()> {
         let mut failures = Vec::new();
 
-        while let Some(channel) = self.channels.pop() {
-            let channel_key = channel.config.join(",");
+        while let Some(channel) = self.objects.pop() {
+            let channel_key = channel.key.description();
             if let Err(error) = channel.close(&[]) {
                 failures.push(format!("通道 [{channel_key}] 关闭失败: {error}"));
             }
         }
 
-        self.shared_execution = None;
         self.active_platform = None;
 
         if failures.is_empty() {
@@ -206,26 +201,20 @@ impl<N: DeviceNode> NodeRuntime<N> {
         }
     }
 
-    /// 以规范化后的业务 Config 定位通道对象。
-    fn find_channel(&self, config: &[String]) -> Option<&Channel<N>> {
-        self.channels
-            .iter()
-            .find(|channel| channel.config.as_slice() == config)
-    }
-
-    /// 普通与共享调用共用定位入口，确保默认值及框架保留项具有相同语义。
+    /// 按节点策略生成对象关联键；普通与多通道请求共用此定位入口。
     fn channel_for_config(
         &self,
         config: &[String],
         platform_selector_enabled: bool,
         adapter_identifier: Option<Platform>,
-    ) -> MiresidianResult<&Channel<N>> {
-        let config = self.normalize_channel_config(
-            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
-                .0,
-        )?;
-        self.find_channel(&config)
-            .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))
+    ) -> MiresidianResult<&Instance<N>> {
+        let parsed = self.parse_config(config, platform_selector_enabled, adapter_identifier)?;
+        let normalized = self.normalize_channel_config(parsed.node)?;
+        let key = parsed.key(normalized)?;
+        self.objects
+            .iter()
+            .find(|channel| channel.key == key)
+            .ok_or_else(|| MiresidianError::UnknownChannel(key.description()))
     }
 
     fn init_device(
@@ -235,8 +224,15 @@ impl<N: DeviceNode> NodeRuntime<N> {
         adapter_identifier: Option<Platform>,
         platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
-        let (node_config, access, platform, execution) =
-            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?;
+        let parsed = self.parse_config(config, platform_selector_enabled, adapter_identifier)?;
+        if parsed.handle.as_deref() == Some("")
+            || (N::descriptor().instances.mode == InstanceMode::Multiple
+                && parsed.handle.is_none()
+                && !self.has_business_key(parsed.node))
+        {
+            return Ok(InvocationOutput::empty());
+        }
+        let platform = parsed.platform;
         if let Some(active) = &self.active_platform
             && active != &platform
         {
@@ -253,29 +249,54 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 message: format!("配置选择 {platform}，但本次调用使用 {adapter_identifier}"),
             });
         }
-        let channel_config = self.normalize_channel_config(node_config)?;
-        if let Some(active) = self.shared_execution
-            && active != execution
-        {
-            return Err(MiresidianError::InvalidArgument {
-                field: "共享执行方式".to_owned(),
-                message: format!(
-                    "当前驱动运行时已使用 {}，不能改为 {}",
-                    active.definition(),
-                    execution.definition()
-                ),
-            });
-        }
-        if let Some(channel) = self.find_channel(&channel_config) {
+        let channel_config = self.normalize_channel_config(parsed.node)?;
+        let key = parsed.key(channel_config.clone())?;
+        if let Some(channel) = self.objects.iter().find(|channel| channel.key == key) {
+            if channel.config != channel_config {
+                return Err(MiresidianError::InvalidArgument {
+                    field: if parsed.handle.is_some() {
+                        "Handle"
+                    } else {
+                        "Config[0]"
+                    }
+                    .to_owned(),
+                    message: "已有主键的业务 Config 不一致，不能重新绑定对象".to_owned(),
+                });
+            }
+            if channel.execution != parsed.execution {
+                return Err(MiresidianError::InvalidArgument {
+                    field: "共享执行方式".to_owned(),
+                    message: format!(
+                        "当前对象已使用 {}，不能改为 {}",
+                        channel.execution.definition(),
+                        parsed.execution.definition()
+                    ),
+                });
+            }
             channel.ensure_active()?;
             return Ok(InvocationOutput::new(vec![
                 CHANNEL_REUSED_MESSAGE.to_owned(),
             ]));
         }
-
-        let (channel, output) = Channel::initialize(channel_config, node_config, input, access)?;
-        self.channels.push(channel);
-        self.shared_execution = Some(execution);
+        // 仅预解析参数。预校验失败不影响旧对象；构造仍在旧资源彻底释放后执行。
+        instance::catch_node(INIT_DEVICE_OPERATION, || {
+            N::validate_init(parsed.node, input)
+        })?;
+        if N::descriptor().instances.mode == InstanceMode::Single && !self.objects.is_empty() {
+            self.shutdown()?;
+        }
+        let (channel, output) = Instance::initialize(
+            key,
+            channel_config,
+            parsed.node,
+            input,
+            parsed.access,
+            parsed.execution,
+        )?;
+        if let Err(channel) = self.objects.push(channel) {
+            let _ = channel.close(&[]);
+            return Err(MiresidianError::Internal("实例容器已满".to_owned()));
+        }
         self.active_platform = Some(platform);
         Ok(output)
     }
@@ -287,19 +308,16 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform_selector_enabled: bool,
         adapter_identifier: Option<Platform>,
     ) -> MiresidianResult<InvocationOutput> {
-        let config = self.normalize_channel_config(
-            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
-                .0,
-        )?;
+        let parsed = self.parse_config(config, platform_selector_enabled, adapter_identifier)?;
+        let key = parsed.key(self.normalize_channel_config(parsed.node)?)?;
         let index = self
-            .channels
+            .objects
             .iter()
-            .position(|channel| channel.config == config)
-            .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
+            .position(|channel| channel.key == key)
+            .ok_or_else(|| MiresidianError::UnknownChannel(key.description()))?;
         // 关闭尝试后始终移除对象，避免半关闭或故障节点再次参与业务调用。
-        let result = self.channels.remove(index).close(input);
-        if self.channels.is_empty() {
-            self.shared_execution = None;
+        let result = self.objects.remove(index).close(input);
+        if self.objects.is_empty() {
             self.active_platform = None;
         }
         result.map(|()| InvocationOutput::empty())
@@ -325,7 +343,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         config: &[String],
         input: &[String],
     ) -> MiresidianResult<InvocationOutput> {
-        let port = channel::catch_node(GET_PORT_NO_OPERATION, || N::get_port_no(config, input))?;
+        let port = instance::catch_node(GET_PORT_NO_OPERATION, || N::get_port_no(config, input))?;
 
         match port {
             Some(port) => Ok(InvocationOutput::new(vec!["1".to_owned(), port])),
@@ -334,13 +352,18 @@ impl<N: DeviceNode> NodeRuntime<N> {
     }
 
     /// 执行平台已经结构化的共享调用。
-    fn invoke_shared(
+    fn invoke_multi_channel(
         &mut self,
-        invocation: SharedInvocation,
+        invocation: MultiChannelInvocation,
         adapter_identifier: Option<Platform>,
         platform_selector_enabled: bool,
-    ) -> MiresidianResult<SharedResponse> {
-        if self.channels.is_empty() {
+    ) -> MiresidianResult<MultiChannelResponse> {
+        if !N::descriptor().instances.enabled() {
+            return Err(MiresidianError::NotSupported(
+                "节点未声明 instances 多通道执行能力".to_owned(),
+            ));
+        }
+        if self.objects.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
         let descriptor = self
@@ -351,13 +374,23 @@ impl<N: DeviceNode> NodeRuntime<N> {
             platform_selector_enabled,
             adapter_identifier,
         )?;
-        super::shared::invoke_shared(
-            channel,
-            &invocation.operation,
-            &invocation.slots,
-            descriptor,
-            self.shared_execution.unwrap_or(ExecutionMode::Sequential),
-        )
+        #[cfg(feature = "instances")]
+        {
+            super::multi_channel::invoke_multi_channel(
+                channel,
+                &invocation.operation,
+                &invocation.slots,
+                descriptor,
+                channel.execution,
+            )
+        }
+        #[cfg(not(feature = "instances"))]
+        {
+            let _ = (channel, descriptor);
+            Err(MiresidianError::NotSupported(
+                "框架未启用 instances feature".to_owned(),
+            ))
+        }
     }
 
     fn invoke_node(
@@ -368,7 +401,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform_selector_enabled: bool,
         adapter_identifier: Option<Platform>,
     ) -> MiresidianResult<InvocationOutput> {
-        if self.channels.is_empty() {
+        if self.objects.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
         let channel =
@@ -394,6 +427,23 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 )
             })
             .collect()
+    }
+
+    /// `Config[0]` 是业务主键；判空先于默认值，其他业务或框架字段均不能替代它。
+    fn has_business_key(&self, config: &[String]) -> bool {
+        N::descriptor()
+            .init_config
+            .first()
+            .zip(config.first())
+            .is_some_and(|(parameter, value)| {
+                let value = value.trim();
+                let prefix = format!("{}:", parameter.name);
+                !value
+                    .strip_prefix(&prefix)
+                    .unwrap_or(value)
+                    .trim()
+                    .is_empty()
+            })
     }
 }
 

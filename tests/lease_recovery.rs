@@ -237,3 +237,34 @@ fn emit(message: &str) {
     println!("LEASE_TEST:{message}");
     std::io::stdout().flush().unwrap();
 }
+
+#[test]
+fn singleton_replacement_releases_old_lease_before_requesting_new_configuration() {
+    let resource = format!("singleton-lease-replacement:{}", std::process::id());
+    let mut runtime = NodeRuntime::<LeasedNode>::new();
+    let request = |operation: &str, setting: &str| {
+        Invocation::new(
+            operation,
+            vec![resource.clone(), setting.to_owned()],
+            vec![],
+        )
+    };
+    runtime.invoke(&request("InitDevice", "1")).unwrap();
+    assert_eq!(
+        runtime.invoke(&request("计数", "1")).unwrap().as_slice(),
+        ["1"]
+    );
+    assert!(runtime.invoke(&request("InitDevice", "invalid")).is_err());
+    assert_eq!(
+        runtime.invoke(&request("计数", "1")).unwrap().as_slice(),
+        ["2"]
+    );
+    runtime
+        .invoke(&request("InitDevice", "2"))
+        .expect("旧对象及其配置锁必须先释放");
+    assert_eq!(
+        runtime.invoke(&request("计数", "2")).unwrap().as_slice(),
+        ["1"]
+    );
+    runtime.shutdown().unwrap();
+}

@@ -18,6 +18,7 @@ static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     port_probe_inputs: &[],
     operations: &[],
     lease_activation: miresidian::LeaseActivation::Disabled,
+    instances: miresidian::InstancePolicy::DEFAULT,
 };
 
 struct TestNode;
@@ -93,7 +94,7 @@ impl PlatformAdapter for CAbiMockAdapter {
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
         match response {
             RuntimeResponse::Output(_) => Ok(InvocationOutput::new(vec!["c-abi-mock".to_owned()])),
-            RuntimeResponse::Shared(_) => {
+            RuntimeResponse::MultiChannel(_) => {
                 Ok(InvocationOutput::new(vec!["c-abi-mock-shared".to_owned()]))
             }
         }
@@ -141,12 +142,9 @@ fn call_with(function: &str, config_json: &str) -> serde_json::Value {
 fn 显式平台_c_abi_等价于_invoke_with() {
     let metadata = call_with("GetInitConfig", "[]");
     assert_eq!(metadata["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(
-        metadata["output"],
-        serde_json::json!(["共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"])
-    );
+    assert_eq!(metadata["output"], serde_json::json!([]));
 
-    let initialized = call_with("InitDevice", r#"["Parallel"]"#);
+    let initialized = call_with("InitDevice", "[]");
     assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
 
     let duplicated_selector = call_with("InitDevice", r#"["tb_lv_test_platform"]"#);
@@ -177,10 +175,7 @@ fn get_init_config_无需调用方输出缓冲区() {
     assert_eq!(output["message"], "");
     assert_eq!(
         output["output"],
-        serde_json::json!([
-            "平台适配:tb_lv_test_platform",
-            "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"
-        ])
+        serde_json::json!(["平台适配:tb_lv_test_platform"])
     );
 }
 
@@ -228,7 +223,7 @@ fn c_abi_可从节点注册表选择编译进_dll_的平台() {
 fn 数值平台_c_abi_可选择第三方适配器并拒绝保留值() {
     let runtime: OnceLock<Mutex<NodeRuntime<CAbiPlatformNode>>> = OnceLock::new();
     let function = CString::new("InitDevice").unwrap();
-    let config = CString::new(r#"["Parallel"]"#).unwrap();
+    let config = CString::new("[]").unwrap();
     let output = unsafe {
         miresidian::ffi_runtime::invoke_with(
             &runtime,

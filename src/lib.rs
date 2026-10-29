@@ -52,6 +52,11 @@ pub use miresidian_lease as lease;
 #[doc(hidden)]
 pub fn __lease_feature_required() {}
 
+/// 宏通过依赖内的符号检查 feature，避免误检查节点 crate 自身的同名 feature。
+#[cfg(feature = "instances")]
+#[doc(hidden)]
+pub const fn __require_instances_runtime() {}
+
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
 pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -84,14 +89,15 @@ pub use miresidian_codec::{
 /// 这是框架节点项目的必选代码生成能力。
 pub use miresidian_macro::{config, input, lease, node, operation, output};
 pub use platform::{
-    Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
-    SharedInvocation, SharedResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
+    MultiChannelInvocation, MultiChannelResponse, Platform, PlatformAdapter, PlatformRegistry,
+    RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse, TB_LV_TEST_PLATFORM,
+    TbLvTestPlatformAdapter,
 };
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
-    ExecutionMode, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
+    ExecutionMode, ExecutionPolicy, GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION,
     GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION,
-    INIT_DEVICE_OPERATION, Invocation, LeaseAccess, LeaseActivation, NodeDescriptor, NodeRuntime,
-    OperationDescriptor, PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
-    SHARED_INVOCATION_MARKER,
+    INIT_DEVICE_OPERATION, InstanceBinding, InstanceMode, InstancePolicy, Invocation, LeaseAccess,
+    LeaseActivation, NodeDescriptor, NodeRuntime, OperationDescriptor, PLATFORM_ADAPTER_DEFINITION,
+    PLATFORM_ADAPTER_NAME, ParameterDescriptor, SHARED_INVOCATION_MARKER,
 };

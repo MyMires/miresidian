@@ -3,6 +3,7 @@
 mod arguments;
 mod ffi;
 mod generate;
+mod instances;
 
 use proc_macro::TokenStream;
 use syn::{Error, ItemStruct, parse_macro_input};
@@ -37,6 +38,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 syn::Item::Macro(item) => item.attrs.extend(cfg.clone()),
                 syn::Item::Impl(item) => item.attrs.extend(cfg.clone()),
                 syn::Item::Static(item) => item.attrs.extend(cfg.clone()),
+                syn::Item::Const(item) => item.attrs.extend(cfg.clone()),
                 syn::Item::Fn(item) => item.attrs.extend(cfg.clone()),
                 _ => {}
             }

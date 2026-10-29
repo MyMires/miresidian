@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: Config 关联的多实例节点必须在 Config[0] 声明业务主键
+ --> tests/ui-instances-fail/missing_config_key.rs:2:1
+  |
+2 | #[node("实例策略", instances(mode = multiple, binding = config, execution = sequential))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

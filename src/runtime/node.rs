@@ -46,6 +46,11 @@ pub trait DeviceNode: Send + Sized + 'static {
         input: &[String],
     ) -> MiresidianResult<(Self, InvocationOutput)>;
 
+    /// 在单实例替换释放旧对象前校验初始化参数；宏生成强类型解析，不执行构造函数。
+    fn validate_init(_config: &[String], _input: &[String]) -> MiresidianResult<()> {
+        Ok(())
+    }
+
     /// 返回由结构体级 `lease(...)` 声明生成的请求；在构造节点前执行。普通节点返回 `None`。
     fn lease_request(_config: &[String]) -> MiresidianResult<Option<LeaseRequest>> {
         Ok(None)
@@ -84,6 +89,21 @@ pub trait DeviceNode: Send + Sized + 'static {
 /// Validate an assembled descriptor before exposing platform queries or invoking code.
 #[doc(hidden)]
 pub fn validate_descriptor(descriptor: &NodeDescriptor) -> MiresidianResult<()> {
+    descriptor.instances.validate()?;
+    if descriptor.instances.enabled() && !cfg!(feature = "instances") {
+        return Err(crate::MiresidianError::NotSupported(
+            "框架未启用 instances feature".to_owned(),
+        ));
+    }
+    if descriptor.instances.mode == crate::InstanceMode::Multiple
+        && descriptor.instances.binding == crate::InstanceBinding::Config
+        && descriptor.init_config.is_empty()
+    {
+        return Err(crate::MiresidianError::InvalidArgument {
+            field: "Config[0]".to_owned(),
+            message: "Config 关联的多实例节点必须在 Config[0] 声明业务主键".to_owned(),
+        });
+    }
     let mut names = std::collections::HashSet::new();
     for operation in descriptor.operations {
         if matches!(

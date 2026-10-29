@@ -1,0 +1,5 @@
+error: mode 必须是 single 或 multiple
+ --> tests/ui/instances_invalid_mode.rs:2:35
+  |
+2 | #[node("非法实例策略", instances(mode = unknown, execution = sequential))]
+  |                                         ^^^^^^^

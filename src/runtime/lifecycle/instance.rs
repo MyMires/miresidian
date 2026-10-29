@@ -3,6 +3,7 @@
 //! 节点的可变状态与故障标记由同一把锁保护。panic 在持锁的调用内部捕获，
 //! 故障对象仅允许清理；清理完成后才能由运行时重新初始化。
 
+use super::routing::InstanceKey;
 use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     sync::Mutex,
@@ -15,24 +16,28 @@ use crate::{
     MiresidianError, MiresidianResult,
 };
 
-pub(in crate::runtime) struct Channel<N> {
+pub(in crate::runtime) struct Instance<N> {
+    pub(super) key: InstanceKey,
     pub(in crate::runtime) config: Vec<String>,
-    state: Mutex<ChannelState<N>>,
+    pub(in crate::runtime) execution: crate::ExecutionMode,
+    state: Mutex<InstanceState<N>>,
 }
 
-struct ChannelState<N> {
+struct InstanceState<N> {
     node: N,
     fault: Option<MiresidianError>,
     #[cfg(feature = "lease")]
     lease: Option<LocalLease>,
 }
 
-impl<N: DeviceNode> Channel<N> {
-    pub(in crate::runtime) fn initialize(
+impl<N: DeviceNode> Instance<N> {
+    pub(super) fn initialize(
+        key: InstanceKey,
         config: Vec<String>,
         node_config: &[String],
         input: &[String],
         access: LeaseAccess,
+        execution: crate::ExecutionMode,
     ) -> MiresidianResult<(Self, InvocationOutput)> {
         let mut node = None;
         #[cfg(feature = "lease")]
@@ -66,8 +71,10 @@ impl<N: DeviceNode> Channel<N> {
         match initialized {
             Ok(output) => Ok((
                 Self {
+                    key,
                     config,
-                    state: Mutex::new(ChannelState {
+                    execution,
+                    state: Mutex::new(InstanceState {
                         node: node.expect("successful initialization returns a node"),
                         fault: None,
                         #[cfg(feature = "lease")]
@@ -136,7 +143,7 @@ impl<N: DeviceNode> Channel<N> {
     }
 }
 
-impl<N> ChannelState<N> {
+impl<N> InstanceState<N> {
     fn ensure_active(&mut self) -> MiresidianResult<()> {
         if let Some(error) = &self.fault {
             return Err(error.clone());

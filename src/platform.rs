@@ -154,23 +154,23 @@ impl Default for PlatformRegistry {
 pub enum RuntimeInvocation {
     /// 单通道或常驻查询调用。
     Single(Invocation),
-    /// 多通道共享调用。
-    Shared(SharedInvocation),
+    /// 多通道多通道调用。
+    MultiChannel(MultiChannelInvocation),
 }
 
-/// 共享调用的结构化参数。一份 Config 定位唯一节点对象，全部平台通道输入共享该对象。
+/// 多通道调用的结构化参数。一份 Config 定位唯一节点对象，全部平台通道输入共享该对象。
 ///
 /// 槽位只表示平台通道的输入、输出位置，不关联节点对象的创建顺序；`None` 表示跳过。
 /// 返回槽位与输入保持相同顺序和数量，槽位数不受已初始化对象数量限制。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SharedInvocation {
+pub struct MultiChannelInvocation {
     pub operation: String,
     /// 与普通调用采用相同定位规则的唯一配置数组。
     pub config: Vec<String>,
     pub slots: Vec<Option<Vec<String>>>,
 }
 
-impl SharedInvocation {
+impl MultiChannelInvocation {
     /// 创建共享请求；运行时规范化 Config 并查找对象，未知配置返回 `UnknownChannel`。
     pub fn new(
         operation: impl Into<String>,
@@ -189,16 +189,17 @@ impl SharedInvocation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeResponse {
     Output(InvocationOutput),
-    Shared(SharedResponse),
+    MultiChannel(MultiChannelResponse),
 }
 
-/// 共享调用结果。槽位与请求输入保持相同顺序和数量。
+/// 多通道调用结果。槽位与请求输入保持相同顺序和数量。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SharedResponse {
+pub struct MultiChannelResponse {
     pub slots: Vec<Option<InvocationOutput>>,
 }
 
-impl SharedResponse {
+impl MultiChannelResponse {
+    #[cfg(feature = "instances")]
     pub(crate) fn new(slots: Vec<Option<InvocationOutput>>) -> Self {
         Self { slots }
     }
@@ -220,3 +221,8 @@ pub trait PlatformAdapter: Send + Sync + 'static {
     /// 将运行时结果编码为当前 C ABI 的文本输出。
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput>;
 }
+
+/// 旧名称兼容别名；新代码使用 `MultiChannelInvocation`。
+pub type SharedInvocation = MultiChannelInvocation;
+/// 旧名称兼容别名；新代码使用 `MultiChannelResponse`。
+pub type SharedResponse = MultiChannelResponse;

@@ -160,18 +160,18 @@ Function + Config[] + Input[] -> Output[]
 - `#[miresidian::config(...)]` 与 `#[miresidian::input(...)]` 可标注在任意方法参数上，并覆盖自动来源；允许同一方法混用两个通道。
 - 调用方必须按每个通道中参数的声明顺序传值。两个通道的索引彼此独立。
 
-### 通道生命周期与共享调用
+### 实例生命周期与多通道调用
 
-- 普通 `NodeRuntime::invoke` 路径会在 `InitDevice` 的业务 Config（及可选租约方式）之后追加 `平台适配:<已注册 id...>`。该值仅用于从运行时注册表选择适配器，不参与通道键，也不传给节点；显式 `invoke_with(adapter, ...)` 路径不发布也不接受该项。宏生成的 C ABI 在首次调用时使用节点 `platforms(...)` 声明生成该注册表。
-- 框架自动在 `InitDevice` 配置末尾追加 `共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播`。该值不传给节点 `init_device`，也不参与通道键；缺失、空白或未知值均回退为 `Sequential`。
-- 首个成功初始化的通道确定本驱动运行时的共享执行方式；后续通道必须解析为同一方式。最后一个通道关闭后可重新选择。
-- 节点业务操作发生可展开 panic 后，对应通道进入故障状态，禁止继续操作或复用；描述和版本查询、其他通道与清理入口继续可用。`CloseDevice` 尝试清理后始终移除对象，即使关闭、析构或租约释放失败；恢复须重新 `InitDevice`。
-- 租约节点在初始化完成、复用通道及每次业务调用前校验原连接和服务代次。失联或超时后停止访问设备，关闭后才可重新初始化；存活客户端的配置文件锁在服务重启期间仍有效。
-- `CloseAllDevices` 不接受 Config 或 Input；它按已创建通道的逆序逐一关闭、始终清空运行时登记并重置平台/共享执行状态。若任一关闭或租约释放失败，全部清理尝试完成后返回汇总错误。
-- 除常驻查询和 `GetPortNO` 外，普通调用与 `CloseDevice` 以业务 Config 定位通道；运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，携带的框架保留末项会自动剥离。
-- 自定义操作的 `Input[0]` 为 `共享` 时进入共享调用。平台只传入一份 Config，框架以与普通调用相同的规则剥离保留项、规范化业务 Config 并定位唯一对象；全部平台通道输入共享该对象。随后每项为一个平台通道的 Input 参数串，使用英文逗号分隔参数；参数内部数组仍使用 `|` 语法。输入位置只用于输入输出对齐，不关联对象创建顺序，输入数量不受已初始化对象数限制。Output 与提供的输入保持相同顺序和数量；未知或已关闭 Config 返回 `UNKNOWN_CHANNEL`，不会改用其他对象。
-- `Sequential` 按平台输入顺序在同一对象上执行；`Parallel` 为有效输入创建线程，但同一对象的完整方法调用仍由同一把锁互斥保护，不保证输入开始顺序；`Broadcast` 要求有效输入参数串完全一致，再按平台输入顺序在同一对象上逐项执行，不合并业务调用。
-- 空白通道项、空参数项、参数过多或缺少无默认值参数的通道均跳过，且在对应 Output 槽位返回空字符串。共享调用中任一实际执行失败时，整个调用失败并指出通道序号。
+完整 feature、宏配置、Config 布局和迁移规则见[实例管理](instances.md)。
+
+- 默认节点只保留一个对象，不接受多通道请求，也不发布执行方式；同配置复用，异配置初始化先预校验，再释放旧对象并构造新对象。关闭或构造失败后不会继续使用已移除对象。
+- 只有启用 `instances` feature 且声明同名宏配置才启用相应能力。multiple/config 以规范化业务 Config[0] 为主键；相同主键配置不一致报错。主键缺失或空白时初始化返回空 output 并跳过，不被默认值或其他参数补成新对象。
+- multiple/handle 在业务 Config 后追加 Handle 项，相同 Handle 定位同一对象，不同 Handle 即使配置相同也不合并。空 Handle 初始化跳过；调用或关闭时为空报 INVALID_ARGUMENT，不存在报 UNKNOWN_CHANNEL。
+- Config 顺序为业务项、可选 Handle、可选租约方式、可选平台、可选执行方式。框架字段统一剥离，不进入节点业务参数。普通入口发布平台选择器，显式入口不发布也不接受它。
+- 固定 execution 不发布执行方式参数；selectable 才发布 TB 兼容的 `共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播`，缺省或空白采用声明默认值，未知文本兼容回退 Sequential。选择保存在每个对象上；相同主键重复初始化必须一致。
+- 业务 panic 或租约失效后对象只能清理，其他对象、元数据与版本查询继续可用。CloseDevice 清理后始终移除对象；CloseAllDevices 不接受 Config/Input，逆序尝试清理全部对象并汇总错误。
+- TB 自定义操作 Input[0] 为 `共享` 时映射成框架多通道请求。一份 Config 定位一次对象，各输入使用同一对象。后续输入项按英文逗号拆分参数，内部数组仍用 `|`。位置只对应输出位置，与创建顺序和对象数无关。
+- Sequential 顺序执行，Parallel 调度线程但同一对象的完整调用仍互斥，Broadcast 校验有效输入相同后逐项执行。空白或参数数目非法的输入跳过并返回空字符串；实际执行失败时整个调用失败并保留平台通道序号，已完成的设备操作不会回滚。
 
 ### 参数描述文本原样透传
 
@@ -261,7 +261,7 @@ Invocation
 有两条互斥调用路径：
 
 - `NodeRuntime::invoke(...)` 使用运行时注册表。`GetInitConfig` 与 `GetFunctions` 会发布保留 Config `平台适配:<id...>`；`InitDevice` 可选择其中一个已注册 id，选择不参与通道键，也不传给业务节点。运行时持有通道期间只能使用同一平台。
-- `NodeRuntime::invoke_with(adapter, ...)` 由宿主显式指定适配器。此路径的初始化元数据不包含 `平台适配`，并会拒绝在 Config 中重复传入平台 id；只保留业务 Config、可选租约方式与共享执行方式。
+- `NodeRuntime::invoke_with(adapter, ...)` 由宿主显式指定适配器。此路径的初始化元数据不包含 `平台适配`，并会拒绝在 Config 中重复传入平台 id；其余 Config 仍按业务项、可选 Handle、可选租约及可选执行方式的布局解析。
 
 默认构造的 `NodeRuntime::new()` 仅注册 `tb_lv_test_platform`。Rust 宿主可使用 `NodeRuntime::with_platforms(PlatformRegistry::new(...).with_adapter(...))` 注册更多适配器。
 
@@ -278,9 +278,9 @@ struct MyPlatformAdapter;
 
 `platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择文本 id；需要显式选型时改用 `miresidian_invoke_with(uint32_t platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。
 
-`RuntimeInvocation::Shared` 使用 `SharedInvocation { operation, config, slots }`，通过 `SharedInvocation::new(operation, config, slots)` 构造。一份 Config 定位唯一节点对象，所有有效输入使用该对象；槽位表示平台通道数据位置，不表示对象索引，数量与已创建对象数无关。`SharedResponse` 与请求槽位保持相同顺序和数量。
+`RuntimeInvocation::MultiChannel` 使用 `MultiChannelInvocation { operation, config, slots }`，构造为 `MultiChannelInvocation::new(operation, config, slots)`。唯一 Config 按节点策略使用 Config[0] 或 Handle 定位一个对象，全部有效输入使用它。`MultiChannelResponse` 与输入保持相同顺序和数量；输入位置不是对象索引。
 
-0.13.0 修正了旧版按创建顺序选择多个对象的错误行为。迁移时，共享请求应传入目标对象的业务 Config；需要访问不同 Config 对应对象时，应分别调用。公开 Rust 构造函数新增 Config 参数；C 入口、JSON 字符串数组编码、响应字段和内存约定不变，C ABI 保持 v7。
+0.14.0 默认单实例；保留旧多对象行为需显式启用 feature 和 multiple/config 策略。旧 Rust 类型名 SharedInvocation/SharedResponse 保留别名，枚举变体改为 MultiChannel。C 入口、JSON 字符串数组编码、响应字段和内存约定不变，C ABI 保持 v7。
 
 ### 当前兼容平台
 

@@ -1,0 +1,5 @@
+error: single 模式不接受 binding
+ --> tests/ui/instances_single_binding.rs:2:53
+  |
+2 | #[node("非法实例策略", instances(mode = single, binding = config, execution = sequential))]
+  |                                                           ^^^^^^

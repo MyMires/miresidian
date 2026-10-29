@@ -15,6 +15,10 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
     );
     let self_type = syn::parse_quote!(#identifier);
     let exports = ffi::exports(&self_type, &runtime);
+    let instances = arguments
+        .instances
+        .clone()
+        .unwrap_or_else(|| quote!(::miresidian::InstancePolicy::DEFAULT));
     let activation = arguments
         .lease
         .as_ref()
@@ -38,6 +42,15 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
 
     quote! {
         #item
+        const _: () = {
+            let policy = #instances;
+            if matches!(policy.mode, ::miresidian::InstanceMode::Multiple)
+                && matches!(policy.binding, ::miresidian::InstanceBinding::Config)
+            {
+                assert!(#identifier::__MIRESIDIAN_INIT_CONFIG.len() > 0,
+                    "Config 关联的多实例节点必须在 Config[0] 声明业务主键");
+            }
+        };
         // Node and its platform methods share a module. The alias binds independently
         // expanded method macros without reading source files or sharing compiler state.
         type __MiresidianNode = #identifier;
@@ -76,6 +89,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
                     port_probe_inputs: ::miresidian::__private::inventory::iter::<__MiresidianPortProbe>.into_iter().next().map_or(&[], |probe| probe.inputs),
                     operations: OPERATIONS.get_or_init(|| Self::__miresidian_operations().iter().map(|entry| entry.descriptor).collect()),
                     lease_activation: #activation,
+                    instances: #instances,
                 })
             }
 
@@ -93,6 +107,10 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
 
             fn init_device(config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<(Self, ::miresidian::InvocationOutput)> {
                 Self::__miresidian_initialize(config, input)
+            }
+
+            fn validate_init(config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
+                Self::__miresidian_validate_init(config, input)
             }
 
             fn lease_request(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::miresidian::lease::LeaseRequest>> {

@@ -6,4 +6,11 @@
 fn 非法节点声明会在编译期失败() {
     let cases = trybuild::TestCases::new();
     cases.compile_fail("tests/ui/*.rs");
+    cases.pass("tests/ui-pass/*.rs");
+    if cfg!(feature = "instances") {
+        cases.compile_fail("tests/ui-instances-fail/*.rs");
+        cases.pass("tests/ui-instances-pass/*.rs");
+    } else {
+        cases.compile_fail("tests/ui-instances-feature/*.rs");
+    }
 }

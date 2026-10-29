@@ -1,10 +1,10 @@
-#![cfg(feature = "lease")]
+#![cfg(all(feature = "lease", feature = "instances"))]
 
 use miresidian::{
     CLOSE_DEVICE_OPERATION, INIT_DEVICE_OPERATION, Invocation, MiresidianResult, NodeRuntime,
 };
 
-#[miresidian::node("声明式租约节点", lease(
+#[miresidian::node("声明式租约节点", instances(mode = multiple, binding = config, execution = sequential), lease(
     activation = required,
     resource = "port_name",
     configuration = ["baud_rate", "data_bits"]

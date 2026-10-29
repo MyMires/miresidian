@@ -2,7 +2,8 @@
 
 use miresidian::{ByteTextFormat, Invocation, MiresidianResult, NodeRuntime, encode_bytes_to_text};
 
-#[miresidian::node("编解码宏测试节点")]
+#[cfg_attr(feature = "instances", miresidian::node("编解码宏测试节点", instances(mode = multiple, binding = config, execution = sequential)))]
+#[cfg_attr(not(feature = "instances"), miresidian::node("编解码宏测试节点"))]
 struct CodecMacroNode {
     connection: String,
 }
@@ -110,6 +111,7 @@ fn 等价业务配置定位并复用同一通道() {
 }
 
 #[test]
+#[cfg(feature = "instances")]
 fn 共享调用同样使用枚举显示值和默认值定位对象() {
     let mut runtime = NodeRuntime::<CodecMacroNode>::new();
     runtime
@@ -120,15 +122,15 @@ fn 共享调用同样使用枚举显示值和默认值定位对象() {
         ))
         .unwrap();
     let response = runtime
-        .invoke_command(miresidian::RuntimeInvocation::Shared(
-            miresidian::SharedInvocation::new(
+        .invoke_command(miresidian::RuntimeInvocation::MultiChannel(
+            miresidian::MultiChannelInvocation::new(
                 "读取连接",
                 vec!["传输方式:串口".to_owned()],
                 vec![Some(vec![]), Some(vec![])],
             ),
         ))
         .unwrap();
-    let miresidian::RuntimeResponse::Shared(response) = response else {
+    let miresidian::RuntimeResponse::MultiChannel(response) = response else {
         panic!("共享调用应返回结构化结果");
     };
     assert_eq!(response.slots.len(), 2);

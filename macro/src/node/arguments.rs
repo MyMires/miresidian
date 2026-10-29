@@ -17,6 +17,7 @@ pub(super) struct NodeArguments {
     pub(super) name: LitStr,
     pub(super) lease: Option<LeaseDeclaration>,
     pub(super) platforms: Vec<Path>,
+    pub(super) instances: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for NodeArguments {
@@ -24,12 +25,20 @@ impl Parse for NodeArguments {
         let name = input.parse()?;
         let mut lease = None;
         let mut platforms = None;
+        let mut instances = None;
         while !input.is_empty() {
             input.parse::<Token![,]>()?;
             let keyword: Ident = input.parse()?;
             let content;
             parenthesized!(content in input);
             match keyword.to_string().as_str() {
+                "instances" => {
+                    if instances.is_some() {
+                        return Err(Error::new_spanned(keyword, "instances 只能声明一次"));
+                    }
+                    let values = content.parse_terminated(Meta::parse, Token![,])?;
+                    instances = Some(super::instances::parse(values)?);
+                }
                 "lease" => {
                     if lease.is_some() {
                         return Err(Error::new_spanned(keyword, "lease 只能声明一次"));
@@ -53,7 +62,7 @@ impl Parse for NodeArguments {
                 _ => {
                     return Err(Error::new_spanned(
                         keyword,
-                        "node 子配置仅支持 lease(...) 和 platforms(...)",
+                        "node 子配置仅支持 lease(...)、platforms(...) 和 instances(...)",
                     ));
                 }
             }
@@ -62,6 +71,7 @@ impl Parse for NodeArguments {
             name,
             lease,
             platforms: platforms.unwrap_or_default(),
+            instances,
         })
     }
 }

@@ -1,43 +1,10 @@
 //! 节点与操作的编译期元数据。
 
-/// 平台各通道共享同一节点对象时的输入执行方式。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExecutionMode {
-    /// 在当前线程上按通道顺序依次执行。
-    Sequential,
-    /// 为各平台输入分发独立线程；同一对象仍互斥执行，不保证输入开始顺序。
-    Parallel,
-    /// 校验有效输入相同后，按平台通道顺序在同一对象上逐项执行。
-    Broadcast,
-}
+use super::instances::{ConfigLayout, HANDLE_DEFINITION, InstancePolicy};
 
-impl ExecutionMode {
-    /// 共享执行方式的稳定平台实际值。
-    pub fn definition(&self) -> &'static str {
-        match self {
-            Self::Sequential => "Sequential",
-            Self::Parallel => "Parallel",
-            Self::Broadcast => "Broadcast",
-        }
-    }
+pub use miresidian_instances::ExecutionMode;
 
-    /// 解析平台传入的实际值或显示值；空白和未知值安全回退为顺序执行。
-    pub fn parse_platform_value(value: Option<&str>) -> Self {
-        match value
-            .unwrap_or_default()
-            .trim()
-            .to_ascii_lowercase()
-            .as_str()
-        {
-            "parallel" | "并行" => Self::Parallel,
-            "broadcast" | "广播" => Self::Broadcast,
-            "sequential" | "顺序" => Self::Sequential,
-            _ => Self::Sequential,
-        }
-    }
-}
-
-/// 框架自动追加到 `InitDevice` 的共享调度配置描述。
+/// 框架自动追加到 `InitDevice` 的多通道调度配置描述。
 pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
     "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播";
 
@@ -114,7 +81,7 @@ pub struct OperationDescriptor {
     pub inputs: &'static [ParameterDescriptor],
     /// 该操作返回的有序输出。
     pub outputs: &'static [ParameterDescriptor],
-    /// 共享调用时用于判定通道参数串合法性的 Input 来源参数；不含 `config` 标注参数。
+    /// 多通道调用时用于判定通道参数串合法性的 Input 来源参数；不含 `config` 标注参数。
     pub channel_inputs: &'static [ParameterDescriptor],
 }
 
@@ -135,7 +102,7 @@ impl OperationDescriptor {
 pub struct NodeDescriptor {
     /// 用于诊断及后续发现机制的稳定节点名称。
     pub name: &'static str,
-    /// `InitDevice` 的有序配置值；它们构成通道身份。
+    /// 初始化业务 Config；Config 关联模式以首项为主键，框架保留字段不在此切片中。
     pub init_config: &'static [ParameterDescriptor],
     /// `InitDevice` 的有序输入值；它们不属于通道身份。
     pub init_inputs: &'static [ParameterDescriptor],
@@ -147,6 +114,8 @@ pub struct NodeDescriptor {
     pub operations: &'static [OperationDescriptor],
     /// 租约启用策略；由 `#[node(..., lease(...))]` 声明。
     pub lease_activation: LeaseActivation,
+    /// 实例数量、关联键及执行策略；未标注节点使用 `InstancePolicy::DEFAULT`。
+    pub instances: InstancePolicy,
 }
 
 impl NodeDescriptor {
@@ -202,30 +171,37 @@ impl NodeDescriptor {
 
     /// 返回 `GetInitConfig` 所使用的初始化配置元数据。
     pub fn init_config_definitions(&self) -> Vec<String> {
-        let mut definitions = self
-            .init_config
-            .iter()
-            .map(ParameterDescriptor::definition)
-            .collect::<Vec<_>>();
-        if self.lease_activation.has_platform_selector() {
-            definitions.push(RESOURCE_ACCESS_DEFINITION.to_owned());
-        }
-        definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
-        definitions
+        self.config_definitions(None)
     }
 
     /// 返回包含运行时平台注册表的平台选择器的初始化配置元数据。
     pub fn init_config_definitions_with_platform(&self, platform_selector: &str) -> Vec<String> {
+        self.config_definitions(Some(platform_selector))
+    }
+
+    fn config_definitions(&self, platform_selector: Option<&str>) -> Vec<String> {
+        let layout = ConfigLayout::new(
+            self.init_config.len(),
+            self.instances,
+            self.lease_activation.has_platform_selector(),
+        );
         let mut definitions = self
             .init_config
             .iter()
             .map(ParameterDescriptor::definition)
             .collect::<Vec<_>>();
-        if self.lease_activation.has_platform_selector() {
+        if layout.handle.is_some() {
+            definitions.push(HANDLE_DEFINITION.to_owned());
+        }
+        if layout.lease.is_some() {
             definitions.push(RESOURCE_ACCESS_DEFINITION.to_owned());
         }
-        definitions.push(platform_selector.to_owned());
-        definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
+        if let Some(platform_selector) = platform_selector {
+            definitions.push(platform_selector.to_owned());
+        }
+        if layout.execution {
+            definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
+        }
         definitions
     }
 

@@ -5,9 +5,11 @@
 mod construction;
 mod contract;
 mod descriptor;
+mod instances;
 mod lifecycle;
+#[cfg(feature = "instances")]
+mod multi_channel;
 mod node;
-mod shared;
 
 pub use contract::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION,
@@ -19,6 +21,7 @@ pub use descriptor::{
     ExecutionMode, LeaseAccess, LeaseActivation, NodeDescriptor, OperationDescriptor,
     PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
 };
+pub use instances::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};
 pub use lifecycle::NodeRuntime;
 pub use node::DeviceNode;
 #[doc(hidden)]

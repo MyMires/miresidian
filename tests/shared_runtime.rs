@@ -1,15 +1,16 @@
+#![cfg(feature = "instances")]
 //! 平台多通道输入通过唯一 Config 共享同一有状态对象。
 
 use miresidian::{
-    Invocation, MiresidianError, MiresidianResult, NodeRuntime, RuntimeInvocation, RuntimeResponse,
-    SharedInvocation, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter, ffi_runtime,
+    Invocation, MiresidianError, MiresidianResult, MultiChannelInvocation, NodeRuntime,
+    RuntimeInvocation, RuntimeResponse, TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter, ffi_runtime,
 };
 use std::{
     ffi::{CStr, CString},
     sync::{Mutex, OnceLock},
 };
 
-#[miresidian::node("共享对象回归")]
+#[miresidian::node("共享对象回归", instances(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
 struct SharedNode {
     address: String,
     calls: usize,
@@ -119,7 +120,7 @@ fn shared_unknown_or_closed_config_never_selects_another_object() {
         .invoke(&request("CloseDevice", &["A"], &[]))
         .unwrap();
     assert!(matches!(
-        runtime.invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
+        runtime.invoke_command(RuntimeInvocation::MultiChannel(MultiChannelInvocation::new(
             "记录",
             vec!["A".to_owned()],
             vec![Some(vec!["x".to_owned()])],
@@ -138,7 +139,7 @@ fn shared_unknown_or_closed_config_never_selects_another_object() {
 #[test]
 fn shared_config_uses_defaults_prefixes_and_reserved_config_rules() {
     let mut runtime = NodeRuntime::<SharedNode>::new();
-    runtime.invoke(&request("InitDevice", &[], &[])).unwrap();
+    runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     for config in [
         vec![],
         vec!["地址:A"],
@@ -180,15 +181,17 @@ fn shared_config_uses_defaults_prefixes_and_reserved_config_rules() {
 #[test]
 fn structured_zero_input_calls_share_normalized_config_and_preserve_positions() {
     let mut runtime = NodeRuntime::<SharedNode>::new();
-    runtime.invoke(&request("InitDevice", &[], &[])).unwrap();
+    runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     let response = runtime
-        .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
-            "读取配置",
-            vec!["地址:A".to_owned()],
-            vec![Some(vec![]), None, Some(vec![])],
-        )))
+        .invoke_command(RuntimeInvocation::MultiChannel(
+            MultiChannelInvocation::new(
+                "读取配置",
+                vec!["地址:A".to_owned()],
+                vec![Some(vec![]), None, Some(vec![])],
+            ),
+        ))
         .unwrap();
-    let RuntimeResponse::Shared(response) = response else {
+    let RuntimeResponse::MultiChannel(response) = response else {
         panic!("共享调用应保留结构化结果");
     };
     assert_eq!(response.slots.len(), 3);
@@ -267,4 +270,47 @@ fn both_ffi_entries_accept_multiple_platform_inputs_for_one_reused_object() {
             );
         }
     }
+}
+
+#[test]
+fn blank_config_primary_keys_skip_creation_before_defaults_are_applied() {
+    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let blanks = [
+        vec![],
+        vec![""],
+        vec!["  "],
+        vec!["地址:"],
+        vec!["", TB_LV_TEST_PLATFORM, "Parallel"],
+    ];
+    for config in &blanks {
+        assert!(
+            runtime
+                .invoke(&request("InitDevice", config, &[]))
+                .unwrap()
+                .as_slice()
+                .is_empty()
+        );
+        assert!(
+            !runtime.is_initialized(),
+            "框架字段和默认值不能将空业务主键变成新对象"
+        );
+    }
+    runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
+    runtime.invoke(&request("记录", &["A"], &["x"])).unwrap();
+    for config in &blanks {
+        assert!(
+            runtime
+                .invoke(&request("InitDevice", config, &[]))
+                .unwrap()
+                .as_slice()
+                .is_empty()
+        );
+    }
+    assert_eq!(
+        runtime
+            .invoke(&request("记录", &["A"], &["x"]))
+            .unwrap()
+            .as_slice(),
+        ["A:x:2"]
+    );
 }

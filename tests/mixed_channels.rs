@@ -1,3 +1,4 @@
+#![cfg(feature = "instances")]
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
 use miresidian::{
@@ -24,12 +25,12 @@ impl PlatformAdapter for MacroPlatformAdapter {
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
         match response {
             RuntimeResponse::Output(output) => Ok(output),
-            RuntimeResponse::Shared(_) => Ok(InvocationOutput::empty()),
+            RuntimeResponse::MultiChannel(_) => Ok(InvocationOutput::empty()),
         }
     }
 }
 
-#[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter))]
+#[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter), instances(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
 struct MixedChannelNode;
 
 impl MixedChannelNode {
@@ -99,7 +100,7 @@ fn 手动标注决定每个参数的外部来源通道() {
         .unwrap();
     assert_eq!(initialized.as_slice(), ["COM9:2500:令牌"]);
 
-    let execution_conflict = runtime
+    let independent_execution = runtime
         .invoke(&Invocation::new(
             "InitDevice",
             vec![
@@ -109,8 +110,8 @@ fn 手动标注决定每个参数的外部来源通道() {
             ],
             vec!["令牌".to_owned()],
         ))
-        .expect_err("首个通道选择的 Parallel 必须被后续通道保持");
-    assert!(execution_conflict.to_string().contains("Parallel"));
+        .expect("不同对象可以选择各自的执行方式");
+    assert_eq!(independent_execution.as_slice(), ["COM10:2500:令牌"]);
 
     let result = runtime
         .invoke(&Invocation::new(

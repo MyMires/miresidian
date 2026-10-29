@@ -25,12 +25,16 @@ impl PlatformAdapter for DiagnosticAdapter {
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
         match response {
             RuntimeResponse::Output(output) => Ok(output),
-            RuntimeResponse::Shared(_) => unreachable!("此测试只使用单通道命令"),
+            RuntimeResponse::MultiChannel(_) => unreachable!("此测试只使用单通道命令"),
         }
     }
 }
 
-#[miresidian::node("响应契约测试", platforms(DiagnosticAdapter))]
+#[cfg_attr(feature = "instances", miresidian::node("响应契约测试", platforms(DiagnosticAdapter), instances(mode = multiple, binding = config, execution = sequential)))]
+#[cfg_attr(
+    not(feature = "instances"),
+    miresidian::node("响应契约测试", platforms(DiagnosticAdapter))
+)]
 struct ContractNode;
 
 impl ContractNode {
@@ -255,6 +259,7 @@ fn malformed_abi_inputs_keep_the_same_four_fields() {
 }
 
 #[test]
+#[cfg(feature = "instances")]
 fn shared_context_preserves_error_category_and_code() {
     let runtime = Runtime::new();
     expect(&call(&runtime, None, "InitDevice", &["A"], &[]), 0, "OK");

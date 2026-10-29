@@ -1,0 +1,5 @@
+error: binding 必须是 config 或 handle
+ --> tests/ui/instances_invalid_binding.rs:2:55
+  |
+2 | #[node("非法实例策略", instances(mode = multiple, binding = both, execution = sequential))]
+  |                                                             ^^^^

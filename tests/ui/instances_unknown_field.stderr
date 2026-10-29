@@ -1,0 +1,5 @@
+error: instances 只接受 mode、binding、execution 和 default_execution
+ --> tests/ui/instances_unknown_field.rs:2:87
+  |
+2 | #[node("非法实例策略", instances(mode = multiple, binding = config, execution = sequential, unknown = single))]
+  |                                                                                             ^^^^^^^^^^^^^^^^

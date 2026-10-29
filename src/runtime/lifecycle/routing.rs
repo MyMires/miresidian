@@ -1,35 +1,97 @@
-//! 平台选择与框架保留初始化配置的解析。
-//!
-//! 本模块只负责将外部 Config 拆分为业务配置、资源访问方式、平台和共享调度方式；
-//! 不创建、关闭或调用节点。
+//! 元数据共用布局下的 Config 解析与对象关联键。
 
 use super::NodeRuntime;
+use crate::runtime::instances::ConfigLayout;
 use crate::{
     DeviceNode, ExecutionMode, INIT_DEVICE_OPERATION, Invocation, LeaseAccess, MiresidianError,
     MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum InstanceKey {
+    Config(Vec<String>),
+    Handle(String),
+}
+
+impl InstanceKey {
+    pub fn description(&self) -> String {
+        match self {
+            Self::Config(config) => config.join(","),
+            Self::Handle(handle) => format!("Handle:{handle}"),
+        }
+    }
+}
+
+pub(super) struct ParsedConfig<'a> {
+    pub node: &'a [String],
+    pub access: LeaseAccess,
+    pub platform: Platform,
+    pub execution: ExecutionMode,
+    pub handle: Option<String>,
+    pub mode: crate::InstanceMode,
+}
+
+impl ParsedConfig<'_> {
+    pub fn key(&self, normalized: Vec<String>) -> MiresidianResult<InstanceKey> {
+        match &self.handle {
+            Some(handle) if handle.is_empty() => Err(MiresidianError::InvalidArgument {
+                field: "Handle".to_owned(),
+                message: "Handle 为空，无法定位对象".to_owned(),
+            }),
+            Some(handle) => Ok(InstanceKey::Handle(handle.clone())),
+            None => Ok(InstanceKey::Config(
+                if self.mode == crate::InstanceMode::Multiple {
+                    normalized.into_iter().take(1).collect()
+                } else {
+                    normalized
+                },
+            )),
+        }
+    }
+}
+
 impl<N: DeviceNode> NodeRuntime<N> {
-    pub(super) fn split_init_config<'a>(
+    pub(super) fn parse_config<'a>(
         &self,
         config: &'a [String],
         platform_selector_enabled: bool,
         explicit_adapter: Option<Platform>,
-    ) -> MiresidianResult<(&'a [String], LeaseAccess, Platform, ExecutionMode)> {
-        let count = N::descriptor().init_config.len();
-        let node_config = &config[..config.len().min(count)];
-        let lease_selector = N::descriptor().lease_activation.has_platform_selector();
-        let access = N::descriptor().lease_activation.resolve_access(
-            lease_selector
-                .then(|| config.get(count))
-                .flatten()
-                .map(String::as_str),
+    ) -> MiresidianResult<ParsedConfig<'a>> {
+        let descriptor = N::descriptor();
+        let layout = ConfigLayout::new(
+            descriptor.init_config.len(),
+            descriptor.instances,
+            descriptor.lease_activation.has_platform_selector(),
         );
-        let mut reserved_index = count + usize::from(lease_selector);
-        let (platform, consumes_platform_selector) = if platform_selector_enabled {
+        let node = &config[..config.len().min(layout.business)];
+        let handle = layout.handle.map(|index| {
+            let value = config
+                .get(index)
+                .map(|value| value.trim())
+                .unwrap_or_default();
+            value
+                .strip_prefix("Handle:")
+                .unwrap_or(value)
+                .trim()
+                .to_owned()
+        });
+        let access = descriptor.lease_activation.resolve_access(
+            layout
+                .lease
+                .and_then(|index| config.get(index))
+                .map(|value| {
+                    value
+                        .trim()
+                        .strip_prefix("资源访问方式:")
+                        .unwrap_or(value)
+                        .trim()
+                }),
+        );
+        let mut reserved_index = layout.platform;
+        let (platform, consumes_selector) = if platform_selector_enabled {
             self.platform_selection(config.get(reserved_index).map(String::as_str))?
         } else {
-            if let Some(value) = config.get(reserved_index).map(String::as_str)
+            if let Some(value) = config.get(reserved_index)
                 && self.is_platform_selector(value)
             {
                 return Err(MiresidianError::InvalidArgument {
@@ -45,16 +107,29 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 false,
             )
         };
-        reserved_index += usize::from(consumes_platform_selector);
-        if config.len() > reserved_index + 1 {
+        reserved_index += usize::from(consumes_selector);
+        if config.len() > reserved_index + usize::from(layout.execution) {
             return Err(MiresidianError::InvalidArgument {
                 field: "Config".to_owned(),
                 message: "配置参数数量超出初始化配置定义".to_owned(),
             });
         }
-        let execution =
-            ExecutionMode::parse_platform_value(config.get(reserved_index).map(String::as_str));
-        Ok((node_config, access, platform, execution))
+        let value = config.get(reserved_index).map(|value| {
+            value
+                .trim()
+                .strip_prefix("共享执行方式:")
+                .unwrap_or(value)
+                .trim()
+        });
+        let execution = descriptor.instances.execution.resolve(value)?;
+        Ok(ParsedConfig {
+            node,
+            access,
+            platform,
+            execution,
+            handle,
+            mode: descriptor.instances.mode,
+        })
     }
 
     fn is_platform_selector(&self, value: &str) -> bool {
@@ -78,7 +153,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 .platforms
                 .platform_by_identifier(selected)
                 .map(|platform| (platform, true))
-                .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(selected.to_string()));
+                .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(selected.to_owned()));
         }
         if let Some(platform) = self.platforms.platform_by_identifier(value) {
             return Ok((platform, true));
@@ -90,18 +165,17 @@ impl<N: DeviceNode> NodeRuntime<N> {
         &self,
         invocation: &Invocation,
     ) -> MiresidianResult<std::sync::Arc<dyn PlatformAdapter>> {
-        let identifier = if invocation.operation == INIT_DEVICE_OPERATION {
-            self.split_init_config(&invocation.config, true, None)?.2
+        let platform = if invocation.operation == INIT_DEVICE_OPERATION {
+            self.parse_config(&invocation.config, true, None)?.platform
         } else {
             self.active_platform
-                .unwrap_or_else(|| self.platforms.default_platform())
+                .unwrap_or(self.platforms.default_platform())
         };
         self.platforms
-            .adapter(identifier)
-            .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(identifier.to_string()))
+            .adapter(platform)
+            .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))
     }
 
-    /// 返回操作的共享调度描述；未知操作返回 `None`。
     pub(super) fn operation_descriptor(
         &self,
         operation: &str,

@@ -1,0 +1,16 @@
+[package]
+name = "miresidian_instances"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Miresidian 的实例策略、对象容器与可选多通道调度。"
+license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
+readme = "README.md"
+
+[features]
+default = []
+runtime = []
+
+[dependencies]
+miresidian_codec = { version = "=0.14.0", path = "../codec" }

@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-30
+
+### Added
+
+- 新增独立 miresidian_instances crate：通用实例策略、默认单实例容器及可选多实例后端和结构化多通道调度，不依赖节点或通信实现。根 instances feature 映射其 runtime，并由同名宏配置选择数量、关联键和执行方式。
+- 新增 instances(mode = single/multiple, binding = config/handle, execution = sequential/parallel/broadcast/selectable, default_execution = ...)；缺失、冲突、重复及未启用 feature 的声明在编译期失败。
+- Handle 作为业务 Config 后的框架字段发布、提取并剥离；不同 Handle 不按配置合并，同主键配置冲突不换绑。
+
+### Changed
+
+- 默认节点只保留一个对象；异配置初始化在参数预校验成功后释放旧对象和租约再构造，失败保持明确状态。仅开启 feature 不改变未标注节点。
+- 多实例 Config 模式以业务 Config[0] 为主键，要求节点将业务标识放在首个配置参数；空主键先于默认值判定并跳过初始化，其他字段不能代替它。空 Handle 同样跳过初始化。
+- 执行策略保存在各对象上；固定方式不发布配置，selectable 缺省采用声明默认值。多通道请求规范名改为 MultiChannelInvocation/MultiChannelResponse 与相应枚举变体，旧类型名保留别名。
+- 提升发布列车至 0.14.0，同步内部依赖、锁文件、当前示例、独立夹具 0.7.0 和串口节点 0.10.0。串口节点显式声明 multiple/config/selectable，并补充空端口不访问硬件的回归。
+- C 导出签名、JSON 和响应内存契约不变，C ABI 保持 v7；租约协议保持 v2。
+
+### Validation
+
+- 覆盖默认单例替换及清理失败、Config[0] 判空/复用/冲突、Handle 唯一关联与空值跳过、固定/可选执行、租约布局、两类 C ABI 入口及宏诊断。
+- 默认/全特性工作区测试分别 48/99 项、instances/lease 独立组合分别 72/31 项、串口节点 6 项及版本门禁工具 10 项回归通过；格式、两类 Clippy、Release 构建、全特性文档和独立夹具检查通过，串口流程 BAT 已重新生成。未进行真实串口或 Windows DLL 原生加载验证。
+
 ## [0.13.0] - 2026-10-30
 
 ### Fixed

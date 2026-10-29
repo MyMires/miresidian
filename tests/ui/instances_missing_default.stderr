@@ -1,0 +1,7 @@
+error: instances 缺少 default_execution
+ --> tests/ui/instances_missing_default.rs:2:1
+  |
+2 | #[node("非法实例策略", instances(mode = multiple, binding = config, execution = selectable))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)

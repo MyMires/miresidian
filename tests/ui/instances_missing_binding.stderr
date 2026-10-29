@@ -1,0 +1,7 @@
+error: instances 缺少 binding
+ --> tests/ui/instances_missing_binding.rs:2:1
+  |
+2 | #[node("非法实例策略", instances(mode = multiple, execution = sequential))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)

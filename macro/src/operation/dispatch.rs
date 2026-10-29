@@ -21,6 +21,13 @@ pub(super) fn initialize(method: &InitMethod) -> proc_macro2::TokenStream {
     }
 }
 
+/// 单例替换前只解析参数，不创建资源；已解析值在预校验结束后释放。
+pub(super) fn validate_init(method: &InitMethod) -> proc_macro2::TokenStream {
+    let arguments = parse_arguments(&method.parameters);
+    let variables = argument_variables(method.parameters.len());
+    quote! { #(#arguments)* let _ = (#(#variables,)*); Ok(()) }
+}
+
 pub(super) fn close(method: &FixedMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());

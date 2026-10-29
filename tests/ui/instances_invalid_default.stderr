@@ -1,0 +1,5 @@
+error: 执行方式必须是 sequential、parallel 或 broadcast
+ --> tests/ui/instances_invalid_default.rs:2:87
+  |
+2 | #[node("非法实例策略", instances(mode = single, execution = selectable, default_execution = selectable))]
+  |                                                                                             ^^^^^^^^^^

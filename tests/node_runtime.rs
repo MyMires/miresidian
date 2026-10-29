@@ -1,11 +1,12 @@
+#![cfg(feature = "instances")]
 use miresidian::{
     CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
     GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
     GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult, NodeDescriptor,
-    NodeRuntime, OperationDescriptor, ParameterDescriptor, Platform, PlatformAdapter,
-    PlatformRegistry, RuntimeInvocation, RuntimeResponse, SharedInvocation, TB_LV_TEST_PLATFORM,
-    TbLvTestPlatformAdapter,
+    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
+    MultiChannelInvocation, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
+    Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -42,6 +43,11 @@ const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     port_probe_inputs: &[],
     operations: &OPERATIONS,
     lease_activation: miresidian::LeaseActivation::Disabled,
+    instances: miresidian::InstancePolicy {
+        mode: miresidian::InstanceMode::Multiple,
+        binding: miresidian::InstanceBinding::Config,
+        execution: miresidian::ExecutionPolicy::Selectable(miresidian::ExecutionMode::Sequential),
+    },
 };
 
 struct MemoryNode {
@@ -131,7 +137,9 @@ impl PlatformAdapter for MockPlatformAdapter {
                 values.insert(0, "mock".to_owned());
                 Ok(InvocationOutput::new(values))
             }
-            RuntimeResponse::Shared(_) => Ok(InvocationOutput::new(vec!["mock-shared".to_owned()])),
+            RuntimeResponse::MultiChannel(_) => {
+                Ok(InvocationOutput::new(vec!["mock-shared".to_owned()]))
+            }
         }
     }
 }
@@ -155,7 +163,7 @@ impl PlatformAdapter for ReplacementDefaultAdapter {
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
         match response {
             RuntimeResponse::Output(output) => Ok(output),
-            RuntimeResponse::Shared(_) => Ok(InvocationOutput::empty()),
+            RuntimeResponse::MultiChannel(_) => Ok(InvocationOutput::empty()),
         }
     }
 }
@@ -515,13 +523,15 @@ fn 并行共享输出严格对齐实际输入槽位() {
         .unwrap();
 
     let response = runtime
-        .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
-            "Query",
-            vec!["A".to_owned()],
-            vec![Some(vec!["one".to_owned()])],
-        )))
+        .invoke_command(RuntimeInvocation::MultiChannel(
+            MultiChannelInvocation::new(
+                "Query",
+                vec!["A".to_owned()],
+                vec![Some(vec!["one".to_owned()])],
+            ),
+        ))
         .expect("并行共享调用应成功");
-    let RuntimeResponse::Shared(response) = response else {
+    let RuntimeResponse::MultiChannel(response) = response else {
         panic!("共享命令必须返回结构化共享结果");
     };
     assert_eq!(response.slots.len(), 1);
@@ -539,13 +549,15 @@ fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
         .unwrap();
 
     let response = runtime
-        .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
-            "Query",
-            vec!["A".to_owned()],
-            vec![Some(vec!["one".to_owned()])],
-        )))
+        .invoke_command(RuntimeInvocation::MultiChannel(
+            MultiChannelInvocation::new(
+                "Query",
+                vec!["A".to_owned()],
+                vec![Some(vec!["one".to_owned()])],
+            ),
+        ))
         .expect("结构化共享调用应由运行时执行");
-    let RuntimeResponse::Shared(response) = response else {
+    let RuntimeResponse::MultiChannel(response) = response else {
         panic!("共享命令必须返回结构化共享结果");
     };
     assert_eq!(response.slots.len(), 1);

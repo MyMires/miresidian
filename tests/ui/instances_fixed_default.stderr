@@ -1,0 +1,5 @@
+error: 固定 execution 不接受 default_execution
+ --> tests/ui/instances_fixed_default.rs:2:105
+  |
+2 | #[node("非法实例策略", instances(mode = multiple, binding = config, execution = parallel, default_execution = sequential))]
+  |                                                                                                               ^^^^^^^^^^

@@ -29,6 +29,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo test --workspace --all-targets --locked
       - run: cargo test --workspace --all-targets --all-features --locked
+      - run: cargo test -p miresidian --all-targets --features instances --locked
+      - run: cargo test -p miresidian --all-targets --features lease --locked
       - run: cargo build --workspace --release --locked
 
 

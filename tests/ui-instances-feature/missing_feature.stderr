@@ -1,0 +1,15 @@
+error[E0425]: cannot find function `__require_instances_runtime` in crate `::miresidian`
+ --> tests/ui-instances-feature/missing_feature.rs:2:1
+  |
+2 | #[node("实例策略", instances(mode = single, execution = sequential))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in `::miresidian`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  | #[cfg(feature = "instances")]
+  |       --------------------- the item is gated behind the `instances` feature
+  | #[doc(hidden)]
+  | pub const fn __require_instances_runtime() {}
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)

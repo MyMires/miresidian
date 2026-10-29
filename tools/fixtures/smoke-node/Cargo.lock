@@ -103,11 +103,12 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "miresidian"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "inventory",
  "miresidian_abi",
  "miresidian_codec",
+ "miresidian_instances",
  "miresidian_lease",
  "miresidian_macro",
  "serde",
@@ -116,11 +117,11 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.13.0"
+version = "0.14.0"
 
 [[package]]
 name = "miresidian_codec"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -128,8 +129,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "miresidian_instances"
+version = "0.14.0"
+dependencies = [
+ "miresidian_codec",
+]
+
+[[package]]
 name = "miresidian_lease"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "getrandom",
  "miresidian_codec",
@@ -137,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -147,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_tool_smoke_node"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "miresidian",
 ]

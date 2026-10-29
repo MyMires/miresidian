@@ -181,7 +181,7 @@ def validate(repo, base):
             prefix = path.removesuffix("Cargo.toml")
             fixture_version = fixture["package"]["version"]
             check_changelog(repo, prefix + "CHANGELOG.md", fixture_version)
-            check_lock(repo, prefix + "Cargo.lock", {**{n: v for n, v in expected.items() if n in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro"}}, fixture["package"]["name"]: fixture_version})
+            check_lock(repo, prefix + "Cargo.lock", {**{n: v for n, v in expected.items() if n in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}}, fixture["package"]["name"]: fixture_version})
             if base and any(item.startswith(prefix) for item in changed):
                 old = repo.read(path, base, optional=True)
                 if old and version_tuple(fixture_version) <= version_tuple(tomllib.loads(old)["package"]["version"]):
@@ -191,7 +191,7 @@ def validate(repo, base):
         if dependency:
             framework = exact_dependency(dependency)
             locked = repo.toml("Cargo.lock").get("package", [])
-            expected.update({entry["name"]: framework for entry in locked if entry["name"] in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro"}})
+            expected.update({entry["name"]: framework for entry in locked if entry["name"] in {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}})
             if "miresidian" not in expected:
                 raise VersionError("Cargo.lock 未锁定 miresidian")
     check_lock(repo, "Cargo.lock", expected)

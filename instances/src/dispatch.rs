@@ -1,37 +1,33 @@
-//! 共享调用：平台各通道的输入共用唯一 Config 定位的同一节点对象。
-//!
-//! 槽位仅维护输入输出对齐，不用于选择对象；对象定位在生命周期模块中完成。
+//! 结构化平台输入计划的通用调度，不接触设备或平台语法。
+use crate::ExecutionMode;
+use miresidian_codec::{InvocationOutput, MiresidianError, MiresidianResult};
 
-use super::lifecycle::Channel;
-use crate::{
-    DeviceNode, ExecutionMode, InvocationOutput, MiresidianError, MiresidianResult,
-    OperationDescriptor, ParameterDescriptor, SharedResponse,
-};
-
-/// 在同一个节点对象上按预设执行方式运行各平台通道的有效输入。
+/// 在调用方提供的执行函数上处理各平台输入，并保持输出位置。
 ///
-/// 结果与输入保持相同顺序和数量，输入数量与已创建对象数无关。
-pub(super) fn invoke_shared<N: DeviceNode>(
-    channel: &Channel<N>,
-    operation: &str,
+/// 参数默认值仅用于判定缺失尾部输入是否可执行。调用方负责完整方法调用的资源互斥；
+/// parallel 为有效输入创建线程，执行失败后仍会等待已开始的输入完成。
+pub fn invoke_multi_channel<F>(
     slots: &[Option<Vec<String>>],
-    descriptor: &OperationDescriptor,
+    parameters: &[Option<&str>],
     execution: ExecutionMode,
-) -> MiresidianResult<SharedResponse> {
-    let plans = channel_plans(slots, descriptor.channel_inputs);
+    call: F,
+) -> MiresidianResult<Vec<Option<InvocationOutput>>>
+where
+    F: Fn(&[String]) -> MiresidianResult<InvocationOutput> + Sync,
+{
+    let plans = channel_plans(slots, parameters);
     let plans = match execution {
         ExecutionMode::Broadcast => broadcast_plans(plans)?,
-        ExecutionMode::Sequential | ExecutionMode::Parallel => plans,
+        _ => plans,
     };
-    let outputs = match execution {
+    match execution {
         ExecutionMode::Sequential | ExecutionMode::Broadcast => plans
             .iter()
             .enumerate()
-            .map(|(index, plan)| execute_channel(channel, operation, plan, index))
-            .collect::<Result<Vec<_>, _>>(),
-        ExecutionMode::Parallel => run_parallel(channel, operation, &plans),
-    }?;
-    Ok(SharedResponse::new(outputs))
+            .map(|(index, plan)| execute_channel(&call, plan, index))
+            .collect(),
+        ExecutionMode::Parallel => run_parallel(&call, &plans),
+    }
 }
 
 /// 将全部有效通道参数计划收敛为第一份计划，并拒绝不一致的广播输入。
@@ -45,7 +41,7 @@ fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>
         .any(|candidate| candidate != &arguments)
     {
         return Err(MiresidianError::InvalidArgument {
-            field: "共享输入".to_owned(),
+            field: "多通道输入".to_owned(),
             message: "广播执行要求各通道 Input 参数完全一致".to_owned(),
         });
     }
@@ -59,10 +55,7 @@ fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>
 type ChannelPlan = Option<Vec<String>>;
 
 /// 校验平台适配器提供的槽位，保留其数量与顺序。
-fn channel_plans(
-    slots: &[Option<Vec<String>>],
-    parameters: &[ParameterDescriptor],
-) -> Vec<ChannelPlan> {
+fn channel_plans(slots: &[Option<Vec<String>>], parameters: &[Option<&str>]) -> Vec<ChannelPlan> {
     slots
         .iter()
         .map(|slot| {
@@ -73,12 +66,12 @@ fn channel_plans(
 }
 
 /// 参数数目不符、空参数或缺少无默认值参数的槽位视为跳过。
-fn validate_slot(values: &[String], parameters: &[ParameterDescriptor]) -> ChannelPlan {
+fn validate_slot(values: &[String], parameters: &[Option<&str>]) -> ChannelPlan {
     if values.len() > parameters.len()
         || values.iter().any(|value| value.trim().is_empty())
         || parameters[values.len()..]
             .iter()
-            .any(|parameter| parameter.default_value.is_none())
+            .any(|parameter| parameter.is_none())
     {
         return None;
     }
@@ -86,27 +79,30 @@ fn validate_slot(values: &[String], parameters: &[ParameterDescriptor]) -> Chann
 }
 
 /// 在当前线程上使用共享对象执行一个平台通道输入。
-fn execute_channel<N: DeviceNode>(
-    channel: &Channel<N>,
-    operation: &str,
+fn execute_channel<F>(
+    call: &F,
     plan: &ChannelPlan,
     index: usize,
-) -> MiresidianResult<Option<InvocationOutput>> {
+) -> MiresidianResult<Option<InvocationOutput>>
+where
+    F: Fn(&[String]) -> MiresidianResult<InvocationOutput> + Sync,
+{
     let Some(arguments) = plan else {
         return Ok(None);
     };
-    channel
-        .invoke(operation, arguments)
+    call(arguments)
         .map(Some)
         .map_err(|error| error.with_context(format!("通道 {} 执行失败", index + 1)))
 }
 
 /// 为各平台输入分发独立线程；同一节点的完整调用仍由通道锁互斥保护。
-fn run_parallel<N: DeviceNode>(
-    channel: &Channel<N>,
-    operation: &str,
+fn run_parallel<F>(
+    call: &F,
     plans: &[ChannelPlan],
-) -> MiresidianResult<Vec<Option<InvocationOutput>>> {
+) -> MiresidianResult<Vec<Option<InvocationOutput>>>
+where
+    F: Fn(&[String]) -> MiresidianResult<InvocationOutput> + Sync,
+{
     let results = std::thread::scope(|scope| {
         plans
             .iter()
@@ -115,7 +111,7 @@ fn run_parallel<N: DeviceNode>(
                 if plan.is_none() {
                     return None;
                 }
-                Some(scope.spawn(move || execute_channel(channel, operation, plan, index)))
+                Some(scope.spawn(move || execute_channel(call, plan, index)))
             })
             .collect::<Vec<_>>()
             .into_iter()

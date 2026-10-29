@@ -61,3 +61,5 @@
 - 图表保留源码标识符，并配中文名称和可见注释；依赖、类型、调用链变化时同步核对架构图。
 - 契约规则集中在对应手册，API 精确签名由源码 Rustdoc 维护；交付变更同步[修订记录](../CHANGELOG.md)并按[版本管理](versioning.md)判断影响。
 - 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。
+
+- [实例管理与多通道执行](instances.md)：默认单实例、Config[0] 主键、Handle Config 布局与迁移。

@@ -4,8 +4,8 @@
 //! 此约定仅保留在适配器中；唯一一份 Config 原样保留，全部共享输入使用其定位的同一对象。
 
 use crate::{
-    Invocation, InvocationOutput, MiresidianResult, Platform, PlatformAdapter, RuntimeInvocation,
-    RuntimeResponse, SHARED_INVOCATION_MARKER, SharedInvocation,
+    Invocation, InvocationOutput, MiresidianResult, MultiChannelInvocation, Platform,
+    PlatformAdapter, RuntimeInvocation, RuntimeResponse, SHARED_INVOCATION_MARKER,
 };
 
 /// TB LV Test Platform 的稳定平台标识。
@@ -44,17 +44,15 @@ impl PlatformAdapter for TbLvTestPlatformAdapter {
                 })
             })
             .collect();
-        Ok(RuntimeInvocation::Shared(SharedInvocation::new(
-            invocation.operation,
-            invocation.config,
-            slots,
-        )))
+        Ok(RuntimeInvocation::MultiChannel(
+            MultiChannelInvocation::new(invocation.operation, invocation.config, slots),
+        ))
     }
 
     fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
         match response {
             RuntimeResponse::Output(output) => Ok(output),
-            RuntimeResponse::Shared(response) => Ok(InvocationOutput::new(
+            RuntimeResponse::MultiChannel(response) => Ok(InvocationOutput::new(
                 response
                     .slots
                     .into_iter()
