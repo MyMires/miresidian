@@ -1,6 +1,6 @@
-//! 共享调用：在全部已创建通道上按结构化槽位执行同一操作。
+//! 共享调用：平台各通道的输入共用唯一 Config 定位的同一节点对象。
 //!
-//! 平台适配器负责把其输入格式转换成槽位；本模块只维护通道对齐、参数有效性和调度语义。
+//! 槽位仅维护输入输出对齐，不用于选择对象；对象定位在生命周期模块中完成。
 
 use super::lifecycle::Channel;
 use crate::{
@@ -8,18 +8,17 @@ use crate::{
     OperationDescriptor, ParameterDescriptor, SharedResponse,
 };
 
-/// 在输入槽位对应的已创建通道上按预设执行方式运行有效调用。
+/// 在同一个节点对象上按预设执行方式运行各平台通道的有效输入。
 ///
-/// 第 N 个输入槽位对应第 N 个已创建通道，结果与输入槽位保持相同顺序和数量。
-/// 超过已初始化通道数的输入会被拒绝。
+/// 结果与输入保持相同顺序和数量，输入数量与已创建对象数无关。
 pub(super) fn invoke_shared<N: DeviceNode>(
-    nodes: &[Channel<N>],
+    channel: &Channel<N>,
     operation: &str,
     slots: &[Option<Vec<String>>],
     descriptor: &OperationDescriptor,
     execution: ExecutionMode,
 ) -> MiresidianResult<SharedResponse> {
-    let plans = channel_plans(slots, descriptor.channel_inputs, nodes.len())?;
+    let plans = channel_plans(slots, descriptor.channel_inputs);
     let plans = match execution {
         ExecutionMode::Broadcast => broadcast_plans(plans)?,
         ExecutionMode::Sequential | ExecutionMode::Parallel => plans,
@@ -28,9 +27,9 @@ pub(super) fn invoke_shared<N: DeviceNode>(
         ExecutionMode::Sequential | ExecutionMode::Broadcast => plans
             .iter()
             .enumerate()
-            .map(|(index, plan)| execute_channel(&nodes[index], operation, plan, index))
+            .map(|(index, plan)| execute_channel(channel, operation, plan, index))
             .collect::<Result<Vec<_>, _>>(),
-        ExecutionMode::Parallel => run_parallel(nodes, operation, &plans),
+        ExecutionMode::Parallel => run_parallel(channel, operation, &plans),
     }?;
     Ok(SharedResponse::new(outputs))
 }
@@ -56,28 +55,21 @@ fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>
         .collect())
 }
 
-/// 单个通道的执行计划；`None` 表示该通道被跳过。
+/// 单个平台通道输入的执行计划；`None` 表示该输入被跳过。
 type ChannelPlan = Option<Vec<String>>;
 
 /// 校验平台适配器提供的槽位，保留其数量与顺序。
 fn channel_plans(
     slots: &[Option<Vec<String>>],
     parameters: &[ParameterDescriptor],
-    channel_count: usize,
-) -> MiresidianResult<Vec<ChannelPlan>> {
-    if slots.len() > channel_count {
-        return Err(MiresidianError::InvalidArgument {
-            field: "共享输入".to_owned(),
-            message: "共享输入槽位数量超过已初始化通道数".to_owned(),
-        });
-    }
-    Ok(slots
+) -> Vec<ChannelPlan> {
+    slots
         .iter()
         .map(|slot| {
             slot.as_ref()
                 .and_then(|values| validate_slot(values, parameters))
         })
-        .collect())
+        .collect()
 }
 
 /// 参数数目不符、空参数或缺少无默认值参数的槽位视为跳过。
@@ -93,7 +85,7 @@ fn validate_slot(values: &[String], parameters: &[ParameterDescriptor]) -> Chann
     Some(values.to_vec())
 }
 
-/// 在当前线程上执行一个通道。
+/// 在当前线程上使用共享对象执行一个平台通道输入。
 fn execute_channel<N: DeviceNode>(
     channel: &Channel<N>,
     operation: &str,
@@ -109,25 +101,21 @@ fn execute_channel<N: DeviceNode>(
         .map_err(|error| error.with_context(format!("通道 {} 执行失败", index + 1)))
 }
 
-/// 为各通道分发独立线程执行。
+/// 为各平台输入分发独立线程；同一节点的完整调用仍由通道锁互斥保护。
 fn run_parallel<N: DeviceNode>(
-    nodes: &[Channel<N>],
+    channel: &Channel<N>,
     operation: &str,
     plans: &[ChannelPlan],
 ) -> MiresidianResult<Vec<Option<InvocationOutput>>> {
-    let operation = operation.to_owned();
     let results = std::thread::scope(|scope| {
         plans
             .iter()
             .enumerate()
             .map(|(index, plan)| {
-                let Some(arguments) = plan else {
+                if plan.is_none() {
                     return None;
-                };
-                let operation = operation.clone();
-                Some(scope.spawn(move || {
-                    execute_channel(&nodes[index], &operation, &Some(arguments.clone()), index)
-                }))
+                }
+                Some(scope.spawn(move || execute_channel(channel, operation, plan, index)))
             })
             .collect::<Vec<_>>()
             .into_iter()

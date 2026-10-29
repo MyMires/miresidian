@@ -141,7 +141,7 @@ classDiagram
 | 节点与操作描述 | `name` 名称；`init_config` 初始化配置；`operations` 操作清单；`inputs` 输入参数；`outputs` 输出参数；`channel_inputs` 共享调用使用的输入参数 |
 | 参数描述 | `definition` 原样发布的描述文本；`default_value` 可选默认值 |
 
-运行时以规范化后的业务 Config 定位通道，框架保留配置不进入通道键。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。共享调用的分发策略由 `ExecutionMode` 决定，具体槽位与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
+运行时以规范化后的业务 Config 定位通道，框架保留配置不进入通道键。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。共享调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
 类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle.rs)、[Channel / ChannelState](../src/runtime/lifecycle/channel.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../lease/src/local_ipc/client.rs)。
 
@@ -199,7 +199,7 @@ sequenceDiagram
     Note over Host,FFI: 宿主立即复制文本；同一线程下一次调用前有效；不得释放
 ```
 
-图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用设备节点。共享调用在适配器中转为结构化槽位，再由运行时分派到多个通道。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../lease/README.md)。
+图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用设备节点。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按 Config 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../lease/README.md)。
 
 ## 职责与源码位置
 
@@ -208,7 +208,7 @@ sequenceDiagram
 | 根 `src/` | 公开入口与重导出 | [lib.rs](../src/lib.rs) |
 | `src/runtime/` | 调用与描述模型、通道生命周期 | [contract.rs](../src/runtime/contract.rs)、[descriptor.rs](../src/runtime/descriptor.rs)、[lifecycle.rs](../src/runtime/lifecycle.rs) |
 | `src/runtime/lifecycle/` | 单通道隔离与清理、平台选择和配置解析 | [channel.rs](../src/runtime/lifecycle/channel.rs)、[routing.rs](../src/runtime/lifecycle/routing.rs) |
-| `src/runtime/shared.rs` | 多通道参数校验、顺序/并行/广播分发 | [shared.rs](../src/runtime/shared.rs) |
+| `src/runtime/shared.rs` | 同一对象的平台多通道输入校验与顺序/并行/广播调度 | [shared.rs](../src/runtime/shared.rs) |
 | `src/platform/` | 平台专有输入输出映射 | [platform.rs](../src/platform.rs)、[TB 兼容适配器](../src/platform/tb_lv_test_platform.rs) |
 | `src/interop/` | C 字符串与 JSON 边界、异常兜底、响应内存 | [ffi_runtime.rs](../src/interop/ffi_runtime.rs) |
 | `abi/` | C ABI 常量、类型与唯一公共头文件 | [lib.rs](../abi/src/lib.rs)、[miresidian.h](../abi/api/miresidian.h) |

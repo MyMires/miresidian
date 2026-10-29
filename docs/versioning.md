@@ -19,13 +19,13 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 
 | 层次 | 示例 | 规则 |
 | --- | --- | --- |
-| 框架版本 | `miresidian 0.12.1` | 管理运行时与过程宏，使用语义化版本。 |
-| 实例项目版本 | `miresidian_serial 0.8.1` | 每个节点独立使用语义化版本。 |
+| 框架版本 | `miresidian 0.13.0` | 管理运行时与过程宏，使用语义化版本。 |
+| 实例项目版本 | `miresidian_serial 0.9.0` | 每个节点独立使用语义化版本。 |
 | 租约协议版本 | `2` | 独立维护 IPC 协议；协议不兼容变更须同步常量、服务端点、资源锁目录、迁移说明与回归，不能代替框架或 ABI 升级。 |
 | ABI 版本 | `7` | 新增 C 导出入口或改变既有 C 导出契约时递增。 |
-| crate 发布版本 | `miresidian_abi 0.12.1` | `miresidian`、`miresidian_abi`、`miresidian_codec`、`miresidian_macro` 与 `miresidian_lease` 五个框架 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
+| crate 发布版本 | `miresidian_abi 0.13.0` | `miresidian`、`miresidian_abi`、`miresidian_codec`、`miresidian_macro` 与 `miresidian_lease` 五个框架 crate 采用同一发布列车；子 crate 的不兼容变更仍须独立按语义化版本判断。 |
 
-工作区中的两个 Cargo 开发工具也继承 0.12.1 发布列车；独立烟测夹具为 0.5.1，随框架重建时同步提升自身版本。
+工作区中的两个 Cargo 开发工具也继承 0.13.0 发布列车；独立烟测夹具为 0.6.0，随框架重建时同步提升自身版本。
 
 ## 唯一版本来源
 
@@ -36,14 +36,14 @@ Miresidian 将框架、实例项目与 C ABI 分开编号，并以发布清单�
 ```toml
 # 根 Cargo.toml
 [workspace.package]
-version = "0.12.1"
+version = "0.13.0"
 
 # ../miresidian_serial/Cargo.toml
 [package]
-version = "0.8.1"
+version = "0.9.0"
 
 [dependencies]
-miresidian = { version = "=0.12.1", path = "../miresidian_rust", features = ["lease"] }
+miresidian = { version = "=0.13.0", path = "../miresidian_rust", features = ["lease"] }
 
 ```
 

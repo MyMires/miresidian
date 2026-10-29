@@ -258,7 +258,7 @@ fn malformed_abi_inputs_keep_the_same_four_fields() {
 fn shared_context_preserves_error_category_and_code() {
     let runtime = Runtime::new();
     expect(&call(&runtime, None, "InitDevice", &["A"], &[]), 0, "OK");
-    let response = call(&runtime, None, "数值", &[], &["共享", "不是整数"]);
+    let response = call(&runtime, None, "数值", &["A"], &["共享", "不是整数"]);
     expect(&response, 1, "INVALID_ARGUMENT");
     assert!(response["message"].as_str().unwrap().contains("通道 1"));
 }

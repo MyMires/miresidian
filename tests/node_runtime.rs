@@ -376,14 +376,14 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
     );
 
     let output = runtime
-        .invoke(&request("Query", &[], &["共享", "one"]))
+        .invoke(&request("Query", &["A"], &["共享", "one"]))
         .unwrap();
     assert_eq!(output.as_slice(), ["A:one"]);
 
-    let extra_slot = runtime
-        .invoke(&request("Query", &[], &["共享", "one", "two", "three"]))
-        .expect_err("共享输入不得产生超过已初始化通道数的输出槽位");
-    assert!(extra_slot.to_string().contains("超过已初始化通道数"));
+    let output = runtime
+        .invoke(&request("Query", &["A"], &["共享", "one", "two", "three"]))
+        .expect("平台通道输入数量不受节点对象数量限制");
+    assert_eq!(output.as_slice(), ["A:one", "A:two", "A:three"]);
 }
 
 #[test]
@@ -397,12 +397,12 @@ fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
         .unwrap();
 
     let output = runtime
-        .invoke(&request("Query", &[], &["共享", "*IDN?", "*IDN?"]))
+        .invoke(&request("Query", &["A"], &["共享", "*IDN?", "*IDN?"]))
         .unwrap();
-    assert_eq!(output.as_slice(), ["A:*IDN?", "B:*IDN?"]);
+    assert_eq!(output.as_slice(), ["A:*IDN?", "A:*IDN?"]);
 
     let error = runtime
-        .invoke(&request("Query", &[], &["共享", "first", "second"]))
+        .invoke(&request("Query", &["A"], &["共享", "first", "second"]))
         .expect_err("广播输入不一致必须拒绝");
     assert!(
         error
@@ -422,9 +422,9 @@ fn invalid_or_blank_shared_execution_defaults_to_sequential() {
         .unwrap();
 
     let output = runtime
-        .invoke(&request("Query", &[], &["共享", "first", "second"]))
+        .invoke(&request("Query", &["A"], &["共享", "first", "second"]))
         .unwrap();
-    assert_eq!(output.as_slice(), ["A:first", "B:second"]);
+    assert_eq!(output.as_slice(), ["A:first", "A:second"]);
 }
 
 #[test]
@@ -517,6 +517,7 @@ fn 并行共享输出严格对齐实际输入槽位() {
     let response = runtime
         .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
             "Query",
+            vec!["A".to_owned()],
             vec![Some(vec!["one".to_owned()])],
         )))
         .expect("并行共享调用应成功");
@@ -540,6 +541,7 @@ fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
     let response = runtime
         .invoke_command(RuntimeInvocation::Shared(SharedInvocation::new(
             "Query",
+            vec!["A".to_owned()],
             vec![Some(vec!["one".to_owned()])],
         )))
         .expect("结构化共享调用应由运行时执行");

@@ -108,3 +108,31 @@ fn 等价业务配置定位并复用同一通道() {
         .expect("等价 Config 应定位到已初始化通道");
     assert_eq!(connection.as_slice(), ["Serial:127.0.0.1"]);
 }
+
+#[test]
+fn 共享调用同样使用枚举显示值和默认值定位对象() {
+    let mut runtime = NodeRuntime::<CodecMacroNode>::new();
+    runtime
+        .invoke(&Invocation::new(
+            "InitDevice",
+            vec!["Serial".to_owned()],
+            vec![],
+        ))
+        .unwrap();
+    let response = runtime
+        .invoke_command(miresidian::RuntimeInvocation::Shared(
+            miresidian::SharedInvocation::new(
+                "读取连接",
+                vec!["传输方式:串口".to_owned()],
+                vec![Some(vec![]), Some(vec![])],
+            ),
+        ))
+        .unwrap();
+    let miresidian::RuntimeResponse::Shared(response) = response else {
+        panic!("共享调用应返回结构化结果");
+    };
+    assert_eq!(response.slots.len(), 2);
+    for output in response.slots {
+        assert_eq!(output.unwrap().as_slice(), ["Serial:127.0.0.1"]);
+    }
+}

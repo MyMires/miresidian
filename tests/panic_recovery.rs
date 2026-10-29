@@ -208,7 +208,11 @@ fn shared_panic_isolation_covers_all_execution_modes() {
         }
         let second = if mode == "Broadcast" { "panic" } else { "ok" };
         let error = runtime
-            .invoke(&request("执行", &[], &["共享", "panic", second]))
+            .invoke(&request(
+                "执行",
+                &["shared-broken"],
+                &["共享", "panic", second],
+            ))
             .unwrap_err();
         assert!(error.to_string().contains("通道 1"));
         assert_eq!(error.code(), "NODE_PANICKED");

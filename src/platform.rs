@@ -158,18 +158,28 @@ pub enum RuntimeInvocation {
     Shared(SharedInvocation),
 }
 
-/// 共享调用的结构化参数。第 N 个槽位对应第 N 个已初始化通道；`None` 表示跳过该通道。
-/// 返回槽位与此数组保持相同顺序和数量。
+/// 共享调用的结构化参数。一份 Config 定位唯一节点对象，全部平台通道输入共享该对象。
+///
+/// 槽位只表示平台通道的输入、输出位置，不关联节点对象的创建顺序；`None` 表示跳过。
+/// 返回槽位与输入保持相同顺序和数量，槽位数不受已初始化对象数量限制。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedInvocation {
     pub operation: String,
+    /// 与普通调用采用相同定位规则的唯一配置数组。
+    pub config: Vec<String>,
     pub slots: Vec<Option<Vec<String>>>,
 }
 
 impl SharedInvocation {
-    pub fn new(operation: impl Into<String>, slots: Vec<Option<Vec<String>>>) -> Self {
+    /// 创建共享请求；运行时规范化 Config 并查找对象，未知配置返回 `UnknownChannel`。
+    pub fn new(
+        operation: impl Into<String>,
+        config: impl Into<Vec<String>>,
+        slots: Vec<Option<Vec<String>>>,
+    ) -> Self {
         Self {
             operation: operation.into(),
+            config: config.into(),
             slots,
         }
     }

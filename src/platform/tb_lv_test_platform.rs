@@ -1,7 +1,7 @@
 //! TB LV Test Platform 的兼容适配器。
 //!
 //! 该平台以 `Input[0] = "共享"` 表示共享调用，并用英文逗号编码单通道参数。
-//! 此约定仅保留在适配器中，运行时只接收结构化共享槽位。
+//! 此约定仅保留在适配器中；唯一一份 Config 原样保留，全部共享输入使用其定位的同一对象。
 
 use crate::{
     Invocation, InvocationOutput, MiresidianResult, Platform, PlatformAdapter, RuntimeInvocation,
@@ -45,7 +45,8 @@ impl PlatformAdapter for TbLvTestPlatformAdapter {
             })
             .collect();
         Ok(RuntimeInvocation::Shared(SharedInvocation::new(
-            invocation.operation.clone(),
+            invocation.operation,
+            invocation.config,
             slots,
         )))
     }

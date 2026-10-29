@@ -1,8 +1,8 @@
 //! 设备节点的有状态生命周期与固定操作调度。
 //!
 //! 运行时按规范化后的业务 Config 键管理多个通道对象：`InitDevice` 以等价 Config 复用或
-//! 创建对象，其余方法以同一规则定位唯一对象。共享调用由 `shared` 模块在全部已创建通道上
-//! 批量执行；平台选择与框架保留 Config 的解析收敛到 `routing` 子模块。
+//! 创建对象，其余方法以同一规则定位唯一对象。共享调用以一份 Config 定位一个对象，
+//! 再由 `shared` 模块处理平台各通道的输入；保留 Config 的解析收敛到 `routing` 子模块。
 
 mod channel;
 mod routing;
@@ -118,9 +118,9 @@ impl<N: DeviceNode> NodeRuntime<N> {
             RuntimeInvocation::Single(invocation) => self
                 .invoke_single(&invocation, adapter_identifier, platform_selector_enabled)
                 .map(RuntimeResponse::Output),
-            RuntimeInvocation::Shared(invocation) => {
-                self.invoke_shared(invocation).map(RuntimeResponse::Shared)
-            }
+            RuntimeInvocation::Shared(invocation) => self
+                .invoke_shared(invocation, adapter_identifier, platform_selector_enabled)
+                .map(RuntimeResponse::Shared),
         }
     }
 
@@ -211,6 +211,21 @@ impl<N: DeviceNode> NodeRuntime<N> {
         self.channels
             .iter()
             .find(|channel| channel.config.as_slice() == config)
+    }
+
+    /// 普通与共享调用共用定位入口，确保默认值及框架保留项具有相同语义。
+    fn channel_for_config(
+        &self,
+        config: &[String],
+        platform_selector_enabled: bool,
+        adapter_identifier: Option<Platform>,
+    ) -> MiresidianResult<&Channel<N>> {
+        let config = self.normalize_channel_config(
+            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
+                .0,
+        )?;
+        self.find_channel(&config)
+            .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))
     }
 
     fn init_device(
@@ -319,15 +334,25 @@ impl<N: DeviceNode> NodeRuntime<N> {
     }
 
     /// 执行平台已经结构化的共享调用。
-    fn invoke_shared(&mut self, invocation: SharedInvocation) -> MiresidianResult<SharedResponse> {
+    fn invoke_shared(
+        &mut self,
+        invocation: SharedInvocation,
+        adapter_identifier: Option<Platform>,
+        platform_selector_enabled: bool,
+    ) -> MiresidianResult<SharedResponse> {
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
         let descriptor = self
             .operation_descriptor(&invocation.operation)
             .ok_or_else(|| MiresidianError::InvalidOperation(invocation.operation.clone()))?;
+        let channel = self.channel_for_config(
+            &invocation.config,
+            platform_selector_enabled,
+            adapter_identifier,
+        )?;
         super::shared::invoke_shared(
-            &self.channels,
+            channel,
             &invocation.operation,
             &invocation.slots,
             descriptor,
@@ -346,13 +371,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
         if self.channels.is_empty() {
             return Err(MiresidianError::NotInitialized);
         }
-        let config = self.normalize_channel_config(
-            self.split_init_config(config, platform_selector_enabled, adapter_identifier)?
-                .0,
-        )?;
-        let channel = self
-            .find_channel(&config)
-            .ok_or_else(|| MiresidianError::UnknownChannel(config.join(",")))?;
+        let channel =
+            self.channel_for_config(config, platform_selector_enabled, adapter_identifier)?;
 
         channel.invoke(operation, input)
     }

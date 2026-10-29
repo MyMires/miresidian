@@ -1,6 +1,6 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.12.1**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架版本为 **0.13.0**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -8,7 +8,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 
 - 统一 `Function + Config + Input -> Output` 文本调用模型，支持节点发现、版本查询、端口探测、初始化与关闭。
 - 通过属性宏生成节点元数据、强类型参数转换、操作分发和 DLL 导出，节点作者专注设备状态与通信实现。
-- 按规范化业务 Config 管理多通道，支持顺序、并行与广播共享调用，并在通道边界隔离可展开 panic。
+- 按规范化业务 Config 管理节点对象；平台多通道以一份 Config 共享同一对象，支持顺序、并行与广播输入调度，并在对象边界隔离可展开 panic。
 - 提供独立编解码和值模型，支持基础类型、一维数组、文本编码、HEX 与 Base64。
 - 通过平台适配器连接不同测试平台；需要跨进程协调资源配置的节点可启用 `lease` feature。
 
@@ -36,7 +36,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.12.1"
+miresidian = "=0.13.0"
 ```
 
 ```rust

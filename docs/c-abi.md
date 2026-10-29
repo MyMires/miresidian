@@ -169,8 +169,8 @@ Function + Config[] + Input[] -> Output[]
 - 租约节点在初始化完成、复用通道及每次业务调用前校验原连接和服务代次。失联或超时后停止访问设备，关闭后才可重新初始化；存活客户端的配置文件锁在服务重启期间仍有效。
 - `CloseAllDevices` 不接受 Config 或 Input；它按已创建通道的逆序逐一关闭、始终清空运行时登记并重置平台/共享执行状态。若任一关闭或租约释放失败，全部清理尝试完成后返回汇总错误。
 - 除常驻查询和 `GetPortNO` 外，普通调用与 `CloseDevice` 以业务 Config 定位通道；运行时会补齐默认值、移除 `名称:` 前缀并将选项显示值规范化为实际值，携带的框架保留末项会自动剥离。
-- 自定义操作的 `Input[0]` 为 `共享` 时进入共享调用。随后每项依创建通道顺序对应一个通道，使用英文逗号分隔该通道的 Input 参数；参数内部数组仍使用 `|` 语法。输入槽位不得超过已创建通道数，Output 与提供的输入槽位保持相同顺序和数量，不会为未提供输入的后续通道补空槽位。
-- `Sequential` 顺序执行，`Parallel` 并行执行，`Broadcast` 要求各有效通道参数串完全一致，并以同一参数计划顺序执行到各目标通道。
+- 自定义操作的 `Input[0]` 为 `共享` 时进入共享调用。平台只传入一份 Config，框架以与普通调用相同的规则剥离保留项、规范化业务 Config 并定位唯一对象；全部平台通道输入共享该对象。随后每项为一个平台通道的 Input 参数串，使用英文逗号分隔参数；参数内部数组仍使用 `|` 语法。输入位置只用于输入输出对齐，不关联对象创建顺序，输入数量不受已初始化对象数限制。Output 与提供的输入保持相同顺序和数量；未知或已关闭 Config 返回 `UNKNOWN_CHANNEL`，不会改用其他对象。
+- `Sequential` 按平台输入顺序在同一对象上执行；`Parallel` 为有效输入创建线程，但同一对象的完整方法调用仍由同一把锁互斥保护，不保证输入开始顺序；`Broadcast` 要求有效输入参数串完全一致，再按平台输入顺序在同一对象上逐项执行，不合并业务调用。
 - 空白通道项、空参数项、参数过多或缺少无默认值参数的通道均跳过，且在对应 Output 槽位返回空字符串。共享调用中任一实际执行失败时，整个调用失败并指出通道序号。
 
 ### 参数描述文本原样透传
@@ -278,7 +278,9 @@ struct MyPlatformAdapter;
 
 `platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择文本 id；需要显式选型时改用 `miresidian_invoke_with(uint32_t platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。
 
-`RuntimeInvocation::Shared` 使用 `SharedInvocation { slots }`。第 N 个输入槽位对应第 N 个已初始化通道；超过通道数的槽位会被拒绝。`SharedResponse` 与请求槽位保持相同顺序和数量，未提供输入的后续通道不会产生输出槽位。
+`RuntimeInvocation::Shared` 使用 `SharedInvocation { operation, config, slots }`，通过 `SharedInvocation::new(operation, config, slots)` 构造。一份 Config 定位唯一节点对象，所有有效输入使用该对象；槽位表示平台通道数据位置，不表示对象索引，数量与已创建对象数无关。`SharedResponse` 与请求槽位保持相同顺序和数量。
+
+0.13.0 修正了旧版按创建顺序选择多个对象的错误行为。迁移时，共享请求应传入目标对象的业务 Config；需要访问不同 Config 对应对象时，应分别调用。公开 Rust 构造函数新增 Config 参数；C 入口、JSON 字符串数组编码、响应字段和内存约定不变，C ABI 保持 v7。
 
 ### 当前兼容平台
 
