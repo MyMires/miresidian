@@ -27,7 +27,7 @@ fn initialization_only_encodes_and_describes_the_business_tuple() {
             .collect::<Vec<_>>(),
         ["连接状态", "编号"]
     );
-    let mut runtime = NodeRuntime::<OutputNode>::new();
+    let runtime = NodeRuntime::<OutputNode>::new();
     let output = runtime
         .invoke(&Invocation::new("InitDevice", vec![], vec![]))
         .unwrap();

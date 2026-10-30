@@ -13,3 +13,5 @@ use miresidian::{config, input, node, operation, output};
 宏标注和节点实现约束见[宏驱动开发](../docs/宏驱动开发.md)。
 
 `node` 保留在结构体上，生成节点身份、注册绑定和 C ABI；每个 `operation` 独立生成方法契约，支持同模块多个固有 impl。初始化、关闭和可选探测同样使用 operation，节点不再需要 Default。
+
+0.15.0 支持 operation 标注 async 方法，生成原生业务 Future 桥；构造、关闭和探测的 async 桥由生命周期线程等待。同步 DLL 入口共享内部并发运行时。参见[异步方法](../docs/宏驱动开发.md#异步方法)。

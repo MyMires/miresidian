@@ -7,7 +7,6 @@ use std::{
     cell::RefCell,
     ffi::{CStr, CString, c_char},
     panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Mutex, OnceLock},
 };
 
 use serde::Serialize;
@@ -52,7 +51,7 @@ struct InvocationResponse {
 /// 所有非空指针必须指向有效、以 NUL 结尾的 C 字符串缓冲区。NULL function、
 /// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
 pub unsafe fn invoke<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    runtime: &impl crate::runtime::RuntimeSource<N>,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
@@ -73,7 +72,7 @@ pub unsafe fn invoke<N: DeviceNode>(
 /// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
 /// platform 的合法性和注册状态由入口校验。
 pub unsafe fn invoke_with<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     function: *const c_char,
     config_json: *const c_char,
@@ -124,7 +123,7 @@ fn caught_response(
 }
 
 unsafe fn dispatch<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    runtime: &impl crate::runtime::RuntimeSource<N>,
     function: *const c_char,
     config_json: *const c_char,
     input_json: *const c_char,
@@ -141,7 +140,7 @@ unsafe fn dispatch<N: DeviceNode>(
 }
 
 unsafe fn dispatch_with<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     function: *const c_char,
     config_json: *const c_char,
@@ -166,29 +165,19 @@ unsafe fn dispatch_with<N: DeviceNode>(
     )
 }
 
-// 在运行时锁仍由当前栈持有时捕获意外异常，避免全局 Mutex 被污染。
+// Clone shared identity under a short compatibility lock, then execute freely.
 fn invoke_runtime<N: DeviceNode>(
-    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    source: &impl crate::runtime::RuntimeSource<N>,
     platforms: impl FnOnce() -> crate::PlatformRegistry,
-    call: impl FnOnce(&mut NodeRuntime<N>) -> crate::MiresidianResult<crate::InvocationOutput>,
+    call: impl FnOnce(&NodeRuntime<N>) -> crate::MiresidianResult<crate::InvocationOutput>,
 ) -> crate::MiresidianResult<Vec<String>> {
-    let mutex = runtime.get_or_init(|| Mutex::new(NodeRuntime::with_platforms(platforms())));
-    let mut runtime = match mutex.lock() {
-        Ok(runtime) => runtime,
-        Err(poisoned) => {
-            // 外部 Rust 调用者可能已污染此锁；旧对象仅清理，不恢复其业务状态。
-            let mut runtime = poisoned.into_inner();
-            let _ = runtime.shutdown();
-            mutex.clear_poison();
-            runtime
-        }
-    };
-    match catch_unwind(AssertUnwindSafe(|| call(&mut runtime))) {
-        Ok(result) => result.map(|value| value.into_values()),
+    let runtime = source.runtime(platforms)?;
+    match catch_unwind(AssertUnwindSafe(|| call(&runtime))) {
+        Ok(result) => result.map(|v| v.into_values()),
         Err(_) => {
             let _ = runtime.shutdown();
             Err(MiresidianError::Internal(
-                "运行时发生未预期错误，已清理全部通道；可以重新初始化".to_owned(),
+                "运行时异常，已清理全部实例".into(),
             ))
         }
     }

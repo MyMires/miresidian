@@ -55,7 +55,7 @@ fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
 #[test]
 fn shared_inputs_use_one_config_selected_stateful_object_in_all_modes() {
     for mode in ["Sequential", "Parallel", "Broadcast"] {
-        let mut runtime = NodeRuntime::<SharedNode>::new();
+        let runtime = NodeRuntime::<SharedNode>::new();
         // 先创建无关对象，防止按创建顺序分发也能误通过测试。
         for address in ["B", "A"] {
             runtime
@@ -106,7 +106,7 @@ fn shared_inputs_use_one_config_selected_stateful_object_in_all_modes() {
 
 #[test]
 fn shared_unknown_or_closed_config_never_selects_another_object() {
-    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let runtime = NodeRuntime::<SharedNode>::new();
     for address in ["B", "A"] {
         runtime
             .invoke(&request("InitDevice", &[address], &[]))
@@ -138,7 +138,7 @@ fn shared_unknown_or_closed_config_never_selects_another_object() {
 
 #[test]
 fn shared_config_uses_defaults_prefixes_and_reserved_config_rules() {
-    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let runtime = NodeRuntime::<SharedNode>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     for config in [
         vec![],
@@ -180,7 +180,7 @@ fn shared_config_uses_defaults_prefixes_and_reserved_config_rules() {
 
 #[test]
 fn structured_zero_input_calls_share_normalized_config_and_preserve_positions() {
-    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let runtime = NodeRuntime::<SharedNode>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     let response = runtime
         .invoke_command(RuntimeInvocation::MultiChannel(
@@ -202,7 +202,7 @@ fn structured_zero_input_calls_share_normalized_config_and_preserve_positions() 
 
 #[test]
 fn shared_calls_before_initialization_are_rejected() {
-    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let runtime = NodeRuntime::<SharedNode>::new();
     assert!(matches!(
         runtime.invoke(&request("记录", &["A"], &["共享", "x", "x"])),
         Err(MiresidianError::NotInitialized)
@@ -274,7 +274,7 @@ fn both_ffi_entries_accept_multiple_platform_inputs_for_one_reused_object() {
 
 #[test]
 fn blank_config_primary_keys_skip_creation_before_defaults_are_applied() {
-    let mut runtime = NodeRuntime::<SharedNode>::new();
+    let runtime = NodeRuntime::<SharedNode>::new();
     let blanks = [
         vec![],
         vec![""],

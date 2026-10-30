@@ -56,6 +56,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
         type __MiresidianNode = #identifier;
         struct __MiresidianOperation {
             descriptor: ::miresidian::OperationDescriptor,
+            call_async: Option<for<'a> fn(&'a mut __MiresidianNode,&'a [::std::string::String],&'a [::std::string::String])->::miresidian::NodeFuture<'a>>,
             call: fn(&mut __MiresidianNode, &[::std::string::String], &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput>,
             source: (&'static str, u32, u32),
         }
@@ -127,6 +128,15 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
                 match Self::__miresidian_operations().iter().find(|entry| entry.descriptor.name == operation) {
                     Some(entry) => (entry.call)(self, config, input),
                     None => Err(::miresidian::MiresidianError::InvalidOperation(operation.to_owned())),
+                }
+            }
+
+            fn is_async_operation(operation:&str)->bool {
+                Self::__miresidian_operations().iter().any(|entry|entry.descriptor.name==operation && entry.call_async.is_some())
+            }
+            fn invoke_async<'a>(&'a mut self,operation:&'a str,config:&'a [::std::string::String],input:&'a [::std::string::String])->::miresidian::NodeFuture<'a> {
+                match Self::__miresidian_operations().iter().find(|entry|entry.descriptor.name==operation).and_then(|entry|entry.call_async) {
+                    Some(call)=>call(self,config,input),None=>Box::pin(async move {<Self as ::miresidian::DeviceNode>::invoke(self,operation,config,input)})
                 }
             }
 

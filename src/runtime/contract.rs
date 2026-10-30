@@ -27,7 +27,7 @@ pub const CHANNEL_REUSED_MESSAGE: &str = "已复用已有连接";
 ///
 /// 本层刻意将 `config` 和 `input` 保留为文本，以便直接映射既有 C# 的
 /// `CallFunction` 调用约定。后续由生成的包装代码负责验证并转换为 Rust 类型。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Invocation {
     /// 请求的操作名称，例如 `InitDevice` 或 `Query`。
     pub operation: String,

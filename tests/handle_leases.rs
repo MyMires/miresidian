@@ -48,8 +48,8 @@ fn request(operation: &str, config: &[&str]) -> Invocation {
 #[test]
 fn selectable_lease_and_execution_are_published_after_handle_and_parsed_consistently() {
     for explicit in [false, true] {
-        let mut runtime = NodeRuntime::<LeasedHandleNode>::new();
-        let mut call = |operation, config: &[&str]| {
+        let runtime = NodeRuntime::<LeasedHandleNode>::new();
+        let call = |operation, config: &[&str]| {
             let request = request(operation, config);
             if explicit {
                 runtime.invoke_with(&TbLvTestPlatformAdapter, request)

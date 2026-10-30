@@ -6,7 +6,7 @@ use syn::Type;
 /// 为每个节点生成唯一的 C ABI 入口；JSON 解析、响应保存与内存边界由运行时统一实现。
 pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::TokenStream {
     quote! {
-        static #runtime: ::std::sync::OnceLock<::std::sync::Mutex<::miresidian::NodeRuntime<#self_type>>> = ::std::sync::OnceLock::new();
+        static #runtime: ::std::sync::OnceLock<::miresidian::NodeRuntime<#self_type>> = ::std::sync::OnceLock::new();
 
         /// 以 DLL 持有的 JSON 响应文本返回状态、消息和业务输出的 DLL 入口。
         #[unsafe(no_mangle)]

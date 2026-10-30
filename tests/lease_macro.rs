@@ -33,7 +33,7 @@ impl DeclarativeLeaseNode {
 fn struct_lease_declaration_derives_resource_and_configuration() {
     let compatible = vec!["COM7".to_owned(), "9600".to_owned(), "8".to_owned()];
     let incompatible = vec!["COM7".to_owned(), "4800".to_owned(), "8".to_owned()];
-    let mut runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
+    let runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
     runtime
         .invoke(&Invocation::new(
             INIT_DEVICE_OPERATION,
@@ -42,7 +42,7 @@ fn struct_lease_declaration_derives_resource_and_configuration() {
         ))
         .expect("声明式租约应先获取再初始化");
 
-    let mut independent_runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
+    let independent_runtime = NodeRuntime::<DeclarativeLeaseNode>::new();
     independent_runtime
         .invoke(&Invocation::new(
             INIT_DEVICE_OPERATION,

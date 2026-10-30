@@ -89,7 +89,7 @@ fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
 }
 
 fn fixed<const POLICY: usize>() {
-    let mut runtime = NodeRuntime::<PolicyNode<POLICY>>::new();
+    let runtime = NodeRuntime::<PolicyNode<POLICY>>::new();
     assert_eq!(
         runtime
             .invoke(&request("GetInitConfig", &[], &[]))
@@ -135,7 +135,7 @@ fn fixed_parallel_serializes_object_mutation_and_preserves_output_positions() {
 #[test]
 fn fixed_broadcast_executes_each_matching_input_on_one_instance() {
     fixed::<2>();
-    let mut runtime = NodeRuntime::<PolicyNode<2>>::new();
+    let runtime = NodeRuntime::<PolicyNode<2>>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     assert!(
         runtime
@@ -158,7 +158,7 @@ fn selectable_uses_the_declared_default_for_missing_or_blank_values() {
         vec!["A", ""],
         vec!["A", "tb_lv_test_platform", " "],
     ] {
-        let mut runtime = NodeRuntime::<PolicyNode<3>>::new();
+        let runtime = NodeRuntime::<PolicyNode<3>>::new();
         runtime
             .invoke(&request("InitDevice", &config, &[]))
             .unwrap();
@@ -168,7 +168,7 @@ fn selectable_uses_the_declared_default_for_missing_or_blank_values() {
                 .is_err()
         );
     }
-    let mut runtime = NodeRuntime::<PolicyNode<3>>::new();
+    let runtime = NodeRuntime::<PolicyNode<3>>::new();
     runtime
         .invoke(&request("InitDevice", &["A", "Sequential"], &[]))
         .unwrap();

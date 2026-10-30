@@ -6,7 +6,7 @@ mod policy;
 mod store;
 
 #[cfg(feature = "runtime")]
-pub use dispatch::invoke_multi_channel;
+pub use dispatch::{invoke_multi_channel, plan_multi_channel};
 #[doc(hidden)]
 pub use policy::ConfigLayout;
 pub use policy::{ExecutionMode, ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};

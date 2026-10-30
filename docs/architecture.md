@@ -57,13 +57,19 @@ classDiagram
         业务状态与通信对象
     }
     class NodeRuntime["节点运行时（NodeRuntime）"] {
-        -objects
+        -core
         -platforms
-        -active_platform
         +invoke(invocation)
         +invoke_with(adapter, request)
         +invoke_with_platform(platform, request)
         +shutdown()
+    }
+    class RuntimeState["共享运行时状态（RuntimeState）"] {
+        management
+        lifecycle
+        stopping
+        pending
+        running
     }
     class Instance["设备实例（Instance）"] {
         <<内部类型>>
@@ -71,6 +77,9 @@ classDiagram
         config
         execution
         state
+        request
+        pending
+        closing
     }
     class InstanceState["实例状态（InstanceState）"] {
         <<内部类型>>
@@ -111,11 +120,12 @@ classDiagram
         default_value
     }
     note for DeviceNode "节点与运行时之间的接口，由属性宏生成实现。"
-    note for NodeRuntime "管理多通道并选择平台；invoke 发起调用，shutdown 关闭全部通道。"
-    note for InstanceState "节点、故障原因和可选租约由同一把互斥锁保护。"
+    note for NodeRuntime "不同实例并行；同实例请求和整个多通道批次互斥。"
+    note for InstanceState "异步互斥锁保护可选对象状态；关闭时取走对象并完成清理。"
     note for PlatformAdapter "decode 解析平台请求；encode 编码平台输出。"
     DeviceNode <|.. ExampleNode : 宏生成实现
-    NodeRuntime "1" *-- "0..*" Instance : 默认最多一个；显式策略可多个
+    NodeRuntime "1..*" o-- "1" RuntimeState : Clone 共享运行时身份
+    RuntimeState "1" *-- "0..*" Instance : 默认最多一个；显式策略可多个
     Instance "1" *-- "1" InstanceState : Mutex 保护
     InstanceState "1" *-- "1" ExampleNode : 持有 N
     InstanceState "1" *-- "0..1" LocalLease : feature 与声明启用时
@@ -139,7 +149,7 @@ classDiagram
 | 所属类型 | 成员名称与含义 |
 | --- | --- |
 | 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭设备 |
-| 运行时 `NodeRuntime` | `objects` 对象容器；`platforms` 平台注册表；`active_platform` 当前平台 |
+| 运行时 `NodeRuntime` | `core` 共享运行时状态；`platforms` 平台注册表；管理状态保存 objects 与 active_platform |
 | 运行时调用方法 | `invoke` 按配置选择平台并调用；`invoke_with` 使用指定适配器调用；`invoke_with_platform` 按平台编号调用；`shutdown` 关闭全部通道 |
 | 对象 `Instance` / `InstanceState` | `key` 关联键；`config` 已保存业务配置；`execution` 对象执行方式；`state` 加锁状态；`node` 业务对象；`fault` 故障原因；`lease` 可选租约 |
 | 租约 `LocalLease` | `validate` 校验连接及服务代次；`release` 释放租约与配置锁 |
@@ -149,7 +159,7 @@ classDiagram
 
 运行时默认只保留一个对象；instances 策略支持按业务 Config[0] 或 Handle 定位多个对象。Config[0] 是新节点的首个业务配置主键，空主键初始化跳过。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
-类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle.rs)、[Instance / InstanceState](../src/runtime/lifecycle/instance.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../lease/src/local_ipc/client.rs)。
+类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / InstanceState](../src/runtime/lifecycle/instance.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../lease/src/local_ipc/client.rs)。
 
 ## 节点创建与方法汇总
 
@@ -176,10 +186,10 @@ sequenceDiagram
     Host->>FFI: 提交函数名、配置数组与输入数组
     Note over Host,FFI: function 为函数名；config_json 和 input_json 为 JSON 字符串数组
     FFI->>FFI: 校验文本与 JSON，构造请求（Invocation）
-    FFI->>Runtime: 加锁并发起调用（invoke / invoke_with）
+    FFI->>Runtime: 取得共享运行时并发起调用（invoke / invoke_with）
     Runtime->>Adapter: 解析平台请求（decode）
     Adapter-->>Runtime: 返回结构化命令（RuntimeInvocation）
-    Runtime->>Instance: 按规范化配置找到通道并执行
+    Runtime->>Instance: 短管理锁查找对象，释放后取得实例请求执行权
     Note over Runtime,Instance: 这里使用已初始化通道；框架保留配置不参与通道键
     opt 通道已获取资源租约
         Instance->>Lease: 校验租约（validate）
@@ -212,8 +222,8 @@ sequenceDiagram
 | 层次或目录 | 职责 | 主要入口 |
 | --- | --- | --- |
 | 根 `src/` | 公开入口与重导出 | [lib.rs](../src/lib.rs) |
-| `src/runtime/` | 调用与描述模型、通道生命周期 | [contract.rs](../src/runtime/contract.rs)、[descriptor.rs](../src/runtime/descriptor.rs)、[lifecycle.rs](../src/runtime/lifecycle.rs) |
-| `src/runtime/lifecycle/` | 单通道隔离与清理、平台选择和配置解析 | [channel.rs](../src/runtime/lifecycle/instance.rs)、[routing.rs](../src/runtime/lifecycle/routing.rs) |
+| `src/runtime/` | 调用与描述模型、通道生命周期 | [contract.rs](../src/runtime/contract.rs)、[descriptor.rs](../src/runtime/descriptor.rs)、[service.rs](../src/runtime/lifecycle/service.rs) |
+| `src/runtime/lifecycle/` | 单通道隔离与清理、平台选择和配置解析 | [instance.rs](../src/runtime/lifecycle/instance.rs)、[routing.rs](../src/runtime/lifecycle/routing.rs) |
 | `instances/` | 通用实例策略、单/多实例容器和通用多通道调度 | [lib.rs](../instances/src/lib.rs) |
 | `src/runtime/multi_channel.rs` | 同一对象的平台多通道输入校验与顺序/并行/广播调度 | [multi_channel.rs](../src/runtime/multi_channel.rs) |
 | `src/platform/` | 平台专有输入输出映射 | [platform.rs](../src/platform.rs)、[TB 兼容适配器](../src/platform/tb_lv_test_platform.rs) |
@@ -232,6 +242,50 @@ sequenceDiagram
 
 修改时先按上表定位归属：节点标注与生成改 `macro/`，通用编解码改 `codec/`，平台协议映射改适配器，生命周期与共享调度改运行时，设备协议留在独立节点。涉及依赖、核心类型或调用链变化时同步更新本页。
 
+## 并行与异步执行
+
+0.15.0 的 `NodeRuntime` 使用共享内部状态；Clone 共享同一个实例登记表、平台绑定和并发限额。
+宏生成的两个同步 DLL 入口共用一个 OnceLock 运行时，不再以全局 Mutex 包围完整调用。
+管理锁只保护登记和查找；生命周期事务单独协调；实例请求门禁保护整个请求；状态锁保护业务对象与故障状态。
+
+| 范围 | 执行规则 |
+| --- | --- |
+| 不同实例 | 可并行业务执行，受运行时并发预算限制 |
+| 相同实例 | 请求互斥，多通道批次不可被其他请求插入 |
+| 静态查询 | 不等待业务或生命周期事务 |
+| 同步业务 | Tokio 阻塞池执行，最多 32 个阻塞线程 |
+| 原生 async 业务 | 直接轮询 Future，挂起不占阻塞线程 |
+| 初始化、关闭、探测 | 独立生命周期执行器，最多 4 个阻塞线程；当前同一运行时生命周期事务串行 |
+
+默认 `ExecutionLimits` 为 running=32、pending=1024、pending_per_instance=64、batch=256。
+pending 包含已开始和等待的请求，满容量直接返回错误；实例等待执行权时不占 running 预算。
+实例请求门禁和全局运行预算使用 FIFO 异步信号量/互斥锁；生命周期和业务池分离，避免关闭等待业务时耗尽业务工作线程。
+Parallel 多通道输入使用有界批次内的 Future 调度；每项仍通过状态锁，且全部已开始项结束后才返回错误。
+独立 instances crate 的通用同步 Parallel 分发最多 32 个工作线程。
+
+`invoke` 等同步 API 阻塞等待最终结果；`invoke_async`、`invoke_platform_async`、`invoke_command_async` 和 `invoke_batch_async` 供异步调用方等待。
+宿主原生异步线程应使用 async API。同步 API 在多线程 Tokio 环境通过 blocking bridge 兼容，在单线程异步执行器中返回能力错误。
+调用方丢弃等待 Future，不会中断已接收的框架请求；框架内部任务继续持有执行权直至安全结束。
+
+`TaskService` 是有容量上限的任务所有者，提供 submit、submit_batch、poll、wait、cancel、release 和 shutdown / shutdown_async。
+提交创建单调不复用的任务 ID；完成结果保留到显式释放，同样占容量；释放运行中任务会失败。
+查询与等待可跨线程进行。等待超时仅返回当前快照，不取消任务。快照含 queued/running/cancelling/succeeded/failed/cancelled/timed_out 状态、取消请求标志、错误和输出。
+
+`CallContext` 的截止时间从提交开始，涵盖排队。等待实例或执行预算时取消/到期可直接退出，不执行业务。
+业务已经开始后采用协作取消，框架不强杀线程、不丢弃业务 Future、不提前关闭资源。
+方法应将剩余时间传给 I/O 或检查 context；忽略取消的方法仍可返回成功，快照会保留取消请求标志。
+初始化完成后若已取消或过期，构造对象先清理再返回错误，不登记对象。
+
+关闭保持主键占位，拒绝新业务，等待在途请求后关闭/析构对象，再释放租约。
+全局关闭包含已进入构造的初始化；业务 panic 隔离到对应实例，框架请求异常触发运行时清理。
+显式关闭任务服务后，使用 `shutdown_executor` 等待并回收执行器线程；有在途请求时拒绝执行器关闭。
+DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租约服务在 Windows 固定承载模块的已有约定仍然适用。
+
+执行器依赖选用 Tokio 1.53.3 LTS（MIT，MSRV 1.71，支持 Linux/Windows），锁定在 1.53 补丁系列；futures-util 用于安全组合与捕获 Future panic。
+依据 [Tokio 支持策略](https://docs.rs/crate/tokio/1.53.3) 与 [RUSTSEC-2026-0386 修复范围](https://rustsec.org/advisories/RUSTSEC-2026-0386.html) 选择已修复版本；本项目 MSRV 保持 1.89。
+
+并发测试采用开始/释放信号证明真实执行重叠，覆盖两个 DLL 入口、共享批次、关闭、初始化与全局关闭竞争、容量限制、排队取消、截止时间、原生异步 panic 及跨线程结果回收。
+
 ## 后续演进计划
 
 本节记录已确认、但尚未进入当前发布版本的工程化事项。
@@ -248,3 +302,9 @@ sequenceDiagram
 - 当 `.testflow` 的跨平台语法、断言和报告格式稳定后，再抽取 `miresidian_testflow` 核心 crate；届时 Windows BAT 执行器只保留平台加载职责。
 - 工具应通过 C ABI 的 `GetFunctions` 与 `GetInitConfig` 自适应节点，而不包含串口业务规则。
 - 保留节点项目对流程文件、测试数据和硬件环境的所有权。
+
+当前 C ABI 保持 v7；异步任务及显式跨实例批次现阶段通过 Rust API 使用。新增外部异步入口需独立评审并提升 ABI。
+
+本候选的 DLL 后台线程卸载保护尚待独立评审：C ABI v7 没有最终执行器关闭入口，宿主必须保持动态库加载至进程退出，不得在工作线程存活期间卸载。支持动态卸载的交付仍未完成；不得以本候选测试通过替代该项验证。
+
+本轮 Linux Debug DLL 验证使用两个各等待 30ms 的模拟请求，5 次采样中位数：同步同实例 61.78ms、不同实例 30.96ms；async 同实例 64.08ms、不同实例 32.40ms。该观测仅说明示例的执行重叠，实际设备性能需另测。

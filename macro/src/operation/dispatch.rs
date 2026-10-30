@@ -9,10 +9,15 @@ pub(super) fn initialize(method: &InitMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let identifier = &method.method;
-    let construct = if method.has_output {
-        quote!(let (node, value) = Self::#identifier(#(#variables),*)?;)
+    let invocation = if method.asynchronous {
+        quote!(::miresidian::__private::block_on(Self::#identifier(#(#variables),*)))
     } else {
-        quote!(let node = Self::#identifier(#(#variables),*)?; let value = ();)
+        quote!(Self::#identifier(#(#variables),*))
+    };
+    let construct = if method.has_output {
+        quote!(let (node, value) = #invocation?;)
+    } else {
+        quote!(let node = #invocation?; let value = ();)
     };
     quote! {
         #(#arguments)*
@@ -32,7 +37,12 @@ pub(super) fn close(method: &FixedMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let identifier = &method.method;
-    quote! { #(#arguments)* Self::#identifier(self, #(#variables),*)?; Ok(()) }
+    let call = if method.asynchronous {
+        quote!(::miresidian::__private::block_on(Self::#identifier(self,#(#variables),*)))
+    } else {
+        quote!(Self::#identifier(self,#(#variables),*))
+    };
+    quote! { #(#arguments)* #call?; Ok(()) }
 }
 
 /// 生成所有初始化 Config 的 Rust 名称与规范化值，供结构体级 lease 声明筛选。
@@ -72,18 +82,31 @@ pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream
     let method = &operation.method;
     let arguments = parse_arguments(&operation.parameters);
     let variables = argument_variables(operation.parameters.len());
-    quote! {
-        #(#arguments)*
-        let value = Self::#method(node, #(#variables),*);
-        ::miresidian::codec::encode_value(value?)
-    }
+    let call = if operation.asynchronous {
+        quote!(::miresidian::__private::block_on(Self::#method(node,#(#variables),*)))
+    } else {
+        quote!(Self::#method(node,#(#variables),*))
+    };
+    quote! { #(#arguments)* let value=#call; ::miresidian::codec::encode_value(value?) }
+}
+
+pub(super) fn operation_async(operation: &OperationMethod) -> proc_macro2::TokenStream {
+    let method = &operation.method;
+    let arguments = parse_arguments(&operation.parameters);
+    let variables = argument_variables(operation.parameters.len());
+    quote! { Box::pin(async move { #(#arguments)* let value=Self::#method(node,#(#variables),*).await; ::miresidian::codec::encode_value(value?) }) }
 }
 
 pub(super) fn port_probe(method: &FixedMethod) -> proc_macro2::TokenStream {
     let arguments = parse_arguments(&method.parameters);
     let variables = argument_variables(method.parameters.len());
     let identifier = &method.method;
-    quote! { #(#arguments)* Self::#identifier(#(#variables),*) }
+    let call = if method.asynchronous {
+        quote!(::miresidian::__private::block_on(Self::#identifier(#(#variables),*)))
+    } else {
+        quote!(Self::#identifier(#(#variables),*))
+    };
+    quote! { #(#arguments)* #call }
 }
 
 /// 保持 Rust 方法参数顺序，同时分别维护 `config` 与 `input` 的位置索引。

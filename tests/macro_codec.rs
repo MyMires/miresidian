@@ -47,7 +47,7 @@ impl CodecMacroNode {
 
 #[test]
 fn 属性宏生成的调度复用根框架编解码规则() {
-    let mut runtime = NodeRuntime::<CodecMacroNode>::new();
+    let runtime = NodeRuntime::<CodecMacroNode>::new();
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
@@ -77,7 +77,7 @@ fn 属性宏生成的调度复用根框架编解码规则() {
 
 #[test]
 fn 等价业务配置定位并复用同一通道() {
-    let mut runtime = NodeRuntime::<CodecMacroNode>::new();
+    let runtime = NodeRuntime::<CodecMacroNode>::new();
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
@@ -113,7 +113,7 @@ fn 等价业务配置定位并复用同一通道() {
 #[test]
 #[cfg(feature = "instances")]
 fn 共享调用同样使用枚举显示值和默认值定位对象() {
-    let mut runtime = NodeRuntime::<CodecMacroNode>::new();
+    let runtime = NodeRuntime::<CodecMacroNode>::new();
     runtime
         .invoke(&Invocation::new(
             "InitDevice",

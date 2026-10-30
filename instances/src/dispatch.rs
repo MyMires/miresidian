@@ -15,11 +15,7 @@ pub fn invoke_multi_channel<F>(
 where
     F: Fn(&[String]) -> MiresidianResult<InvocationOutput> + Sync,
 {
-    let plans = channel_plans(slots, parameters);
-    let plans = match execution {
-        ExecutionMode::Broadcast => broadcast_plans(plans)?,
-        _ => plans,
-    };
+    let plans = plan_multi_channel(slots, parameters, execution)?;
     match execution {
         ExecutionMode::Sequential | ExecutionMode::Broadcast => plans
             .iter()
@@ -27,6 +23,21 @@ where
             .map(|(index, plan)| execute_channel(&call, plan, index))
             .collect(),
         ExecutionMode::Parallel => run_parallel(&call, &plans),
+    }
+}
+
+/// Validate and normalize a batch without executing user code. Shared by sync
+/// and native async frontends; positions and broadcast rules stay identical.
+pub fn plan_multi_channel(
+    slots: &[Option<Vec<String>>],
+    parameters: &[Option<&str>],
+    execution: ExecutionMode,
+) -> MiresidianResult<Vec<Option<Vec<String>>>> {
+    let plans = channel_plans(slots, parameters);
+    if execution == ExecutionMode::Broadcast {
+        broadcast_plans(plans)
+    } else {
+        Ok(plans)
     }
 }
 
@@ -103,21 +114,38 @@ fn run_parallel<F>(
 where
     F: Fn(&[String]) -> MiresidianResult<InvocationOutput> + Sync,
 {
-    let results = std::thread::scope(|scope| {
-        plans
-            .iter()
-            .enumerate()
-            .map(|(index, plan)| {
-                if plan.is_none() {
-                    return None;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let next = AtomicUsize::new(0);
+    let results = Mutex::new((0..plans.len()).map(|_| None).collect::<Vec<_>>());
+    let workers = std::thread::available_parallelism()
+        .map_or(2, usize::from)
+        .clamp(2, 32)
+        .min(plans.len());
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            let next = &next;
+            let results = &results;
+            scope.spawn(move || {
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(plan) = plans.get(index) else {
+                        break;
+                    };
+                    if plan.is_none() {
+                        continue;
+                    }
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        execute_channel(call, plan, index)
+                    }));
+                    results.lock().unwrap_or_else(|e| e.into_inner())[index] = Some(result);
                 }
-                Some(scope.spawn(move || execute_channel(call, plan, index)))
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|handle| handle.map(|handle| handle.join()))
-            .collect::<Vec<_>>()
+            });
+        }
     });
+    let results = results.into_inner().unwrap_or_else(|e| e.into_inner());
     let mut outputs = Vec::with_capacity(results.len());
     for (index, result) in results.into_iter().enumerate() {
         let Some(result) = result else {

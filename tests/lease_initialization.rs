@@ -69,7 +69,7 @@ impl LeasedNode {
 fn lease_is_held_during_resource_cleanup_and_released_after_each_failure() {
     for mode in ["construct", "panic", "encoding"] {
         let resource = format!("lease-construction:{}:{mode}", std::process::id());
-        let mut runtime = NodeRuntime::<LeasedNode>::new();
+        let runtime = NodeRuntime::<LeasedNode>::new();
         assert!(
             runtime
                 .invoke(&Invocation::new(

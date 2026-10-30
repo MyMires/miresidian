@@ -43,7 +43,7 @@ fn request(operation: &str, config: &[&str]) -> Invocation {
 
 #[test]
 fn blank_first_config_skips_even_if_other_business_or_framework_fields_are_nonempty() {
-    let mut runtime = NodeRuntime::<ConfigNode>::new();
+    let runtime = NodeRuntime::<ConfigNode>::new();
     for config in [
         vec![],
         vec!["", "9600"],
@@ -76,7 +76,7 @@ fn blank_first_config_skips_even_if_other_business_or_framework_fields_are_nonem
 
 #[test]
 fn first_config_is_the_identity_and_conflicting_settings_do_not_create_another_object() {
-    let mut runtime = NodeRuntime::<ConfigNode>::new();
+    let runtime = NodeRuntime::<ConfigNode>::new();
     runtime
         .invoke(&request("InitDevice", &["A", "9600"]))
         .unwrap();

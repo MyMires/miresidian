@@ -177,7 +177,7 @@ fn 替换默认平台标识时同步更新默认平台数值() {
     assert!(registry.adapter(Platform::TbLvTestPlatform).is_none());
     assert!(registry.adapter(replacement).is_some());
 
-    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(registry);
+    let runtime = NodeRuntime::<MemoryNode>::with_platforms(registry);
     assert_eq!(
         runtime
             .invoke(&request(GET_FRAMEWORK_VERSION_OPERATION, &[], &[]))
@@ -203,7 +203,7 @@ fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
 
 #[test]
 fn fixed_operations_publish_compatible_metadata() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
 
     let functions = runtime
         .invoke(&request(GET_FUNCTIONS_OPERATION, &[], &[]))
@@ -244,7 +244,7 @@ fn fixed_operations_publish_compatible_metadata() {
 
 #[test]
 fn version_queries_are_persistent() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
 
     let framework = runtime
         .invoke(&request(GET_FRAMEWORK_VERSION_OPERATION, &[], &[]))
@@ -260,7 +260,7 @@ fn version_queries_are_persistent() {
 
 #[test]
 fn node_operations_require_lifecycle_and_round_trip_values() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
 
     assert_eq!(
         runtime.invoke(&request("Query", &["127.0.0.1"], &["ping"])),
@@ -286,7 +286,7 @@ fn node_operations_require_lifecycle_and_round_trip_values() {
 
 #[test]
 fn close_all_devices_releases_every_channel_and_resets_the_runtime() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
         .unwrap();
@@ -312,7 +312,7 @@ fn close_all_devices_releases_every_channel_and_resets_the_runtime() {
 
 #[test]
 fn shutdown_converges_the_runtime_after_a_close_failure() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
         .unwrap();
@@ -333,7 +333,7 @@ fn shutdown_converges_the_runtime_after_a_close_failure() {
 
 #[test]
 fn shutdown_resets_execution_and_platform_selection() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]))
         .unwrap();
@@ -348,7 +348,7 @@ fn shutdown_resets_execution_and_platform_selection() {
 
 #[test]
 fn port_probe_does_not_require_a_node_instance() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
 
     let result = runtime
         .invoke(&request(GET_PORT_NO_OPERATION, &[], &[]))
@@ -360,7 +360,7 @@ fn port_probe_does_not_require_a_node_instance() {
 
 #[test]
 fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     assert_eq!(
         runtime
             .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
@@ -396,7 +396,7 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
 
 #[test]
 fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Broadcast"], &[]))
         .unwrap();
@@ -421,7 +421,7 @@ fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
 
 #[test]
 fn invalid_or_blank_shared_execution_defaults_to_sequential() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A", "未知方式"], &[]))
         .unwrap();
@@ -437,7 +437,7 @@ fn invalid_or_blank_shared_execution_defaults_to_sequential() {
 
 #[test]
 fn 注册平台可由普通调用的初始化_config_选择() {
-    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(
+    let runtime = NodeRuntime::<MemoryNode>::with_platforms(
         PlatformRegistry::default().with_adapter(MockPlatformAdapter),
     );
     let metadata = runtime
@@ -466,7 +466,7 @@ fn 注册平台可由普通调用的初始化_config_选择() {
 
 #[test]
 fn 平台枚举可从注册表显式选择适配器() {
-    let mut runtime = NodeRuntime::<MemoryNode>::with_platforms(
+    let runtime = NodeRuntime::<MemoryNode>::with_platforms(
         PlatformRegistry::default().with_adapter(MockPlatformAdapter),
     );
 
@@ -481,7 +481,7 @@ fn 平台枚举可从注册表显式选择适配器() {
 
 #[test]
 fn 显式适配器调用不发布或接受平台选择_config() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     let config = runtime
         .invoke_with(
             &TbLvTestPlatformAdapter,
@@ -514,7 +514,7 @@ fn 显式适配器调用不发布或接受平台选择_config() {
 
 #[test]
 fn 并行共享输出严格对齐实际输入槽位() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Parallel"], &[]))
         .unwrap();
@@ -540,7 +540,7 @@ fn 并行共享输出严格对齐实际输入槽位() {
 
 #[test]
 fn 结构化共享命令不依赖_tb_lv_test_platform_文本协议() {
-    let mut runtime = NodeRuntime::<MemoryNode>::new();
+    let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A"], &[]))
         .unwrap();

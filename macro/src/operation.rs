@@ -78,7 +78,18 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 let registration = format_ident!("__MIRESIDIAN_REGISTER_{}", operation.method);
                 let descriptor = descriptor::operation(&operation);
                 let call = dispatch::operation(&operation);
+                let async_wrapper = format_ident!("__miresidian_async_{}", operation.method);
+                let (async_bridge, async_pointer) = if operation.asynchronous {
+                    let body = dispatch::operation_async(&operation);
+                    (
+                        quote! {fn #async_wrapper<'a>(node:&'a mut Self,config:&'a [::std::string::String],input:&'a [::std::string::String])->::miresidian::NodeFuture<'a>{#body}},
+                        quote!(Some(__MiresidianNode::#async_wrapper as for<'a> fn(&'a mut __MiresidianNode,&'a [::std::string::String],&'a [::std::string::String])->::miresidian::NodeFuture<'a>)),
+                    )
+                } else {
+                    (quote!(), quote!(None))
+                };
                 quote! {
+                    #async_bridge
                     fn #wrapper(node: &mut Self, config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::miresidian::InvocationOutput> { #call }
                     #[allow(non_upper_case_globals)]
                     const #registration: () = {
@@ -86,6 +97,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                         ::miresidian::__private::inventory::submit! {
                             __MiresidianOperation {
                                 descriptor: #descriptor,
+                                call_async: #async_pointer,
                                 call: __MiresidianNode::#wrapper,
                                 source: (file!(), line!(), column!()),
                             }

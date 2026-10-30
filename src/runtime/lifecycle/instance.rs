@@ -6,7 +6,10 @@
 use super::routing::InstanceKey;
 use std::{
     panic::{AssertUnwindSafe, catch_unwind},
-    sync::Mutex,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 #[cfg(feature = "lease")]
@@ -20,7 +23,10 @@ pub(in crate::runtime) struct Instance<N> {
     pub(super) key: InstanceKey,
     pub(in crate::runtime) config: Vec<String>,
     pub(in crate::runtime) execution: crate::ExecutionMode,
-    state: Mutex<InstanceState<N>>,
+    state: Arc<tokio::sync::Mutex<Option<InstanceState<N>>>>,
+    pub(super) request: tokio::sync::Mutex<()>,
+    pub(super) pending: Arc<tokio::sync::Semaphore>,
+    closing: AtomicBool,
 }
 
 struct InstanceState<N> {
@@ -38,6 +44,7 @@ impl<N: DeviceNode> Instance<N> {
         input: &[String],
         access: LeaseAccess,
         execution: crate::ExecutionMode,
+        pending_limit: usize,
     ) -> MiresidianResult<(Self, InvocationOutput)> {
         let mut node = None;
         #[cfg(feature = "lease")]
@@ -74,12 +81,15 @@ impl<N: DeviceNode> Instance<N> {
                     key,
                     config,
                     execution,
-                    state: Mutex::new(InstanceState {
+                    request: tokio::sync::Mutex::new(()),
+                    pending: Arc::new(tokio::sync::Semaphore::new(pending_limit)),
+                    closing: AtomicBool::new(false),
+                    state: Arc::new(tokio::sync::Mutex::new(Some(InstanceState {
                         node: node.expect("successful initialization returns a node"),
                         fault: None,
                         #[cfg(feature = "lease")]
                         lease,
-                    }),
+                    }))),
                 },
                 output,
             )),
@@ -97,38 +107,101 @@ impl<N: DeviceNode> Instance<N> {
         }
     }
 
+    pub(super) fn mark_closing(&self) {
+        self.closing.store(true, Ordering::Release);
+    }
+
+    pub(super) fn check_open(&self) -> MiresidianResult<()> {
+        if self.closing.load(Ordering::Acquire) {
+            Err(MiresidianError::Failure("实例正在关闭".into()))
+        } else {
+            Ok(())
+        }
+    }
+
     pub(in crate::runtime) fn ensure_active(&self) -> MiresidianResult<()> {
+        self.check_open()?;
         self.state
-            .lock()
-            .map_err(|_| MiresidianError::NodeStatePoisoned)?
+            .blocking_lock()
+            .as_mut()
+            .ok_or(MiresidianError::NotInitialized)?
             .ensure_active()
     }
 
-    pub(in crate::runtime) fn invoke(
+    pub(in crate::runtime) async fn invoke(
         &self,
         operation: &str,
         input: &[String],
+        context: &crate::CallContext,
     ) -> MiresidianResult<InvocationOutput> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| MiresidianError::NodeStatePoisoned)?;
-        state.ensure_active()?;
-        let result = catch_node(operation, || {
-            state.node.invoke(operation, &self.config, input)
-        });
-        if let Err(error @ MiresidianError::NodePanicked { .. }) = &result {
-            state.fault = Some(error.clone());
+        use futures_util::FutureExt;
+        context.check()?;
+        let state = self.state.clone().lock_owned().await;
+        let operation = operation.to_owned();
+        let input = input.to_vec();
+        let config = self.config.clone();
+        let call_context = context.clone();
+        let native_operation = operation.clone();
+        let native_input = input.clone();
+        // Lease IPC and synchronous user code never block an async worker.
+        let native = N::is_async_operation(&operation);
+        let (mut state, result) = tokio::task::spawn_blocking(move || {
+            let mut state = state;
+            let result = call_context.blocking(|| {
+                call_context.check()?;
+                let inner = state.as_mut().ok_or(MiresidianError::NotInitialized)?;
+                inner.ensure_active()?;
+                if native {
+                    return Ok(None);
+                }
+                catch_node(&operation, || {
+                    inner.node.invoke(&operation, &config, &input)
+                })
+                .map(Some)
+            });
+            if let Err(error @ MiresidianError::NodePanicked { .. }) = &result
+                && let Some(inner) = state.as_mut()
+            {
+                inner.fault = Some(error.clone());
+            }
+            (state, result)
+        })
+        .await
+        .map_err(|e| MiresidianError::Internal(e.to_string()))?;
+        match result? {
+            Some(output) => Ok(output),
+            None => {
+                context.check()?;
+                let inner = state.as_mut().ok_or(MiresidianError::NotInitialized)?;
+                let result = context
+                    .scope(
+                        AssertUnwindSafe(inner.node.invoke_async(
+                            &native_operation,
+                            &self.config,
+                            &native_input,
+                        ))
+                        .catch_unwind(),
+                    )
+                    .await;
+                let result = result.unwrap_or({
+                    Err(MiresidianError::NodePanicked {
+                        operation: native_operation,
+                    })
+                });
+                if let Err(error @ MiresidianError::NodePanicked { .. }) = &result {
+                    inner.fault = Some(error.clone());
+                }
+                result
+            }
         }
-        result
     }
 
-    pub(in crate::runtime) fn close(self, input: &[String]) -> MiresidianResult<()> {
-        // 污染对象只用于尽力关闭和析构，绝不恢复业务调用。
-        let state = self
-            .state
-            .into_inner()
-            .unwrap_or_else(|error| error.into_inner());
+    pub(in crate::runtime) fn close(&self, input: &[String]) -> MiresidianResult<()> {
+        self.mark_closing();
+        let _request = self.request.blocking_lock();
+        let Some(state) = self.state.blocking_lock().take() else {
+            return Ok(());
+        };
         let result = cleanup_node(state.node, &self.config, input);
         #[cfg(feature = "lease")]
         let release = state

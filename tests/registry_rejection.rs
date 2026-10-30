@@ -25,7 +25,7 @@ impl DuplicateNode {
 }
 #[test]
 fn duplicate_names_fail_metadata_queries_and_initialization() {
-    let mut runtime = NodeRuntime::<DuplicateNode>::new();
+    let runtime = NodeRuntime::<DuplicateNode>::new();
     for operation in ["GetFunctions", "InitDevice"] {
         let error = runtime
             .invoke(&Invocation::new(operation, vec![], vec![]))

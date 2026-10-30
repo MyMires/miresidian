@@ -114,7 +114,7 @@ fn multiple_impls_publish_source_order_and_preserve_parameter_annotations() {
         descriptor.operations[0].signature(),
         "ZFirst(文本:默认)(回传)"
     );
-    let mut runtime = NodeRuntime::<RegisteredNode>::new();
+    let runtime = NodeRuntime::<RegisteredNode>::new();
     assert_eq!(
         runtime.invoke(&init("registered")).unwrap().as_slice(),
         ["ready"]
@@ -140,7 +140,7 @@ fn multiple_impls_publish_source_order_and_preserve_parameter_annotations() {
 #[test]
 fn constructors_clean_their_resources_without_runtime_close() {
     for address in ["construct-error", "construct-panic"] {
-        let mut runtime = NodeRuntime::<RegisteredNode>::new();
+        let runtime = NodeRuntime::<RegisteredNode>::new();
         assert!(runtime.invoke(&init(address)).is_err());
         assert!(!runtime.is_initialized());
         let events = EVENTS.lock().unwrap();
@@ -156,7 +156,7 @@ fn output_failure_closes_and_drops_the_returned_node_even_if_cleanup_panics() {
         "encoding-panic",
         "encoding-panic-close-panic-drop-panic",
     ] {
-        let mut runtime = NodeRuntime::<RegisteredNode>::new();
+        let runtime = NodeRuntime::<RegisteredNode>::new();
         let error = runtime.invoke(&init(address)).unwrap_err();
         assert_eq!(
             error.code(),

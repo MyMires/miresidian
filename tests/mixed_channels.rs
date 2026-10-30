@@ -63,7 +63,7 @@ impl MixedChannelNode {
 fn 手动标注决定每个参数的外部来源通道() {
     let registry = <MixedChannelNode as DeviceNode>::platform_registry();
     assert!(registry.adapter(Platform::Custom(0x0001_0001)).is_some());
-    let mut runtime = NodeRuntime::<MixedChannelNode>::with_platforms(registry);
+    let runtime = NodeRuntime::<MixedChannelNode>::with_platforms(registry);
     let init_config = runtime
         .invoke(&Invocation::new(
             GET_INIT_CONFIG_OPERATION,

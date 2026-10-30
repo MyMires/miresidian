@@ -102,7 +102,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             }
             (
                 explicit_adapter
-                    .or(self.active_platform)
+                    .or(self.active_platform())
                     .unwrap_or(self.platforms.default_platform()),
                 false,
             )
@@ -168,7 +168,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         let platform = if invocation.operation == INIT_DEVICE_OPERATION {
             self.parse_config(&invocation.config, true, None)?.platform
         } else {
-            self.active_platform
+            self.active_platform()
                 .unwrap_or(self.platforms.default_platform())
         };
         self.platforms

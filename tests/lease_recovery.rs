@@ -206,7 +206,7 @@ fn lease_process_helper() {
         std::io::stdin().read_line(&mut line).unwrap();
         return;
     }
-    let mut runtime = NodeRuntime::<LeasedNode>::new();
+    let runtime = NodeRuntime::<LeasedNode>::new();
     let config = vec![resource, "1".to_owned()];
     runtime
         .invoke(&Invocation::new("InitDevice", config.clone(), vec![]))
@@ -241,7 +241,7 @@ fn emit(message: &str) {
 #[test]
 fn singleton_replacement_releases_old_lease_before_requesting_new_configuration() {
     let resource = format!("singleton-lease-replacement:{}", std::process::id());
-    let mut runtime = NodeRuntime::<LeasedNode>::new();
+    let runtime = NodeRuntime::<LeasedNode>::new();
     let request = |operation: &str, setting: &str| {
         Invocation::new(
             operation,

@@ -24,6 +24,7 @@ pub(super) enum ParameterSource {
 
 pub(super) struct InitMethod {
     pub(super) method: syn::Ident,
+    pub(super) asynchronous: bool,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
     pub(super) has_output: bool,
@@ -31,6 +32,7 @@ pub(super) struct InitMethod {
 
 pub(super) struct OperationMethod {
     pub(super) method: syn::Ident,
+    pub(super) asynchronous: bool,
     pub(super) name: LitStr,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
@@ -38,6 +40,7 @@ pub(super) struct OperationMethod {
 
 pub(super) struct FixedMethod {
     pub(super) method: syn::Ident,
+    pub(super) asynchronous: bool,
     pub(super) parameters: Vec<Parameter>,
 }
 
@@ -56,14 +59,10 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             "平台方法不能带泛型参数",
         ));
     }
-    if method.sig.asyncness.is_some()
-        || method.sig.unsafety.is_some()
-        || method.sig.constness.is_some()
-        || method.sig.abi.is_some()
-    {
+    if method.sig.unsafety.is_some() || method.sig.constness.is_some() || method.sig.abi.is_some() {
         return Err(Error::new_spanned(
             &method.sig,
-            "平台方法必须是普通同步 Rust 函数",
+            "平台方法必须是安全的 Rust 函数",
         ));
     }
     let name = operation_name(attribute, &method.sig.ident)?;
@@ -108,6 +107,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             let outputs = take_output(&mut method.attrs, &return_type)?;
             Ok(NodeMethod::Init(InitMethod {
                 method: identifier,
+                asynchronous: method.sig.asyncness.is_some(),
                 parameters: parse_parameters(method, ParameterSource::Config)?,
                 outputs,
                 has_output,
@@ -117,6 +117,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             require_mut_receiver(method)?;
             Ok(NodeMethod::Close(FixedMethod {
                 method: identifier,
+                asynchronous: method.sig.asyncness.is_some(),
                 parameters: parse_parameters(method, ParameterSource::Input)?,
             }))
         }
@@ -124,6 +125,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             require_associated_function(method)?;
             Ok(NodeMethod::PortProbe(FixedMethod {
                 method: identifier,
+                asynchronous: method.sig.asyncness.is_some(),
                 parameters: parse_parameters(method, ParameterSource::Input)?,
             }))
         }
@@ -131,6 +133,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             require_mut_receiver(method)?;
             Ok(NodeMethod::Operation(OperationMethod {
                 method: identifier,
+                asynchronous: method.sig.asyncness.is_some(),
                 name,
                 parameters: parse_parameters(method, ParameterSource::Input)?,
                 outputs: take_output(&mut method.attrs, &method.sig.output)?,

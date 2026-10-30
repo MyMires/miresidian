@@ -5,11 +5,13 @@
 mod construction;
 mod contract;
 mod descriptor;
+mod execution;
 mod instances;
 mod lifecycle;
 #[cfg(feature = "instances")]
 mod multi_channel;
 mod node;
+mod tasks;
 
 pub use contract::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION,
@@ -23,9 +25,15 @@ pub use descriptor::{
 };
 pub use instances::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};
 pub use lifecycle::NodeRuntime;
-pub use node::DeviceNode;
 #[doc(hidden)]
 pub use node::validate_descriptor;
+pub use node::{DeviceNode, NodeFuture};
 
 #[doc(hidden)]
 pub use construction::finish_initialization;
+
+pub use execution::{CallContext, ExecutionLimits, shutdown_executor};
+#[doc(hidden)]
+pub use execution::{RuntimeSource, block_on};
+
+pub use tasks::{TaskService, TaskSnapshot, TaskState};

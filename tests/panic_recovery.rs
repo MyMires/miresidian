@@ -201,7 +201,7 @@ fn init_probe_close_and_drop_panics_leave_ffi_usable() {
 #[test]
 fn shared_panic_isolation_covers_all_execution_modes() {
     for mode in ["Sequential", "Parallel", "Broadcast"] {
-        let mut runtime = NodeRuntime::<RecoveryNode>::new();
+        let runtime = NodeRuntime::<RecoveryNode>::new();
         for name in ["shared-broken", "shared-healthy"] {
             runtime
                 .invoke(&request("InitDevice", &[name, mode], &[]))
@@ -232,7 +232,7 @@ fn shared_panic_isolation_covers_all_execution_modes() {
 
 #[test]
 fn shutdown_attempts_all_nodes_even_when_close_and_drop_panic() {
-    let mut runtime = NodeRuntime::<RecoveryNode>::new();
+    let runtime = NodeRuntime::<RecoveryNode>::new();
     for name in [
         "shutdown-healthy",
         "shutdown-drop-panic",

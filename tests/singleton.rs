@@ -61,7 +61,7 @@ fn default_metadata_never_publishes_handle_or_execution_selector() {
         Singleton::descriptor().instances,
         miresidian::InstancePolicy::DEFAULT
     );
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     assert_eq!(
         runtime
             .invoke(&request("GetInitConfig", &[], &[]))
@@ -79,7 +79,7 @@ fn default_metadata_never_publishes_handle_or_execution_selector() {
 
 #[test]
 fn different_config_replaces_the_only_object_after_close_and_drop() {
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     runtime
         .invoke(&request("InitDevice", &["replace-A"], &[]))
         .unwrap();
@@ -117,7 +117,7 @@ fn different_config_replaces_the_only_object_after_close_and_drop() {
 
 #[test]
 fn typed_prevalidation_failure_keeps_the_old_object() {
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     runtime
         .invoke(&request("InitDevice", &["validated-A"], &[]))
         .unwrap();
@@ -147,7 +147,7 @@ fn typed_prevalidation_failure_keeps_the_old_object() {
 
 #[test]
 fn construction_failure_after_replacement_leaves_no_object() {
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     runtime
         .invoke(&request("InitDevice", &["before-failure"], &[]))
         .unwrap();
@@ -177,7 +177,7 @@ fn construction_failure_after_replacement_leaves_no_object() {
 
 #[test]
 fn cleanup_failure_blocks_new_construction_and_clears_old_object() {
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     runtime
         .invoke(&request("InitDevice", &["close-fail"], &[]))
         .unwrap();
@@ -194,7 +194,7 @@ fn cleanup_failure_blocks_new_construction_and_clears_old_object() {
 
 #[test]
 fn enabling_feature_alone_does_not_enable_multi_channel_calls() {
-    let mut runtime = NodeRuntime::<Singleton>::new();
+    let runtime = NodeRuntime::<Singleton>::new();
     runtime
         .invoke(&request("InitDevice", &["ordinary"], &[]))
         .unwrap();
