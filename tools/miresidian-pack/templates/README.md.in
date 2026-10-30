@@ -1,0 +1,17 @@
+# {{name}}
+
+由 miresidian_pack 生成的最小单实例节点，只实现回显，不访问硬件。
+依赖 crates.io 精确版本 `miresidian ={{version}}`；Cargo.lock 由 Cargo 生成。
+
+```text
+cargo check --locked
+cargo miresidian-pack --check
+cargo miresidian-pack x64
+```
+
+打包前在本项目配置 Windows target 和链接器；模板不替宿主选择工具链。
+交付契约见 `docs/{{name}}.md`。替换业务后同步修改该说明、版本与带日期的 CHANGELOG，
+并执行编译、调用测试及业务所需的设备验证。结构检查不代替这些验证。
+
+新增多实例时须选用已发布且支持所需能力的框架版本、开启 instances 并显式声明策略；
+Config 关联模式须将业务主键放在 Config[0]。不要手写 DLL 导出或字符串分发。

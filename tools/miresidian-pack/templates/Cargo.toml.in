@@ -1,0 +1,15 @@
+[package]
+name = "{{package}}"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+# 独立节点不继承父目录的框架工作区或本地依赖。
+[workspace]
+
+[dependencies]
+miresidian = { version = "={{version}}" }

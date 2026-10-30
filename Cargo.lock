@@ -320,12 +320,13 @@ dependencies = [
 
 [[package]]
 name = "miresidian_pack"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "cargo_metadata",
  "serde_json",
  "sha2",
  "syn 2.0.119",
+ "toml",
 ]
 
 [[package]]

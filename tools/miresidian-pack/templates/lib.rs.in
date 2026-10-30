@@ -1,0 +1,22 @@
+//! 不访问硬件的单实例起点；按需替换为业务状态。
+use miresidian::{MiresidianResult, node};
+
+#[node({{name_literal}})]
+struct ExampleNode;
+
+impl ExampleNode {
+    #[miresidian::operation]
+    fn init_device() -> MiresidianResult<Self> {
+        Ok(Self)
+    }
+
+    #[miresidian::operation("Echo")]
+    fn echo(&mut self, #[miresidian::input("文本")] text: String) -> MiresidianResult<String> {
+        Ok(text)
+    }
+
+    #[miresidian::operation]
+    fn close_device(&mut self) -> MiresidianResult<()> {
+        Ok(())
+    }
+}

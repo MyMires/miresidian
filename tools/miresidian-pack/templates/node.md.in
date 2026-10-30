@@ -1,0 +1,53 @@
+# {{name}} 调用说明
+
+本模板仅提供单实例回显。节点版本 0.1.0，依赖框架 ={{version}}。
+构建 Windows 产物为 `windows-x64/{{package}}.dll` 或 `windows-x86/{{package}}.dll`；
+Cargo 会将包名中的连字符转换为 DLL 文件名中的下划线。宿主位数必须与 DLL 一致。
+具体发布版本、ABI 版本和 SHA-256 以打包器生成的 manifest.json 及所附 miresidian.h 为准。
+
+## C ABI v7
+
+```c
+const char *miresidian_invoke(const char *function, const char *config_json, const char *input_json);
+const char *miresidian_invoke_with(uint32_t platform, const char *function,
+                                 const char *config_json, const char *input_json);
+uint32_t miresidian_abi_version(void);
+```
+
+调用约定为 C；使用头文件中的准确声明。所有文本为 UTF-8、NUL 结尾。
+function 是操作名称；config_json、input_json 是 JSON 字符串数组。调用方持有输入，
+调用结束后可以释放。function 不得为空指针；config_json、input_json 的空指针等同于 `[]`。
+空数组传 `"[]"`，业务空字符串传 `"[\"\"]"`，空文本不是合法 JSON。
+显式 platform 使用头文件中的平台注册值；默认 TB 平台为 1，0 为无效编号。
+miresidian_abi_version 返回 uint32_t 数值，不是业务输出。
+
+两个调用入口返回 DLL 当前线程持有的 JSON 文本。返回指针只在同线程下一次调用前有效；
+调用方应立即复制，不得释放。DLL 加载引用须覆盖调用及结果复制期间。
+每次调用同步等待结果；不同调用线程操作同一实例时互斥。
+
+响应字段：status 为整数状态，message 为说明，output 为业务字符串数组；
+code 在提供该字段的框架版本中为稳定代码，兼容调用方应允许旧版本缺少 code。
+status=0 成功，1 参数错误，2 业务失败，3 内部错误。成功调用仍须按操作解释 output。
+
+## 默认 TB 平台调用
+
+| function | config_json | input_json | 业务 output |
+| --- | --- | --- | --- |
+| GetFunctions | `[]` | `[]` | 实际操作定义 |
+| GetInitConfig | `[]` | `[]` | 实际初始化配置定义 |
+| InitDevice | `[]` | `[]` | `[]` |
+| Echo | `[]` | `["hello"]` | `["hello"]` |
+| CloseDevice | `[]` | `[]` | `[]` |
+
+先 InitDevice，再 Echo，最后 CloseDevice；未初始化调用 Echo 返回错误。
+可复制到 C 宿主的调用示例（先加载 DLL 并取得函数地址）：
+
+```c
+miresidian_invoke("InitDevice", "[]", "[]");
+const char *response_json = miresidian_invoke("Echo", "[]", "[\"hello\"]");
+/* 在下一次调用前复制并解析 response_json，检查 status，再读取 output。 */
+miresidian_invoke("CloseDevice", "[]", "[]");
+```
+
+模板只启用默认平台，不含设备通信、多实例和多通道配置。
+修改业务后须补全实际设备参数、错误与超时规则及支持平台，并重新验证完整调用契约。
