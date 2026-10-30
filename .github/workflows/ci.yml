@@ -51,7 +51,10 @@ jobs:
         run: python3 tools/verify_runtime_dll.py target/debug/examples/libexecution_dll.so
       - if: runner.os == 'Windows'
         run: python tools/verify_runtime_dll.py target/debug/examples/execution_dll.dll
-
+      - if: runner.os == 'Linux'
+        run: |
+          cargo build --example module_lifetime --locked
+          python3 tools/verify_module_lifetime.py target/debug/examples/libmodule_lifetime.so
 
   windows-tools:
     name: Windows 工具端到端验证
@@ -70,6 +73,17 @@ jobs:
         run: |
           "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "C:\msys64\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: 验证框架 DLL 模块引用与卸载（x64 / x86）
+        shell: powershell
+        run: |
+          cargo build --example module_lifetime --locked --target x86_64-pc-windows-gnu
+          if ($LASTEXITCODE -ne 0) { throw 'x64 模块夹具构建失败' }
+          cargo build --example module_lifetime --locked --target i686-pc-windows-gnu
+          if ($LASTEXITCODE -ne 0) { throw 'x86 模块夹具构建失败' }
+          python tools/verify_module_lifetime.py target/x86_64-pc-windows-gnu/debug/examples/module_lifetime.dll --cc C:\msys64\mingw64\bin\gcc.exe
+          if ($LASTEXITCODE -ne 0) { throw 'x64 原生模块验证失败' }
+          python tools/verify_module_lifetime.py target/i686-pc-windows-gnu/debug/examples/module_lifetime.dll --cc C:\msys64\mingw32\bin\gcc.exe
+          if ($LASTEXITCODE -ne 0) { throw 'x86 原生模块验证失败' }
       - name: 安装框架 Cargo 子命令
         shell: powershell
         run: |

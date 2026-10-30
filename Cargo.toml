@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.15.0"
+version = "0.15.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
@@ -43,6 +43,9 @@ miresidian_instances = { version = "=0.15.0", path = "instances" }
 tokio = { version = "~1.53.3", features = ["rt-multi-thread", "sync", "time", "net", "io-util", "macros"] }
 futures-util = "=0.3.31"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.191"
+
 [dev-dependencies]
 trybuild = "1.0"
 
@@ -51,4 +54,11 @@ name = "execution_dll"
 path = "examples/execution_dll.rs"
 crate-type = ["cdylib"]
 required-features = ["instances"]
+test = false
+
+# Internal loader validation fixture; its probe exports are not node C ABI.
+[[example]]
+name = "module_lifetime"
+path = "examples/module_lifetime.rs"
+crate-type = ["cdylib"]
 test = false

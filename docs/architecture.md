@@ -305,6 +305,12 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 当前 C ABI 保持 v7；异步任务及显式跨实例批次现阶段通过 Rust API 使用。新增外部异步入口需独立评审并提升 ABI。
 
-本候选的 DLL 后台线程卸载保护尚待独立评审：C ABI v7 没有最终执行器关闭入口，宿主必须保持动态库加载至进程退出，不得在工作线程存活期间卸载。支持动态卸载的交付仍未完成；不得以本候选测试通过替代该项验证。
+0.15.1 为根运行时增加可释放的承载模块加载引用：启动业务池及生命周期池之前获取引用；回收全部工作线程后才释放引用。Windows 使用 FROM_ADDRESS 获取引用，不使用不可逆 PIN；Unix 用 dladdr 和 RTLD_NOLOAD 持有既有映射，不使用 NODELETE。主程序静态链接场景不增加动态库引用。
+
+宿主在任何入口调用期间仍须持有自己的加载引用。宿主释放自身引用时，框架引用保护存活工作线程；Rust 嵌入调用方排空任务、关闭实例并调用 shutdown_executor 后，框架额外引用可以释放。关闭同时检查两池的在途工作及外部执行器引用，任意池仍忙时两池都保持原状；线程回收期间阻止重建。
+
+C ABI v7 的现有同步接口保持参数、返回方式和文本内存契约。它不提供最终执行器关闭操作，因此 C 宿主释放句柄不保证立即卸载，空闲执行器可能将模块保持至进程退出。其他加载引用、线程局部析构以及租约服务的既有 Windows PIN 仍可延后实际卸载。外部异步任务接口属于可选扩展，本次没有加入。
+
+加载器边界依据 [Windows GetModuleHandleExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexw)、[FreeLibrary](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibrary) 和 [dlopen/dlclose](https://man7.org/linux/man-pages/man3/dlopen.3.html)；通过 libc 复用平台声明，不自行定义 Unix ABI。测试夹具 module_lifetime 的私有 probe 导出只用于原生加载器测试，不属于节点公共 C ABI。
 
 本轮 Linux Debug DLL 验证使用两个各等待 30ms 的模拟请求，5 次采样中位数：同步同实例 61.78ms、不同实例 30.96ms；async 同实例 64.08ms、不同实例 32.40ms。该观测仅说明示例的执行重叠，实际设备性能需另测。
