@@ -45,7 +45,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.89.0
       - run: cargo check --workspace --all-targets --all-features --locked
       - run: cargo test -p miresidian_lease --all-targets --all-features --locked
-      - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --test response_contract --test method_registry --test init_outputs --test lease_initialization --test concurrent_execution --test concurrent_handles --test async_operations --all-features --locked
+      - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --test response_contract --test method_registry --test init_outputs --test lease_initialization --test concurrent_execution --test concurrent_handles --test async_operations --test broadcast --all-features --locked
       - run: cargo build --example execution_dll --features instances --locked
       - if: runner.os == 'Linux'
         run: python3 tools/verify_runtime_dll.py target/debug/examples/libexecution_dll.so

@@ -179,7 +179,11 @@ fn shared_batch_excludes_other_requests_in_every_mode() {
         let batch = batch.join().unwrap().unwrap();
         other.join().unwrap().unwrap();
         assert_eq!(batch.as_slice().len(), 3);
-        assert_eq!(p.state.lock().unwrap().2, ["hold", "hold", "hold", "other"]);
+        if mode == "Broadcast" {
+            assert_eq!(p.state.lock().unwrap().2, ["hold", "other"]);
+        } else {
+            assert_eq!(p.state.lock().unwrap().2, ["hold", "hold", "hold", "other"]);
+        }
     }
 }
 #[test]

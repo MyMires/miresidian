@@ -86,13 +86,21 @@ fn shared_inputs_use_one_config_selected_stateful_object_in_all_modes() {
         if mode == "Parallel" {
             executed.sort();
         }
-        assert_eq!(executed, ["A:x:1", "A:x:2", "A:x:3"]);
+        if mode == "Broadcast" {
+            assert_eq!(executed, ["A:x:1", "A:x:1", "A:x:1"]);
+        } else {
+            assert_eq!(executed, ["A:x:1", "A:x:2", "A:x:3"]);
+        }
         assert_eq!(
             runtime
                 .invoke(&request("记录", &["A"], &["after"]))
                 .unwrap()
                 .as_slice(),
-            ["A:after:4"]
+            [if mode == "Broadcast" {
+                "A:after:2"
+            } else {
+                "A:after:4"
+            }]
         );
         assert_eq!(
             runtime
@@ -259,7 +267,11 @@ fn both_ffi_entries_accept_multiple_platform_inputs_for_one_reused_object() {
             if mode == "Parallel" {
                 output.sort();
             }
-            assert_eq!(output, ["A:x:1", "A:x:2"]);
+            if mode == "Broadcast" {
+                assert_eq!(output, ["A:x:1", "A:x:1"]);
+            } else {
+                assert_eq!(output, ["A:x:1", "A:x:2"]);
+            }
             assert_eq!(
                 call(&runtime, explicit, "记录", &["missing"], &["共享", "x"])["code"],
                 "UNKNOWN_CHANNEL"

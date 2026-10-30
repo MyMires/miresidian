@@ -5,7 +5,8 @@ use miresidian_codec::{InvocationOutput, MiresidianError, MiresidianResult};
 /// 在调用方提供的执行函数上处理各平台输入，并保持输出位置。
 ///
 /// 参数默认值仅用于判定缺失尾部输入是否可执行。调用方负责完整方法调用的资源互斥；
-/// parallel 为有效输入创建线程，执行失败后仍会等待已开始的输入完成。
+/// parallel 使用有界线程分发输入，等待已开始项完成；broadcast 只执行通道1，
+/// 将其完整输出复制到有效位置，不比较其他通道的参数值。
 pub fn invoke_multi_channel<F>(
     slots: &[Option<Vec<String>>],
     parameters: &[Option<&str>],
@@ -17,7 +18,17 @@ where
 {
     let plans = plan_multi_channel(slots, parameters, execution)?;
     match execution {
-        ExecutionMode::Sequential | ExecutionMode::Broadcast => plans
+        ExecutionMode::Broadcast => {
+            let output = match plans.first() {
+                Some(plan) => execute_channel(&call, plan, 0)?,
+                None => None,
+            };
+            Ok(plans
+                .iter()
+                .map(|plan| if plan.is_some() { output.clone() } else { None })
+                .collect())
+        }
+        ExecutionMode::Sequential => plans
             .iter()
             .enumerate()
             .map(|(index, plan)| execute_channel(&call, plan, index))
@@ -27,39 +38,20 @@ where
 }
 
 /// Validate and normalize a batch without executing user code. Shared by sync
-/// and native async frontends; positions and broadcast rules stay identical.
+/// and native async frontends. Broadcast preserves destination validity; when
+/// channel 1 is invalid, all positions are skipped without selecting a fallback.
 pub fn plan_multi_channel(
     slots: &[Option<Vec<String>>],
     parameters: &[Option<&str>],
     execution: ExecutionMode,
 ) -> MiresidianResult<Vec<Option<Vec<String>>>> {
-    let plans = channel_plans(slots, parameters);
-    if execution == ExecutionMode::Broadcast {
-        broadcast_plans(plans)
-    } else {
-        Ok(plans)
+    let mut plans = channel_plans(slots, parameters);
+    // Channel 1 is the fixed execution source. A missing/invalid source skips
+    // the entire broadcast instead of silently choosing another channel.
+    if execution == ExecutionMode::Broadcast && !plans.first().is_some_and(Option::is_some) {
+        plans.fill(None);
     }
-}
-
-/// 将全部有效通道参数计划收敛为第一份计划，并拒绝不一致的广播输入。
-fn broadcast_plans(plans: Vec<ChannelPlan>) -> MiresidianResult<Vec<ChannelPlan>> {
-    let Some(arguments) = plans.iter().flatten().next().cloned() else {
-        return Ok(plans);
-    };
-    if plans
-        .iter()
-        .flatten()
-        .any(|candidate| candidate != &arguments)
-    {
-        return Err(MiresidianError::InvalidArgument {
-            field: "多通道输入".to_owned(),
-            message: "广播执行要求各通道 Input 参数完全一致".to_owned(),
-        });
-    }
-    Ok(plans
-        .into_iter()
-        .map(|plan| plan.map(|_| arguments.clone()))
-        .collect())
+    Ok(plans)
 }
 
 /// 单个平台通道输入的执行计划；`None` 表示该输入被跳过。

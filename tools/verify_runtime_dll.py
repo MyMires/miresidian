@@ -47,6 +47,13 @@ def main():
                     samples.append((time.perf_counter() - started) * 1000)
                 timings[f'{operation}/{label}'] = round(statistics.median(samples), 2)
     print('observed median pair latency in ms:', json.dumps(timings))
+    for operation in ('Record', 'RecordAsync'):
+        key = f'broadcast-{operation}'
+        call('InitDevice', [key, 'Broadcast'])
+        assert call(operation, [key], ['共享', '10', '20', '', '30']) == ['1,10', '1,10', '', '1,10']
+        assert call(operation, [key], ['共享', '', '20']) == ['', '']
+        assert call(operation, [key], ['11']) == ['2', '11']
+    print('broadcast channel 1 executes once; differing inputs and skipped destinations passed')
     call('CloseAllDevices')
     print(f'native DLL overlap passed; ABI {library.miresidian_abi_version()}')
 

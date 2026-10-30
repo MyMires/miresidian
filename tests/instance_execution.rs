@@ -110,7 +110,11 @@ fn fixed<const POLICY: usize>() {
     if POLICY == 1 {
         output.sort();
     }
-    assert_eq!(output, ["A:x:1", "A:x:2", "A:x:3"]);
+    if POLICY == 2 {
+        assert_eq!(output, ["A:x:1", "A:x:1", "A:x:1"]);
+    } else {
+        assert_eq!(output, ["A:x:1", "A:x:2", "A:x:3"]);
+    }
     runtime.invoke(&request("InitDevice", &["B"], &[])).unwrap();
     assert!(runtime.invoke(&request("计数", &["A"], &["x"])).is_err());
     assert_eq!(
@@ -133,21 +137,23 @@ fn fixed_parallel_serializes_object_mutation_and_preserves_output_positions() {
 }
 
 #[test]
-fn fixed_broadcast_executes_each_matching_input_on_one_instance() {
+fn fixed_broadcast_executes_channel_one_once_and_copies_its_output() {
     fixed::<2>();
     let runtime = NodeRuntime::<PolicyNode<2>>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
-    assert!(
+    assert_eq!(
         runtime
             .invoke(&request("计数", &["A"], &["共享", "x", "y"]))
-            .is_err()
+            .unwrap()
+            .as_slice(),
+        ["A:x:1", "A:x:1"]
     );
     assert_eq!(
         runtime
-            .invoke(&request("计数", &["A"], &["x"]))
+            .invoke(&request("计数", &["A"], &["after"]))
             .unwrap()
             .as_slice(),
-        ["A:x:1"]
+        ["A:after:2"]
     );
 }
 
@@ -162,10 +168,12 @@ fn selectable_uses_the_declared_default_for_missing_or_blank_values() {
         runtime
             .invoke(&request("InitDevice", &config, &[]))
             .unwrap();
-        assert!(
+        assert_eq!(
             runtime
                 .invoke(&request("计数", &["A"], &["共享", "x", "y"]))
-                .is_err()
+                .unwrap()
+                .as_slice(),
+            ["A:x:1", "A:x:1"]
         );
     }
     let runtime = NodeRuntime::<PolicyNode<3>>::new();

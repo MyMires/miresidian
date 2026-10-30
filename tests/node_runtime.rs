@@ -395,7 +395,7 @@ fn config_keys_create_reuse_and_shared_dispatches_each_channel() {
 }
 
 #[test]
-fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
+fn broadcast_uses_channel_one_and_preserves_channel_output_positions() {
     let runtime = NodeRuntime::<MemoryNode>::new();
     runtime
         .invoke(&request(INIT_DEVICE_OPERATION, &["A", "Broadcast"], &[]))
@@ -409,14 +409,10 @@ fn broadcast_uses_one_verified_plan_and_preserves_channel_outputs() {
         .unwrap();
     assert_eq!(output.as_slice(), ["A:*IDN?", "A:*IDN?"]);
 
-    let error = runtime
+    let output = runtime
         .invoke(&request("Query", &["A"], &["共享", "first", "second"]))
-        .expect_err("广播输入不一致必须拒绝");
-    assert!(
-        error
-            .to_string()
-            .contains("广播执行要求各通道 Input 参数完全一致")
-    );
+        .unwrap();
+    assert_eq!(output.as_slice(), ["A:first", "A:first"]);
 }
 
 #[test]

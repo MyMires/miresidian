@@ -47,6 +47,16 @@ impl ExecutionNode {
         Ok(self.calls)
     }
     #[miresidian::operation]
+    fn record(&mut self, value: u32) -> MiresidianResult<(u32, u32)> {
+        self.calls += 1;
+        Ok((self.calls, value))
+    }
+    #[miresidian::operation]
+    async fn record_async(&mut self, value: u32) -> MiresidianResult<(u32, u32)> {
+        tokio::task::yield_now().await;
+        self.record(value)
+    }
+    #[miresidian::operation]
     fn delay(&mut self, milliseconds: u64) -> MiresidianResult<()> {
         std::thread::sleep(Duration::from_millis(milliseconds));
         Ok(())

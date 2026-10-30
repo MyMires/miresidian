@@ -314,3 +314,22 @@ C ABI v7 的现有同步接口保持参数、返回方式和文本内存契约�
 加载器边界依据 [Windows GetModuleHandleExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexw)、[FreeLibrary](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibrary) 和 [dlopen/dlclose](https://man7.org/linux/man-pages/man3/dlopen.3.html)；通过 libc 复用平台声明，不自行定义 Unix ABI。测试夹具 module_lifetime 的私有 probe 导出只用于原生加载器测试，不属于节点公共 C ABI。
 
 本轮 Linux Debug DLL 验证使用两个各等待 30ms 的模拟请求，5 次采样中位数：同步同实例 61.78ms、不同实例 30.96ms；async 同实例 64.08ms、不同实例 32.40ms。该观测仅说明示例的执行重叠，实际设备性能需另测。
+
+0.16.0 广播语义以[实例规范](instances.md#broadcast-的执行源与输出规则0160)为准：固定调用通道1一次并复制完整输出，其他通道无需同值；跳过目标保持空槽位，源通道被跳过时整批跳过，不选择后续源。此次同步与 Future 调度同时修正，并以实际业务计数等于1验收。
+
+## 关键契约与直接验收场景
+
+框架行为以明确的执行次数、并发关系和输出位置验收，不能用实现内部一致或测试通过替代业务语义确认。
+
+| 当前契约 | 直接验收证据 |
+| --- | --- |
+| 不同实例可同时执行业务；C 入口仍同步返回 | concurrent_execution：两个既有 C 入口的执行开始信号必须重叠；同步返回不等于全 DLL 串行 |
+| 相同 Handle 指向同一对象，不同 Handle 可指向独立对象 | concurrent_handles：相同业务配置的两个 Handle 同时进入业务 |
+| 同实例整个多通道批次排斥其他请求 | concurrent_execution：批次业务轨迹之后才出现普通请求 |
+| Broadcast 的源是通道1，业务仅调用一次 | broadcast：输入 [10,20,空,30] 输出 [R,R,空,R]，随后查询实际业务计数为1 |
+| 空通道1不切换源；源失败不改用其他通道 | broadcast：后续有有效输入也必须保持业务0次或源失败1次 |
+| 原生 async 等待时不占同步阻塞线程 | concurrent_execution：配置足够预算后，超过阻塞池线程数的 async 等待任务全部开始 |
+| 取消是协作请求，不提前释放正在执行的实例 | concurrent_execution：排队任务不执行；运行中任务安全结束后才完成清理 |
+| 执行器模块引用在线程退出后可释放 | module_lifetime 原生宿主：释放宿主引用、后台完成、关停、卸载和重新加载 |
+
+广播的完整规范与迁移以[实例规范](instances.md#broadcast-的执行源与输出规则0160)为唯一详细定义；其他页面只引用或摘要该契约。

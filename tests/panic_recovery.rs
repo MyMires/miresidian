@@ -207,7 +207,7 @@ fn shared_panic_isolation_covers_all_execution_modes() {
                 .invoke(&request("InitDevice", &[name, mode], &[]))
                 .unwrap();
         }
-        let second = if mode == "Broadcast" { "panic" } else { "ok" };
+        let second = "ok";
         let error = runtime
             .invoke(&request(
                 "执行",

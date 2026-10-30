@@ -28,7 +28,13 @@ pub(super) async fn invoke_multi_channel<N: DeviceNode>(
                 .map_err(|e| e.with_context(format!("通道 {} 执行失败", index + 1))),
         }
     };
-    let slots = if execution == ExecutionMode::Parallel {
+    let slots = if execution == ExecutionMode::Broadcast {
+        let output = execute(0, plans.first().cloned().flatten()).await?;
+        plans
+            .into_iter()
+            .map(|plan| if plan.is_some() { output.clone() } else { None })
+            .collect()
+    } else if execution == ExecutionMode::Parallel {
         // Futures wait on the instance mutex without allocating OS threads;
         // every admitted item settles before returning the first indexed error.
         futures_util::future::join_all(plans.into_iter().enumerate().map(|(i, p)| execute(i, p)))

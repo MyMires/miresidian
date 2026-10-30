@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.15.1"
+version = "0.16.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
@@ -38,7 +38,7 @@ serde_json = "1.0"
 miresidian_lease = { version = "=0.14.0", path = "lease" }
 serde = { version = "1.0", features = ["derive"] }
 
-miresidian_instances = { version = "=0.15.0", path = "instances" }
+miresidian_instances = { version = "=0.16.0", path = "instances" }
 
 tokio = { version = "~1.53.3", features = ["rt-multi-thread", "sync", "time", "net", "io-util", "macros"] }
 futures-util = "=0.3.31"

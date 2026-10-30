@@ -220,14 +220,16 @@ fn selectable_execution_belongs_to_each_handle_object() {
     let mut runtime = NodeRuntime::<HandleNode>::new();
     init(&mut runtime, "broadcast", "Broadcast");
     init(&mut runtime, "parallel", "Parallel");
-    assert!(
+    assert_eq!(
         runtime
             .invoke(&request(
                 "计数",
                 &["device", "9600", "broadcast"],
                 &["共享", "x", "y"]
             ))
-            .is_err()
+            .unwrap()
+            .as_slice(),
+        ["device:9600:x:1", "device:9600:x:1"]
     );
     assert_eq!(
         runtime
@@ -238,7 +240,7 @@ fn selectable_execution_belongs_to_each_handle_object() {
             ))
             .unwrap()
             .as_slice(),
-        ["device:9600:x:1", "device:9600:x:2"]
+        ["device:9600:x:2", "device:9600:x:2"]
     );
     let output = runtime
         .invoke(&request(
