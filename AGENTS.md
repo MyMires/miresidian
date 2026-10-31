@@ -16,3 +16,9 @@
 其他编码、文档和测试规则见 [编码规范](docs/coding-standards.md)。
 
 框架各 crate 与开发工具按各自实际变更独立判断版本，不因框架根 crate 升版而无关跟升。内部精确依赖应匹配被依赖 crate 的实际版本。
+
+## Node skill 同步维护
+
+- 完整的 Node 项目 skill 保存在 `skills/miresidian-node/`，纳入框架版本控制；主文档指导项目开发、验证和交付，工具用法保留在子文档。
+- 修改该 skill 的仓库副本或已安装版本时，必须在同次任务中同步另一份完整内容，包括主文档、引用文档、UI 元数据及维护规则；不得只更新其中一份或只复制 `SKILL.md`。
+- 具体同步与验证要求见 `skills/miresidian-node/AGENTS.md`。纯 skill 规范修改评估并记录版本影响，不触发无关框架/工具升版或全量构建验证。
