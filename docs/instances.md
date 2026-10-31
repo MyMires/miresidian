@@ -16,7 +16,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.16.5", features = ["instances"] }
+miresidian = { version = "=0.16.6", features = ["instances"] }
 ```
 
 ```rust,ignore

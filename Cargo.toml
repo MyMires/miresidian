@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.16.5"
+version = "0.16.6"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
