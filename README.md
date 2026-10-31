@@ -1,6 +1,6 @@
 # Miresidian
 
-Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.16.3**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust 运行时框架，为不同语言的测试平台提供统一调用模型。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.16.4**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -41,7 +41,7 @@ Miresidian 是面向测试设备、DUT 通信与测试平台通用能力的 Rust
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.16.3"
+miresidian = "=0.16.4"
 ```
 
 ```rust
@@ -79,4 +79,4 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-0.16.3 为当前源码候选；发布前外部项目继续使用已发布精确版本，不允许本地覆盖。
+0.16.4 为当前源码候选；发布前外部项目继续使用已发布精确版本，不允许本地覆盖。

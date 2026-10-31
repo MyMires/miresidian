@@ -21,7 +21,7 @@ jobs:
         env:
           MIRESIDIAN_VERSION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python tools/check_versions.py --base "$MIRESIDIAN_VERSION_BASE" --check-commits
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.97.0
         with:
           components: rustfmt, clippy
 
@@ -62,20 +62,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.97.0
         with:
           targets: x86_64-pc-windows-gnu, i686-pc-windows-gnu
       - uses: msys2/setup-msys2@v2
+        id: msys2
         with:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc mingw-w64-i686-gcc
       - name: 配置 MinGW 链接器
         shell: powershell
         run: |
-          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "C:\msys64\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=C:\msys64\mingw64\bin\gcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=C:\msys64\mingw32\bin\gcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $msysRoot = '${{ steps.msys2.outputs.msys2-location }}'
+          $cc64 = Join-Path $msysRoot 'mingw64\bin\gcc.exe'
+          $cc32 = Join-Path $msysRoot 'mingw32\bin\gcc.exe'
+          if (-not (Test-Path $cc64) -or -not (Test-Path $cc32)) { throw 'MinGW compiler missing' }
+          (Split-Path $cc64) | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          (Split-Path $cc32) | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=$cc64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=$cc32" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MIRESIDIAN_CC_X64=$cc64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MIRESIDIAN_CC_X86=$cc32" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: 验证框架 DLL 模块引用与卸载（x64 / x86）
         shell: powershell
         run: |
@@ -83,9 +90,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'x64 模块夹具构建失败' }
           cargo build --example module_lifetime --locked --target i686-pc-windows-gnu
           if ($LASTEXITCODE -ne 0) { throw 'x86 模块夹具构建失败' }
-          python tools/verify_module_lifetime.py target/x86_64-pc-windows-gnu/debug/examples/module_lifetime.dll --cc C:\msys64\mingw64\bin\gcc.exe
+          python tools/verify_module_lifetime.py target/x86_64-pc-windows-gnu/debug/examples/module_lifetime.dll --cc $env:MIRESIDIAN_CC_X64
           if ($LASTEXITCODE -ne 0) { throw 'x64 原生模块验证失败' }
-          python tools/verify_module_lifetime.py target/i686-pc-windows-gnu/debug/examples/module_lifetime.dll --cc C:\msys64\mingw32\bin\gcc.exe
+          python tools/verify_module_lifetime.py target/i686-pc-windows-gnu/debug/examples/module_lifetime.dll --cc $env:MIRESIDIAN_CC_X86
           if ($LASTEXITCODE -ne 0) { throw 'x86 原生模块验证失败' }
       - name: 安装框架 Cargo 子命令
         shell: powershell

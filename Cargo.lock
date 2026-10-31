@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.16.3"
+version = "0.16.4"
 dependencies = [
  "futures-util",
  "inventory",
