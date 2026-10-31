@@ -1,6 +1,6 @@
 # Miresidian CLI
 
-独立版本 **0.1.0**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
+独立版本 **0.2.0**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
 两个后端各自为 **0.12.0**，继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
 
 ## 完整指令与实际调用
@@ -31,49 +31,83 @@ new/check/build/pack --help 转发独立工具的帮助；testflow --help 在入
 同目录后端优先于 PATH。版本探测需要至少清单中的后端版本；缺失或过旧时提示安装，
 不自动下载。后端标准流、工作目录、普通退出码透传；异常退出返回 1。
 
-## 整套下载与安装
+## Cargo 全局安装、升级与版本切换
 
-发行套件为 miresidian-tools-0.1.0-linux-x64.tar.gz 或 miresidian-tools-0.1.0-windows-x64.zip。
-每个压缩包包含四个独立程序与 manifest.json，旁边有同名 .sha256 文件。
-Windows 程序带 .exe。工具宿主系统与节点 DLL 的 x64/x86 架构分别管理。
+三个 crate 保持独立；所有用户安装都由 Cargo 完成，不依赖 Python 或额外安装脚本。
+首次安装入口，然后安装全部后端：
 
-安装器需要 Python 3.11+（仅安装步骤），运行工具仍需 Rust/Cargo、对应 target 和链接器。
-首次公开发行前应从检出目录安装或使用本地生成套件；本次更新不上传 GitHub、不发布 crates.io。
-公开发行后，从该版本 GitHub Release 下载 install.py 即可一次安装全部工具：
+    cargo install miresidian_cli
+    cargo miresidian install --full
 
-    python3 install.py --version 0.1.0
+也可以一条原生命令安装三个包：
 
-Windows 使用 py -3 install.py；省略 --version 时，从公开正式套件中选择最新版本，
-不会把框架发布误认为工具套件。可指定 --install-dir。默认安装到用户 .miresidian/bin，
-与 Cargo 独立安装记录分开；只提示 PATH，不修改 shell 或系统配置。
+    cargo install miresidian_cli miresidian_pack miresidian_testflow_windows
 
-Shell/PowerShell 包装器与 install.py 一起使用：
+CLI 安装本身只安装 cargo-miresidian 和 cargo-mires；--full 是 CLI 子命令参数，
+不能写成 cargo install miresidian_cli --full。new 直接使用已安装 Pack，不进行临时安装。
 
-    sh distribution/install.sh --version 0.1.0
-    powershell -File distribution/install.ps1 -Version 0.1.0
+| 管理指令（也支持 cargo mires） | 实际 Cargo 调用 |
+| --- | --- |
+| install --full | cargo install miresidian_pack miresidian_testflow_windows |
+| install --full --pack-version 0.12.0 --testflow-version 0.12.0 | cargo install miresidian_pack@0.12.0 miresidian_testflow_windows@0.12.0 |
+| install pack --version 0.12.0 | cargo install miresidian_pack@0.12.0 |
+| update --full | cargo install miresidian_pack miresidian_testflow_windows |
+| update pack | cargo install miresidian_pack |
+| use pack 0.10.0 | cargo install miresidian_pack@0.10.0 |
+| use testflow 0.12.0 | cargo install miresidian_testflow_windows@0.12.0 |
+| list | cargo install --list |
 
-本地构建与安装（在框架根目录）：
+--full 管理清单登记的全部后端；各工具支持别名和完整 crate 名。未指定版本时由 Cargo
+选择最新正式版；显式指定时支持升级、降级及预发布版本，版本须为完整语义版本号。
+切换到缺少新命令的旧工具时会说明兼容性要求，不静默升级。
+
+常用 Cargo 参数直接透传（例如 --locked、--offline、--root、--force），其他参数放在 -- 后。
+批量指定版本用各工具自己的 --<别名>-version；单个工具用 --version。
+批量失败可能已有部分工具完成安装，保持 Cargo 原生行为，可用 list 检查，不自动回滚或重试。
+
+默认使用 Cargo 的用户级安装根目录，通常为 CARGO_HOME 或用户 .cargo，程序位于其 bin 下。
+--root、CARGO_INSTALL_ROOT 和 Cargo install.root 配置遵循 Cargo 优先级；不建立项目内工具目录。
+同一安装根目录每个工具使用一个安装版本，新版本替换旧版本，不默认保留并存版本。
+项目源码、节点 Cargo.toml 和 Cargo.lock 不因管理命令而改变。
+
+CLI 本体使用原生 Cargo 命令更新或切换，避免运行中的 CLI 替换自身：
+
+    cargo install miresidian_cli
+    cargo install miresidian_cli --version 0.2.0
+
+公开发行前可在框架根目录从源码安装（同样由 Cargo 管理安装记录）：
+
+    cargo install --path tools/miresidian-pack
+    cargo install --path tools/miresidian-testflow-windows
+    cargo install --path tools/miresidian-cli
+
+## 开发者发行构建
+
+Python 仅用于仓库内部构建和测试，不是用户安装前提。可选的预编译压缩包仍包含四个
+独立程序和 manifest.json，不附加用户安装器：
 
     python3 tools/miresidian-cli/distribution/bundle.py --host linux-x64
-    python3 tools/miresidian-cli/distribution/install.py --archive dist-tools/miresidian-tools-0.1.0-linux-x64.tar.gz --install-dir /tmp/miresidian-tools/bin
+    python3 tools/miresidian-cli/distribution/bundle.py --host windows-x64
 
-Windows 的 --host 为 windows-x64，生成 zip。bundle 检查清单/Cargo.toml/实际程序版本一致，
-读取 Cargo 实际 target_directory，执行 --release --locked 构建；--bin-dir 可使用已构建程序。
-安装前核对压缩包摘要、文件摘要、宿主和清单，拒绝路径穿越、链接及未登记文件；
-全部验证通过后才写安装目录。原工具仍可以分别 cargo install。
+仅在对应 x64 宿主构建；输出名含套件版本 0.2.0，附 SHA-256。
+Cargo 安装是正式用户安装方式，归档文件用于分发和开发验证，不改 Cargo 安装记录。
 
 ## 后续工具接入
 
 toolset.toml 同时登记独立工具版本、二进制和命令路由；新增工具时增加工具与路由条目，
 并增加对应的参数转换和进程测试。普通路由可以原样转发参数；系统选择型路由使用 os。
-发行脚本读取同一清单自动构建、收集新工具，安装器按清单校验额外的 cargo-* 程序。
+发行脚本读取同一清单构建、收集新工具；登记别名后，--full 安装/升级与版本选项自动包含该后端。
 不引入动态插件协议。
 
 ## 验证与发布
 
     cargo test -p miresidian_cli --locked
     python3 -m unittest discover -s tools/tests -v
+    python3 tools/miresidian-cli/distribution/verify.py
+    python3 tools/miresidian-cli/distribution/release.py
 
-工具套件 workflow 在 Linux/Windows 构建、安装并验证命令和摘要，默认仅上传 Actions 构建产物。
-手动将 publish 设置为 true 时才创建 CLI 版本标签对应的草稿 Release，附加两个宿主包及安装器。
-检查并公开该草稿后，在线安装器才可下载。标签不可移动；版本来自 CLI 和套件清单。
+release.py 默认只执行 dry-run，显式 --publish 才上传。发布前检查干净工作区、组件标签及版本清单，已发布的同版本跳过；批次发布不改变各组件独立版本。
+
+工具套件 workflow 在 Linux/Windows 通过原生 Cargo 安装并验证命令与记录，默认仅上传构建产物。
+手动将 publish 设置为 true 时，先按清单发布未发布的后端、再发布 CLI，然后创建对应标签的草稿 Release，附加两个宿主包。
+Cargo 发布后即可原生安装；草稿公开控制 GitHub 归档下载。标签不可移动，版本来自各 Cargo.toml 与套件清单。

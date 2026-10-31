@@ -28,7 +28,7 @@ fn invoke(binary: &str, package: &str, minimum: &str, args: &[OsString]) -> Resu
     let path = executable(binary)?;
     let missing = || {
         format!(
-            "找不到 {binary}；请安装完整工具套件，或执行 cargo install {package} --version {minimum} --locked"
+            "找不到 {binary}；请执行 cargo miresidian install --full，或 cargo install {package} --version {minimum} --locked"
         )
     };
     let version = Command::new(&path).arg("--version").output().map_err(|e| {
@@ -46,7 +46,7 @@ fn invoke(binary: &str, package: &str, minimum: &str, args: &[OsString]) -> Resu
     let minimum = semver::Version::parse(minimum).map_err(|e| e.to_string())?;
     if !version.status.success() || parsed.is_none_or(|v| v < minimum) {
         return Err(format!(
-            "{binary} 版本过旧或无法识别；需要至少 {minimum}，请升级独立工具或重新安装套件"
+            "{binary} 版本过旧或无法识别；此命令需要至少 {minimum}，请执行 cargo miresidian update --full；不会自动覆盖你选择的旧版本"
         ));
     }
     let status = Command::new(path)
@@ -58,6 +58,7 @@ fn invoke(binary: &str, package: &str, minimum: &str, args: &[OsString]) -> Resu
 
 fn execute() -> Result<i32, String> {
     match routing::parse(env::args_os().skip(1).collect())? {
+        Action::Manage(action) => super::manage::execute(action),
         Action::Help => {
             println!("{}", routing::HELP);
             Ok(0)

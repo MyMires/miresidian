@@ -68,8 +68,6 @@ def bundle(host, output, bin_dir=None):
                 for file in sorted(stage.iterdir()):
                     package.add(file, arcname=file.name)
         archive.with_name(archive.name + ".sha256").write_text(f"{digest(archive)}  {archive.name}\n", encoding="ascii")
-    for name in ("install.py", "install.sh", "install.ps1"):
-        shutil.copy2(Path(__file__).with_name(name), output / name)
     print(archive)
     return archive
 

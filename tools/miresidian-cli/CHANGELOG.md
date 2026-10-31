@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0] - 2026-11-01
+
+- 新增 install/update/use/list，通过 Cargo 安装、升级、切换各独立后端版本并保留原生安装记录；支持 --full、各工具版本及常规 Cargo 参数。
+- 所有工具默认安装到 Cargo 用户目录；CLI 本体由原生 cargo install 更新，同一根目录每个工具只保留当前版本。
+- 删除 Python 用户安装器及 Shell/PowerShell 包装；保留开发构建脚本，验证流程改为真实 Cargo 安装。
+- 发行清单登记工具别名，新增后端自动纳入 --full；批次发布先后端后 CLI，不发布无关框架 crate。
+- 验证包含真实 Cargo 安装、降级、再升级和记录检查，含空格参数、双入口、退出码及错误参数验证。
+- 本地验证：格式、默认/全特性 Clippy 与工作区测试、19 项版本门禁回归、registry 模板、真实 Cargo 安装与版本替换、Rust 1.89、Release 和 Rustdoc 通过；原生 Windows 验证由 CI 执行。
+
 ## [0.1.0] - 2026-11-01
 
 - 首个独立 CLI 版本，提供 cargo miresidian 与 cargo mires 两个等价入口，通过进程调用原工具。

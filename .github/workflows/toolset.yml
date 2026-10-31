@@ -2,6 +2,7 @@ name: 独立工具套件
 
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -42,7 +43,7 @@ jobs:
           archive=$(python tools/miresidian-cli/distribution/bundle.py --host ${{ matrix.host }})
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
       - name: 从套件安装并验证统一指令
-        run: python tools/miresidian-cli/distribution/verify.py --archive "${{ steps.bundle.outputs.archive }}"
+        run: python tools/miresidian-cli/distribution/verify.py
       - uses: actions/upload-artifact@v4
         with:
           name: miresidian-tools-${{ matrix.host }}
@@ -58,6 +59,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: 按清单发布后端，再发布 CLI
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: python tools/miresidian-cli/distribution/release.py --publish
       - uses: actions/download-artifact@v4
         with:
           pattern: miresidian-tools-*
