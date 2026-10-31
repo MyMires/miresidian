@@ -41,6 +41,24 @@ CloseAllDevices()
 
 生成命令不构建 DLL。在 Windows 用匹配架构的 DLL/PowerShell 加载环境执行 tools\\smoke.bat；自动化设置 MIRESIDIAN_TESTFLOW_NO_PAUSE=1，核对退出码和输出。BAT 相对自身目录查找流程与 ../dist，保持相对结构。不存在 generate 子命令或 --platform 参数。
 
+## Feature 配置的检查与构建
+
+能力配置与节点声明见 [框架能力与 features](features.md)。通常在依赖声明中固定实际需要的 features，再运行普通检查、测试和打包，使交付使用同一配置。
+
+```text
+# 检查当前节点实际解析到的框架 feature（在节点项目运行）。
+cargo tree --locked -e features -i miresidian
+# 临时启用依赖 feature，只用于相应诊断/检查，不修改 Cargo.toml。
+cargo check --locked --features miresidian/instances
+# 节点确有 multi-device 转发 feature 时才可使用。
+cargo check --locked --features multi-device
+cargo test --locked --features multi-device
+```
+
+不能在未定义同名项目 feature 的节点中直接写 --features instances，来假设会开启框架依赖。--all-features 也不是独立开启依赖全部 features 的通用替代方式。
+
+CLI/Pack 当前 build、pack 没有 --features 或 --no-default-features 选项；不要构造 cargo miresidian pack --features ...。Pack 调用普通 release/locked 构建，节点交付需要的能力应在依赖 features 或项目默认 features 中有效启用。特殊非默认组合可由原生 Cargo 单独检查/构建，但不能声称 Pack 已支持该组合参数。
+
 ## 仅在缺少工具或确需调整版本时
 
 ```text

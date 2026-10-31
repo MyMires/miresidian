@@ -59,6 +59,8 @@ GetFunctions、GetInitConfig、GetFrameworkVersion、GetProjectVersion 及 Close
 
 ## 按需求启用实例与共享能力
 
+依赖 features、节点声明和运行时行为必须配套，具体选择与可复制的配置见 [框架能力与 features](features.md)。不能只描述概念而不落实 Cargo.toml 和节点代码。
+
 先判断是否需要同时保留多个设备对象。默认是单实例；只开启 instances feature 不改变默认行为，需要同时启用依赖 feature 和对应 instances(...) 声明。
 
 multiple/config 以 Config[0] 关联对象：空主键跳过初始化，相同主键且配置相同复用，配置不一致报错。handle 关联由框架在业务配置后追加 Handle，不能把它混入业务参数索引。
