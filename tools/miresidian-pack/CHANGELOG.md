@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-01
+
+- 增加独立 --build 与显式 --pack、--node 和 --arch；保留旧位置参数、--new、--check 用法。
+- 初始化支持 --miresidian-version/--mires-version，默认由 Cargo 查询最新未撤回正式版，选定后精确锁定；离线须显式选版。
+- 模板按入口/业务职责拆分并补齐关键注释，生成有引号参数与配置选择的烟测流程；构建使用 --locked。
+- 明确目标缺失诊断、构建和交付职责及残留架构提示；不修改框架 API。
+- 验证：格式、默认/全特性 Clippy 与工作区测试、显式 registry 模板编译、Rust 1.89、Release 和 Rustdoc 均通过。
+- 端到端实测默认最新版节点的 Linux 原生 C ABI 回显，以及 Windows x64/x86 构建、导出、manifest 与 SHA-256；未在本地 Windows 原生加载。
+
 ## [0.11.0] - 2026-10-30
 
 - 新增 --new 最小单实例回显模板；默认依赖已发布框架 =0.14.0，Cargo 生成锁文件，拒绝覆盖既有目录。

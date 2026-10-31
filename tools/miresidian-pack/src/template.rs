@@ -8,9 +8,6 @@ use std::{
 
 use cargo_metadata::semver::Version;
 
-/// 与独立烟测夹具相同的已发布基线，不随框架源码候选版本联动。
-const DEFAULT_FRAMEWORK: &str = "0.14.0";
-
 pub(crate) struct TemplateRequest {
     directory: PathBuf,
     package: String,
@@ -46,7 +43,11 @@ impl TemplateRequest {
         for option in &mut options {
             match option[0].as_str() {
                 "--name" if name.is_none() => name = Some(option[1].clone()),
-                "--framework-version" if version.is_none() => version = Some(option[1].clone()),
+                "--framework-version" | "--miresidian-version" | "--mires-version"
+                    if version.is_none() =>
+                {
+                    version = Some(option[1].clone())
+                }
                 _ => return Err(crate::cli::usage()),
             }
         }
@@ -55,12 +56,10 @@ impl TemplateRequest {
         }
         let name = name.unwrap_or_else(|| package.clone());
         crate::validate::validate_node_name(&name)?;
-        let version = version.unwrap_or_else(|| DEFAULT_FRAMEWORK.to_owned());
-        let parsed = Version::parse(&version)
-            .map_err(|_| "--framework-version 须是完整版本号，例如 0.14.0")?;
-        if parsed < Version::new(0, 14, 0) {
-            return Err("模板要求框架版本至少为 0.14.0，且提供 ABI v7".into());
+        if let Some(version) = &version {
+            validate_version(version)?;
         }
+        let version = version.unwrap_or_default();
         Ok(Self {
             directory,
             package,
@@ -70,7 +69,22 @@ impl TemplateRequest {
     }
 }
 
-pub(crate) fn create(request: TemplateRequest) -> Result<(), String> {
+pub(crate) fn create(mut request: TemplateRequest) -> Result<(), String> {
+    if request.directory.exists() {
+        return Err("模板目录已存在，拒绝覆盖".into());
+    }
+    let parent = request
+        .directory
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    if !parent.is_dir() {
+        return Err("模板父目录必须已经存在".into());
+    }
+    if request.version.is_empty() {
+        request.version = crate::framework::latest()?;
+    }
+    validate_version(&request.version)?;
     write_project(&request)?;
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let status = Command::new(cargo)
@@ -103,6 +117,14 @@ pub(crate) fn create(request: TemplateRequest) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_version(version: &str) -> Result<(), String> {
+    let parsed = Version::parse(version).map_err(|_| "框架版本须是完整版本号，例如 0.14.0")?;
+    if parsed < Version::new(0, 14, 0) {
+        return Err("模板要求框架版本至少为 0.14.0，且提供 ABI v7".into());
+    }
+    Ok(())
+}
+
 fn write_project(request: &TemplateRequest) -> Result<(), String> {
     // 原子地取得新目录；即使既有目录为空也不覆盖。后续失败保留文件供检查。
     fs::create_dir(&request.directory).map_err(|e| {
@@ -111,7 +133,7 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
             request.directory.display()
         )
     })?;
-    for directory in ["src", "docs"] {
+    for directory in ["src", "docs", "tools"] {
         fs::create_dir(request.directory.join(directory)).map_err(|e| e.to_string())?;
     }
     let date = utc_date(
@@ -127,6 +149,14 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
             include_str!("../templates/Cargo.toml.in"),
         ),
         ("src/lib.rs".into(), include_str!("../templates/lib.rs.in")),
+        (
+            "src/node.rs".into(),
+            include_str!("../templates/node.rs.in"),
+        ),
+        (
+            "tools/smoke.testflow".into(),
+            include_str!("../templates/smoke.testflow.in"),
+        ),
         (
             "README.md".into(),
             include_str!("../templates/README.md.in"),
@@ -197,6 +227,31 @@ fn utc_date(days: u64) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn 版本别名等价且不能同时提供() {
+        assert!(request(&["demo", "--mires-version", ""]).is_err());
+        for flag in [
+            "--miresidian-version",
+            "--mires-version",
+            "--framework-version",
+        ] {
+            assert_eq!(
+                request(&["demo", flag, "0.14.0"]).unwrap().version,
+                "0.14.0"
+            );
+        }
+        assert!(
+            request(&[
+                "demo",
+                "--mires-version",
+                "0.14.0",
+                "--miresidian-version",
+                "0.14.0"
+            ])
+            .is_err()
+        );
+    }
+
     fn request(args: &[&str]) -> Result<TemplateRequest, String> {
         TemplateRequest::from_args(&args.iter().map(|s| (*s).into()).collect::<Vec<_>>())
     }
@@ -204,7 +259,7 @@ mod tests {
     #[test]
     fn 模板默认发布基线且拒绝非法名称和版本() {
         let default = request(&["demo-node"]).unwrap();
-        assert_eq!(default.version, "0.14.0");
+        assert_eq!(default.version, "");
         assert_eq!(default.name, "demo-node");
         for args in [
             vec!["demo", "--framework-version", "^0.14"],
@@ -238,7 +293,14 @@ mod tests {
     fn 模板只写精确发布依赖且不覆盖目录() {
         let temp = crate::test_support::TempDir::new();
         let path = temp.0.join("demo-node");
-        let template = request(&[path.to_str().unwrap(), "--name", "演示设备"]).unwrap();
+        let template = request(&[
+            path.to_str().unwrap(),
+            "--name",
+            "演示设备",
+            "--mires-version",
+            "0.14.0",
+        ])
+        .unwrap();
         write_project(&template).unwrap();
         let manifest: toml::Value =
             toml::from_str(&fs::read_to_string(path.join("Cargo.toml")).unwrap()).unwrap();
@@ -252,6 +314,7 @@ mod tests {
             "锁文件须由 Cargo 生成，不能伪造"
         );
         syn::parse_file(&fs::read_to_string(path.join("src/lib.rs")).unwrap()).unwrap();
+        syn::parse_file(&fs::read_to_string(path.join("src/node.rs")).unwrap()).unwrap();
         assert_eq!(
             crate::source::find_node_name(&path.join("src"))
                 .unwrap()

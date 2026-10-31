@@ -31,3 +31,16 @@ cargo install miresidian_testflow_windows
 因此流程文件、测试数据与硬件环境始终归节点项目维护；流程解析、DLL 调用和响应格式化由框架 TestFlow 工具统一维护。
 
 DLL 返回 `status、code、message、output`；执行器显示稳定 `code`，错误诊断包含 status/code，业务结果仍读取 output。为兼容旧 DLL，code 缺失时沿用数值 status 判断，不解析 message 文本。
+
+## 0.12.0 检查与帮助
+
+    cargo miresidian-testflow-windows --check tools/smoke.testflow
+    cargo miresidian-testflow-windows --help
+    cargo miresidian-testflow-windows --version
+
+--check 不加载 DLL、不生成 BAT，只检查语法和基本配置/初始化顺序；生成时自动执行相同检查。
+Config(...) 显式选择配置，InitDevice() 后才调用业务；所有参数必须为 JSON 字符串。
+Delay 接收 0..2147483647 的毫秒数字符串。方法是否存在、参数数量及默认值规范化仍由执行器加载 DLL 后验证。
+不同 Config 的静态关联按原始字符串数组判断；涉及默认值等价替换时应保持相同 Config 写法。
+统一入口为 cargo miresidian testflow --os windows <流程.testflow>，--os 由入口消费，原工具路径用法保持兼容。
+整套下载与命令对照见 [CLI](../miresidian-cli/README.md)。

@@ -10,6 +10,7 @@ use std::env;
 pub(crate) fn package(request: crate::model::PackageRequest) -> Result<(), String> {
     let root = env::current_dir().map_err(|error| format!("无法确定当前节点项目目录：{error}"))?;
     let nodes = crate::validate::check_project(&root, request.node_name.as_deref())?;
+    crate::build::preflight(&request.targets)?;
 
     for node in nodes {
         let mut artifacts = Vec::with_capacity(request.targets.len());
@@ -18,6 +19,20 @@ pub(crate) fn package(request: crate::model::PackageRequest) -> Result<(), Strin
             artifacts.push(copy_target_files(&root, *target, &node)?);
         }
         copy_node_release_documents(&root, &node)?;
+        for target in [crate::cli::windows_x64(), crate::cli::windows_x86()] {
+            if !request.targets.contains(&target)
+                && root
+                    .join("dist")
+                    .join(&node.node_name)
+                    .join(target.package_name)
+                    .exists()
+            {
+                eprintln!(
+                    "提示：{} 的 {} 目录为此前产物，不列入本次 manifest",
+                    node.node_name, target.package_name
+                );
+            }
+        }
         write_release_manifest(&root, &node, &artifacts)?;
 
         println!(

@@ -4,3 +4,5 @@
 
 # Python 版本门禁缓存
 __pycache__/
+
+/dist-tools/

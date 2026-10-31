@@ -6,10 +6,12 @@ rust-version = "1.89"
 publish = false
 
 [lib]
+# 生成供测试程序加载的动态库；不要自行导出 Rust 内部类型。
 crate-type = ["cdylib"]
 
 # 独立节点不继承父目录的框架工作区或本地依赖。
 [workspace]
 
 [dependencies]
+# 初始化时选定版本并精确锁定；构建不会自动升级框架。
 miresidian = { version = "={{version}}" }

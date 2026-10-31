@@ -1,0 +1,47 @@
+# 套件和 CLI 从 0.1.0 独立起步；后端各自维护版本，不是 Rust 库依赖。
+version = "0.1.0"
+repository = "https://github.com/MyMires/miresidian"
+
+[[tools]]
+package = "miresidian_cli"
+version = "0.1.0"
+path = "tools/miresidian-cli"
+binaries = ["cargo-miresidian", "cargo-mires"]
+
+[[tools]]
+package = "miresidian_pack"
+version = "0.12.0"
+path = "tools/miresidian-pack"
+binaries = ["cargo-miresidian-pack"]
+
+[[tools]]
+package = "miresidian_testflow_windows"
+version = "0.12.0"
+path = "tools/miresidian-testflow-windows"
+binaries = ["cargo-miresidian-testflow-windows"]
+
+[[routes]]
+command = "new"
+tool = "miresidian_pack"
+prefix = "--new"
+
+[[routes]]
+command = "check"
+tool = "miresidian_pack"
+prefix = "--check"
+
+[[routes]]
+command = "build"
+tool = "miresidian_pack"
+prefix = "--build"
+
+[[routes]]
+command = "pack"
+tool = "miresidian_pack"
+prefix = "--pack"
+
+[[routes]]
+command = "testflow"
+os = "windows"
+tool = "miresidian_testflow_windows"
+prefix = ""

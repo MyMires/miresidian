@@ -1,0 +1,13 @@
+# 在节点根目录生成 BAT；首次运行前先打包 DLL。
+# 常驻查询不要求初始化。
+GetFrameworkVersion()
+GetProjectVersion()
+GetFunctions()
+GetInitConfig()
+# 即使没有业务配置，也要显式选择空配置。
+Config()
+InitDevice()
+# 参数使用 JSON 字符串，业务操作前必须初始化。
+Echo("hello")
+CloseDevice()
+CloseAllDevices()

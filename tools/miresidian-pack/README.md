@@ -3,7 +3,7 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-工具独立版本为 **0.11.0**；本地源码候选尚未发布时，可在框架仓库执行
+工具独立版本为 **0.12.0**；本地源码候选尚未发布时，可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -23,23 +23,25 @@ cargo miresidian-pack --version
 新增入口使用长选项，`new`、`check` 等文字仍可作为原有节点名。
 Cargo 必须能找到 `cargo-miresidian-pack` 二进制；也可以直接运行该二进制，省略 `miresidian-pack`。
 
-0.11.0 单独发布后可安装：
+0.12.0 单独发布后可安装：
 
 ```text
-cargo install miresidian_pack --version 0.11.0 --locked
+cargo install miresidian_pack --version 0.12.0 --locked
 ```
 
 ## 最小模板
 
-`--new <目录> [--name <显示名称>] [--framework-version <已发布版本>]` 创建独立单实例回显项目。
+`--new <目录> [--name <显示名称>] [--miresidian-version <已发布版本>|--mires-version <已发布版本>]` 创建独立单实例回显项目。
 目录必须不存在，父目录必须存在；包名取目录末段，须为合法 Rust 名称，可含连字符。
 默认显示名等于包名；显示名同时作为交付目录名，必须符合 Windows 文件名规则。
 已存在的目录即使为空也拒绝覆盖。
 
-生成内容：Cargo.toml、src/lib.rs、README.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
+生成内容：Cargo.toml、src/lib.rs、src/node.rs、tools/smoke.testflow、README.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
 以及 docs/<节点名称>.md。节点只使用宏标注，不手写 ABI 导出或字符串分发；不引入设备通信依赖。
 
-模板默认采用独立烟测已使用的 crates.io 精确版本 `miresidian =0.14.0`，不追随未发布的框架源码。
+模板默认通过 Cargo 查询 crates.io 最新未撤回正式版，排除预发布版，不按当前 Rust 版本静默回退。
+--miresidian-version 与 --mires-version 为等价参数，--framework-version 兼容保留；重复指定报错。
+离线无法确认最新版本时须显式指定。选定后写入精确依赖，后续构建不会自动升级。
 可显式选择至少 0.14.0 的其他已发布版本；模板接口说明要求 ABI v7。
 工具调用 Cargo 生成真实 Cargo.lock，并检查解析来源与项目结构，之后才报告创建成功。
 不会通过 path/git/patch/replace/paths 绕过未发布依赖。解析失败时保留新建文件以便检查，命令失败，
@@ -93,3 +95,18 @@ cargo test -p miresidian_pack --test template --locked -- --ignored
 第二条是显式 registry 集成测试，需要已发布框架及传递依赖可访问；缓存预热后可设置
 CARGO_NET_OFFLINE=true。它验证生成项目的真实编译、检查不改锁文件、不覆盖既有目录，
 并验证缺少 cdylib、范围依赖和缺失交付文档时失败。基础单元测试无需访问 registry。
+
+## 0.12.0 的显式入口
+
+    cargo miresidian-pack --new demo-node --miresidian-version 0.14.0
+    cargo miresidian-pack --new demo-node --mires-version 0.14.0
+    cargo miresidian-pack --check --node 演示设备
+    cargo miresidian-pack --build --node 演示设备 --arch x64
+    cargo miresidian-pack --pack --node 演示设备 --arch all
+    cargo miresidian-pack --help
+
+--node 缺省为全部节点，--arch 为 x64/x86/all，缺省 all。build 只编译，pack 包含构建并整理 dist。
+构建先确认目标标准库可用，使用 --release --locked；链接器由项目配置，失败时明确提示核对。
+模板的 lib.rs 仅声明模块，node.rs 的注释说明配置、状态、资源清理及宏生成边界。
+生成不代替编译、DLL 加载和硬件验证。--check 只检查项目；独立 TestFlow --check 可检查流程。
+统一命令、整套下载安装和实际调用对照见 [CLI](../miresidian-cli/README.md)。

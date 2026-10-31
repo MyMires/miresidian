@@ -1,0 +1,21 @@
+[package]
+name = "miresidian_cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
+description = "Miresidian 独立工具的统一进程调用入口。"
+readme = "README.md"
+
+[[bin]]
+name = "cargo-miresidian"
+path = "src/main.rs"
+
+[[bin]]
+name = "cargo-mires"
+path = "src/mires.rs"
+
+[dependencies]
+toml = "1.1.8"
+semver = "1.0"

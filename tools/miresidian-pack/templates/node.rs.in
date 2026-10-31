@@ -1,0 +1,35 @@
+//! 最小单实例节点。先用回显验证调用链，再替换为真实设备协议。
+use miresidian::{MiresidianResult, node};
+
+#[node({{name_literal}})]
+struct ExampleNode {
+    // 在此保存设备连接和业务状态；连接所有权属于当前节点对象。
+}
+
+impl ExampleNode {
+    #[miresidian::operation]
+    fn init_device() -> MiresidianResult<Self> {
+        // 在此建立连接；失败返回 Err，并释放已取得的临时资源。
+        // 若增加业务 Config，把设备地址/端口等对象主键放在第一个 Config 参数。
+        // 初始化参数默认来自 Config，可用 config/input 标注显式指定来源与单位。
+        Ok(Self {})
+    }
+
+    #[miresidian::operation("Echo")]
+    #[miresidian::output("回显文本")]
+    fn echo(&mut self, #[miresidian::input("文本")] text: String) -> MiresidianResult<String> {
+        // 用真实业务替换此处；通过 Result 返回超时、协议及设备错误。
+        // output 标注描述业务输出；跨语言编码和响应封装由框架完成。
+        Ok(text)
+    }
+
+    #[miresidian::operation]
+    fn close_device(&mut self) -> MiresidianResult<()> {
+        // 在此关闭连接；考虑业务部分失败的清理，并以 Drop 兜底释放资源。
+        Ok(())
+    }
+
+    // GetFunctions/GetInitConfig/版本查询/CloseAllDevices 由框架提供。
+    // 如需 GetPortNO，自行增加标注 operation 的无 self 探测方法；
+    // 探测只使用临时资源，不能创建或替换当前业务对象。
+}

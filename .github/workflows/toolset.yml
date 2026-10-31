@@ -1,0 +1,72 @@
+name: 独立工具套件
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 创建当前 CLI 标签对应的草稿 Release（需标签已存在）
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            host: linux-x64
+            extension: tar.gz
+          - os: windows-latest
+            host: windows-x64
+            extension: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: 独立工具与真实进程测试
+        run: cargo test -p miresidian_pack -p miresidian_testflow_windows -p miresidian_cli --locked
+      - name: 真实 registry 模板验证
+        run: cargo test -p miresidian_pack --test template --locked -- --ignored
+      - name: 构建完整套件
+        id: bundle
+        shell: bash
+        run: |
+          archive=$(python tools/miresidian-cli/distribution/bundle.py --host ${{ matrix.host }})
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+      - name: 从套件安装并验证统一指令
+        run: python tools/miresidian-cli/distribution/verify.py --archive "${{ steps.bundle.outputs.archive }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miresidian-tools-${{ matrix.host }}
+          path: dist-tools/*
+
+  draft-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    needs: bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: miresidian-tools-*
+          path: toolset-assets
+          merge-multiple: true
+      - name: 创建草稿，不自动公开
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("tools/miresidian-cli/toolset.toml","rb"))["version"])')
+          test "$(git rev-parse "miresidian_cli-v$version^{commit}")" = "$(git rev-parse HEAD)"
+          gh release create "miresidian_cli-v$version" --verify-tag --draft --title "Miresidian tools $version" --notes-file tools/miresidian-cli/README.md toolset-assets/*

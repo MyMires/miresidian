@@ -89,13 +89,20 @@ jobs:
         run: |
           cargo install --path tools/miresidian-pack --root "$env:RUNNER_TEMP\miresidian-tools" --force
           cargo install --path tools/miresidian-testflow-windows --root "$env:RUNNER_TEMP\miresidian-tools" --force
+          cargo install --path tools/miresidian-cli --root "$env:RUNNER_TEMP\miresidian-tools" --locked --force
           "$env:RUNNER_TEMP\miresidian-tools\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: 打包并执行无硬件 TestFlow
         working-directory: tools/fixtures/smoke-node
         shell: powershell
         run: |
-          cargo miresidian-pack
-          cargo miresidian-testflow-windows tools/smoke.testflow
+          cargo miresidian check
+          if ($LASTEXITCODE -ne 0) { throw '统一项目/流程检查失败' }
+          cargo miresidian build --arch x64
+          if ($LASTEXITCODE -ne 0) { throw '统一独立构建失败' }
+          cargo mires pack --arch all
+          if ($LASTEXITCODE -ne 0) { throw '统一双位数打包失败' }
+          cargo miresidian testflow --os windows tools/smoke.testflow
+          if ($LASTEXITCODE -ne 0) { throw '统一 TestFlow 生成失败' }
           $env:MIRESIDIAN_TESTFLOW_NO_PAUSE = 1
           cmd.exe /d /c tools\smoke.bat
           if ($LASTEXITCODE -ne 0) { throw "TestFlow 失败，退出码：$LASTEXITCODE" }

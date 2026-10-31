@@ -1,22 +1,3 @@
-//! 不访问硬件的单实例起点；按需替换为业务状态。
-use miresidian::{MiresidianResult, node};
-
-#[node({{name_literal}})]
-struct ExampleNode;
-
-impl ExampleNode {
-    #[miresidian::operation]
-    fn init_device() -> MiresidianResult<Self> {
-        Ok(Self)
-    }
-
-    #[miresidian::operation("Echo")]
-    fn echo(&mut self, #[miresidian::input("文本")] text: String) -> MiresidianResult<String> {
-        Ok(text)
-    }
-
-    #[miresidian::operation]
-    fn close_device(&mut self) -> MiresidianResult<()> {
-        Ok(())
-    }
-}
+//! {{name}} 的 DLL 入口；业务状态与方法集中在 node 模块。
+// 框架宏生成常驻查询、操作分发和 C ABI 导出；无需在这里手写导出函数。
+mod node;

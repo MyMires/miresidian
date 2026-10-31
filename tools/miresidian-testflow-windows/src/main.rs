@@ -6,17 +6,11 @@
 //!
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cargo_metadata::{MetadataCommand, TargetKind};
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    process::ExitCode,
-};
+mod flow;
+use std::{env, fs, path::Path, process::ExitCode};
 fn main() -> ExitCode {
     match run() {
-        Ok(p) => {
-            println!("已生成：{}", p.display());
-            ExitCode::SUCCESS
-        }
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("生成失败：{e}");
             ExitCode::FAILURE
@@ -24,21 +18,44 @@ fn main() -> ExitCode {
     }
 }
 /// 读取节点项目元数据，并依据 cdylib 名称生成与流程同名的 BAT 文件。
-fn run() -> Result<PathBuf, String> {
+fn run() -> Result<(), String> {
     let a = cargo_subcommand_arguments(env::args().skip(1));
-    if a.len() != 1 {
-        return Err("用法：cargo miresidian-testflow-windows <流程.testflow>".into());
-    }
+    match a.as_slice() {
+        [flag] if flag == "--help" || flag == "-h" => {
+            println!(
+                "用法：cargo miresidian-testflow-windows [--check] <流程.testflow>\n--check 仅检查语法和基本调用顺序，不生成 BAT\n--help|-h 帮助\n--version|-V 工具版本\n本工具生成 Windows BAT；DLL 须提前打包，BAT 用 Windows PowerShell 执行。"
+            );
+            return Ok(());
+        }
+        [flag] if flag == "--version" || flag == "-V" => {
+            println!("miresidian_testflow_windows {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        _ => {}
+    };
+    let (check, file) = match a.as_slice() {
+        [file] if !file.starts_with('-') => (false, file),
+        [flag, file] if flag == "--check" && !file.starts_with('-') => (true, file),
+        _ => {
+            return Err("用法：cargo miresidian-testflow-windows [--check] <流程.testflow>".into());
+        }
+    };
     let root = env::current_dir().map_err(|e| e.to_string())?;
-    let flow = root.join(&a[0]);
+    let flow = root.join(file);
     validate_testflow_extension(&flow)?;
     let text = fs::read_to_string(&flow).map_err(|e| e.to_string())?;
     if text.trim().is_empty() {
         return Err("流程文件不能为空".into());
     }
+    flow::validate(&text)?;
+    if check {
+        println!("流程检查通过：{}", flow.display());
+        return Ok(());
+    }
     let m = MetadataCommand::new()
         .current_dir(&root)
         .no_deps()
+        .other_options(vec!["--locked".into()])
         .exec()
         .map_err(|e| e.to_string())?;
     let p = m.root_package().ok_or("请在节点项目根目录运行")?;
@@ -53,7 +70,8 @@ fn run() -> Result<PathBuf, String> {
         .ok_or("流程文件名无效")?;
     let out = flow.with_extension("bat");
     fs::write(&out, batch_body(name, &t.name)).map_err(|e| e.to_string())?;
-    Ok(out)
+    println!("已生成：{}", out.display());
+    Ok(())
 }
 
 /// Cargo 调用外部子命令时会额外传入子命令名；直接运行二进制时则不会。

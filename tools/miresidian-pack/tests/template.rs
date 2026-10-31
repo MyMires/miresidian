@@ -48,7 +48,14 @@ fn 生成模板通过真实编译且检查不构建不改锁文件() {
     let project = Project::new();
     success(tool(
         &project.0,
-        &["--new", "demo-node", "--name", "演示设备"],
+        &[
+            "--new",
+            "demo-node",
+            "--name",
+            "演示设备",
+            "--mires-version",
+            "0.14.0",
+        ],
     ));
     let root = project.0.join("demo-node");
     let lock = fs::read(root.join("Cargo.lock")).unwrap();

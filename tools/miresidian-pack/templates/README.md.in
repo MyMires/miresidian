@@ -15,3 +15,12 @@ cargo miresidian-pack x64
 
 新增多实例时须选用已发布且支持所需能力的框架版本、开启 instances 并显式声明策略；
 Config 关联模式须将业务主键放在 Config[0]。不要手写 DLL 导出或字符串分发。
+
+工具套件安装后可使用统一入口：
+
+    cargo miresidian check
+    cargo miresidian pack --arch all
+    cargo miresidian testflow --os windows tools/smoke.testflow
+
+也可替换为 cargo mires。Windows 上执行 tools/smoke.bat 完成无硬件回显流程；
+框架常驻查询和 ABI 由宏生成。node.rs 注释标出实际业务扩展位置。

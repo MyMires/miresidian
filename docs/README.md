@@ -32,6 +32,7 @@
 
 | 包或工具 | 说明入口 |
 | --- | --- |
+| Miresidian CLI | [统一命令、实际调用对照与整套下载](../tools/miresidian-cli/README.md) |
 | `miresidian` | [项目首页与最小节点](../README.md) |
 | `miresidian_abi` | [ABI crate](../abi/README.md) · [公共头文件](../abi/api/miresidian.h) |
 | `miresidian_codec` | [编解码 crate](../codec/README.md) |
@@ -63,3 +64,5 @@
 - 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。
 
 - [实例管理与多通道执行](instances.md)：默认单实例、Config[0] 主键、Handle Config 布局与迁移。
+
+统一工具入口与整套下载安装：[Miresidian CLI](../tools/miresidian-cli/README.md)。原工具保持独立。

@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_tool_smoke_node"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 publish = false
 

@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.16.0"
+version = "0.16.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language test-device nodes."
@@ -14,7 +14,7 @@ crate-type = ["rlib"]
 
 [workspace]
 # 具体节点是框架外的独立项目；工作区仅包含框架库与配套开发工具。
-members = ["abi", "codec", "lease", "instances", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows"]
+members = ["abi", "codec", "lease", "instances", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows", "tools/miresidian-cli"]
 default-members = [".", "codec", "lease", "instances", "macro"]
 resolver = "3"
 

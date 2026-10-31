@@ -300,7 +300,7 @@ function Invoke-Flow([string]$Path) {
                 }
                 $config = @($selectedConfig)
                 $configKey = ConvertTo-Json -InputObject $config -Compress
-            } elseif ($call.Name -in @('GetFunctions', 'GetFrameworkVersion', 'GetProjectVersion', 'GetInitConfig', 'GetPortNO')) {
+            } elseif ($call.Name -in @('GetFunctions', 'GetFrameworkVersion', 'GetProjectVersion', 'GetInitConfig', 'GetPortNO', 'CloseAllDevices')) {
                 if ($input.Count -ne $expected.Count) {
                     throw "流程第 $($call.LineNumber) 行 $($call.Name) 参数数量不匹配：期望 $($expected.Count) 个，实际 $($input.Count) 个。"
                 }
@@ -329,6 +329,8 @@ function Invoke-Flow([string]$Path) {
                 $initializedConfigs[$configKey] = @($config)
             } elseif ($call.Name -eq 'CloseDevice') {
                 $initializedConfigs.Remove($configKey)
+            } elseif ($call.Name -eq 'CloseAllDevices') {
+                $initializedConfigs.Clear()
             }
         }
     } finally {
