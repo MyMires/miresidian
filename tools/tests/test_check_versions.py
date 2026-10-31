@@ -219,6 +219,29 @@ version = "{version}"
         self.assertEqual(self.check("--component", "miresidian_abi", "--require-tag").returncode, 0)
         self.assertNotIn("miresidian-v0.1.0", self.git("tag"))
 
+    def test_history_accepts_component_tags_created_on_descendants(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        base = self.commit()
+        self.independent_framework("0.2.0", "0.2.0")
+        self.commit()
+        self.independent_framework("0.3.0", "0.2.0")
+        self.commit()
+        self.git("tag", "miresidian_abi-v0.2.0")
+        # 原有 0.2.0 版本标签存在于以后提交，不应阻断当时没有该标签的历史检查。
+        self.assertEqual(self.check("--base", base, "--check-commits").returncode, 0)
+
+    def test_history_keeps_independent_component_release_tags(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        base = self.commit()
+        self.independent_framework("0.2.0", "0.2.0")
+        self.commit()
+        self.git("tag", "miresidian_abi-v0.2.0")
+        self.independent_framework("0.3.0", "0.2.0")
+        self.commit()
+        self.assertEqual(self.check("--base", base, "--check-commits").returncode, 0)
+        # 普通工作区检查仍拒绝复用一个指向其他提交的版本标签。
+        self.assertNotEqual(self.check("--base", base).returncode, 0)
+
     def test_registry_policy_does_not_rewrite_old_local_dependency_history(self):
         base = self.git("rev-parse", "HEAD")
         self.release("0.2.0")

@@ -57,6 +57,13 @@ def version_tuple(value):
     return tuple(map(int, value.split(".")))
 
 
+def future_tag(repo, target, snapshot):
+    """历史快照不应被其后代提交上后来创建的标签阻断；工作区/暂存区仍严格检查。"""
+    return bool(repo.ref) and target != snapshot and repo.git(
+        "merge-base", "--is-ancestor", snapshot, target, optional=True,
+    ) is not None
+
+
 def own_version(manifest):
     package = manifest["package"]
     value = package["version"]
@@ -189,6 +196,8 @@ def check_member_versions(repo, base, manifest, paths, changed):
             if existing:
                 head = repo.git("rev-parse", repo.ref or "HEAD").strip()
                 committed = component_version(repo, new["package"]["name"], repo.ref or "HEAD")
+                if future_tag(repo, existing.strip(), head):
+                    continue
                 if repo.staged or existing.strip() != head or committed != new_version:
                     raise VersionError(f"{tag} 已存在，禁止复用或移动标签；请使用新版本")
 
@@ -283,7 +292,7 @@ def validate(repo, base):
     if existing and base and version != own_version(repo.toml("Cargo.toml", base)):
         head = repo.git("rev-parse", repo.ref or "HEAD").strip()
         committed_version = own_version(repo.toml("Cargo.toml", repo.ref or "HEAD"))
-        if repo.staged or existing.strip() != head or committed_version != version:
+        if not future_tag(repo, existing.strip(), head) and (repo.staged or existing.strip() != head or committed_version != version):
             raise VersionError(f"{tag} 已存在，禁止复用或移动标签；请使用新版本")
     return version, tag
 
@@ -331,7 +340,8 @@ def main():
     if base and set(base) == {"0"}:
         base = None
     try:
-        version, tag = validate(repo, base)
+        # 逐提交模式在下面检查每次版本提升，不能将各独立组件的版本提交都强制对齐最终 HEAD。
+        version, tag = validate(repo, None if args.check_commits else base)
         if args.component:
             version = component_version(repo, args.component)
             tag = f"{args.component}-v{version}"

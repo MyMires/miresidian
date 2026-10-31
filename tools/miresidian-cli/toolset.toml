@@ -1,11 +1,11 @@
 # 套件和 CLI 从 0.1.0 独立起步；后端各自维护版本，不是 Rust 库依赖。
-version = "0.2.0"
+version = "0.2.1"
 repository = "https://github.com/MyMires/miresidian"
 
 [[tools]]
 package = "miresidian_cli"
 alias = "cli"
-version = "0.2.0"
+version = "0.2.1"
 path = "tools/miresidian-cli"
 binaries = ["cargo-miresidian", "cargo-mires"]
 

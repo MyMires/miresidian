@@ -215,7 +215,11 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
     let write_manifest = |version: &str| {
         fs::write(source.join("Cargo.toml"),format!("[package]\nname=\"miresidian_pack\"\nversion=\"{version}\"\nedition=\"2021\"\n[workspace]\n[[bin]]\nname=\"cargo-miresidian-pack\"\npath=\"main.rs\"\n")).unwrap()
     };
+    let build = std::cell::Cell::new(0);
     let run = |args: &[&str]| {
+        // registry 安装默认使用独立构建目录；避免在 Windows 上把同名二进制缓存混用于不同版本。
+        let id = build.get();
+        build.set(id + 1);
         let output = fixture
             .command("cargo-mires")
             .args(args)
@@ -225,7 +229,10 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
             .arg(&install_root)
             .arg("--offline")
             .env("CARGO", env!("CARGO"))
-            .env("CARGO_TARGET_DIR", fixture.0.join("tool-target"))
+            .env(
+                "CARGO_TARGET_DIR",
+                fixture.0.join(format!("tool-target-{id}")),
+            )
             .output()
             .unwrap();
         assert!(
@@ -240,11 +247,17 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
     write_manifest("0.11.0");
     run(&["use", "pack", "0.11.0"]);
     let version = Command::new(&backend).arg("--version").output().unwrap();
-    assert!(String::from_utf8_lossy(&version.stdout).contains("0.11.0"));
+    assert!(
+        version.status.success() && String::from_utf8_lossy(&version.stdout).contains("0.11.0"),
+        "{version:?}"
+    );
     write_manifest("0.12.0");
     run(&["update", "pack"]);
     let version = Command::new(&backend).arg("--version").output().unwrap();
-    assert!(String::from_utf8_lossy(&version.stdout).contains("0.12.0"));
+    assert!(
+        version.status.success() && String::from_utf8_lossy(&version.stdout).contains("0.12.0"),
+        "{version:?}"
+    );
     let list = fixture
         .command("cargo-mires")
         .args(["list", "--root"])
