@@ -157,3 +157,13 @@ cargo +1.89.0 check --workspace --all-targets --all-features --locked
 ### 节点项目
 
 节点应作为独立 Cargo 项目维护，且只能从 crates.io 依赖已发布框架的精确版本；禁止 path/git 和本地覆盖。框架尚未发布时先完成发布，不得伪造锁文件或以本地构建替代 registry 验证。Windows DLL 的交叉编译、`cargo miresidian-pack` 和烟测工具均由节点项目自行配置与维护。
+
+### 待办：完整构建环境配置（未实现）
+
+- [ ] 检测宿主操作系统/CPU、Rust/Cargo 版本，以及所选 DLL 目标平台和位数。
+- [ ] 检查并按宿主平台处理 Rust target、GNU 链接器和相关系统构建依赖。
+- [ ] 明确区分环境检查、自动配置与需要用户处理的系统组件，提供可执行诊断。
+- [ ] 为 Windows/Linux 宿主及 Windows x64/x86 目标补齐对应验证场景。
+
+当前 install --full 仅安装全部 Rust 配套工具，不代表完整构建环境已配置。
+此项只记录后续需求，不纳入本次工具链发布。

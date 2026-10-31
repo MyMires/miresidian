@@ -76,6 +76,8 @@ jobs:
           $msysRoot = '${{ steps.msys2.outputs.msys2-location }}'
           $cc64 = Join-Path $msysRoot 'mingw64\bin\gcc.exe'
           $cc32 = Join-Path $msysRoot 'mingw32\bin\gcc.exe'
+          $dll64 = (Join-Path $msysRoot 'mingw64\bin\dlltool.exe').Replace('\', '/')
+          $dll32 = (Join-Path $msysRoot 'mingw32\bin\dlltool.exe').Replace('\', '/')
           if (-not (Test-Path $cc64) -or -not (Test-Path $cc32)) { throw 'MinGW compiler missing' }
           (Split-Path $cc64) | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           (Split-Path $cc32) | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -83,6 +85,8 @@ jobs:
           "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=$cc32" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "MIRESIDIAN_CC_X64=$cc64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "MIRESIDIAN_CC_X86=$cc32" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          ('CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS=-C dlltool="{0}"' -f $dll64) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          ('CARGO_TARGET_I686_PC_WINDOWS_GNU_RUSTFLAGS=-C dlltool="{0}"' -f $dll32) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: 验证框架 DLL 模块引用与卸载（x64 / x86）
         shell: powershell
         run: |
