@@ -1,0 +1,27 @@
+# {{name}} 开发规则
+
+## 项目与开发依据
+
+- 本项目是独立的 Miresidian Rust Node，包名为 `{{package}}`。初始化选用框架 `={{version}}`；后续以 Cargo.toml 与 Cargo.lock 的实际版本为准。
+- 开始工作先读取 README.md、`docs/{{name}}.md` 和本次涉及的源码。初始模板只有无硬件回显，不能作为真实设备业务已完成的证据。
+- 已安装 miresidian-node skill 时使用其开发指导；需要安装时，从 [框架仓库的完整 skill 目录](https://github.com/MyMires/miresidian/tree/master/skills/miresidian-node) 获取全部文件。框架契约查阅项目精确依赖版本对应的文档，不默认采用 master/latest 的行为。
+
+## 依赖、源码与节点契约
+
+- 框架仅使用 crates.io 已发布的精确版本，Cargo.lock 由 Cargo 生成；框架依赖禁止使用 path/git 或 patch/replace/paths 等本地覆盖，不伪造锁文件。仅在任务确需时升级框架或工具。
+- lib.rs 保持入口和模块声明职责；节点状态及标注方法放在同一模块。按业务需要拆分通信与协议职责，不使用 mod.rs。
+- 使用 node、operation 及参数/输出宏声明契约；不手写 DeviceNode、平台字符串分发、GetFunctions/GetInitConfig 或 C ABI 导出，不重复实现框架已有编解码。
+- 明确 Config/Input/Output 的顺序、默认值、单位和错误条件。有业务初始化 Config 时，第一个 Config 放设备对象主键；框架追加的 Handle、资源访问方式、平台和执行方式不写入业务初始化签名。
+
+## features、通信与生命周期
+
+- 默认单实例；按需求选择 instances、lease，并同时配置依赖 feature 与节点宏声明，不默认开启全部能力。交付所需 feature 应在正常构建中有效启用。
+- 区分实例关联、资源租约与设备事务互斥。租约只协调配置兼容性，不共享物理连接；租约失效后关闭原对象并重新初始化，不自动重试有副作用的业务。
+- 按真实设备协议实现通信、响应边界和超时。预期失败用 MiresidianResult 表达；初始化部分失败释放临时资源，关闭时停止后台任务并释放连接，必要时用 Drop 兜底。
+
+## 验证、文档与交付
+
+- 按改动选择最小有效验证，复用仍然适用的结果，不默认执行全工作区、全特性或全平台测试。具体命令见 README.md 和工具帮助。
+- 区分结构检查、编译、DLL 加载调用、模拟验证和真实硬件验证；没有取得证据的部分明确说明，不以模板回显替代设备业务验收。
+- 修改公开行为时同步 `docs/{{name}}.md`、`tools/smoke.testflow`、节点版本和带日期的 CHANGELOG；纯规范或测试变更明确评估版本影响。节点、框架与工具各自管理版本，不因一次普通构建自动升版。
+- 提交、标签和在线发布遵循用户指令及本项目已有规范，不假定存在相邻框架源码、专用检查脚本或 Git 钩子。交付时报告实际改动、版本、验证结果和未验证范围。

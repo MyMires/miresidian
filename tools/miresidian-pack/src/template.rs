@@ -162,6 +162,10 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
             include_str!("../templates/README.md.in"),
         ),
         (
+            "AGENTS.md".into(),
+            include_str!("../templates/AGENTS.md.in"),
+        ),
+        (
             "CHANGELOG.md".into(),
             include_str!("../templates/CHANGELOG.md.in"),
         ),
@@ -322,11 +326,21 @@ mod tests {
             Some("演示设备")
         );
         assert!(path.join("docs/演示设备.md").is_file());
+        let agents = fs::read_to_string(path.join("AGENTS.md")).unwrap();
+        assert!(agents.starts_with("# 演示设备 开发规则"));
+        assert!(agents.contains("`demo-node`"));
+        assert!(agents.contains("`=0.14.0`"));
+        assert!(agents.contains("`docs/演示设备.md`"));
         fs::write(path.join("README.md"), "用户文件").unwrap();
+        fs::write(path.join("AGENTS.md"), "用户规则").unwrap();
         assert!(write_project(&template).is_err());
         assert_eq!(
             fs::read_to_string(path.join("README.md")).unwrap(),
             "用户文件"
+        );
+        assert_eq!(
+            fs::read_to_string(path.join("AGENTS.md")).unwrap(),
+            "用户规则"
         );
     }
 }

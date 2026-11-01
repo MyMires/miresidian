@@ -73,7 +73,7 @@ impl Drop for Fixture {
 #[test]
 fn 独立进程保持参数目录和退出码() {
     let fixture = Fixture::new();
-    fixture.backend("0.12.0");
+    fixture.backend("0.12.1");
     for name in ["cargo-miresidian", "cargo-mires"] {
         let output = fixture
             .command(name)
@@ -86,7 +86,7 @@ fn 独立进程保持参数目录和退出码() {
         assert!(log.contains("--pack"));
         assert!(log.contains(&format!("{:?}", fixture.0)));
     }
-    fixture.backend("0.10.0");
+    fixture.backend("0.12.0");
     let output = fixture
         .command("cargo-mires")
         .arg("check")

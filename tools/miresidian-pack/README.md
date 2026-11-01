@@ -3,7 +3,7 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-工具独立版本为 **0.12.0**；本地源码候选尚未发布时，可在框架仓库执行
+工具独立版本为 **0.12.1**；本地源码候选尚未发布时，可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -23,10 +23,10 @@ cargo miresidian-pack --version
 新增入口使用长选项，`new`、`check` 等文字仍可作为原有节点名。
 Cargo 必须能找到 `cargo-miresidian-pack` 二进制；也可以直接运行该二进制，省略 `miresidian-pack`。
 
-0.12.0 单独发布后可安装：
+0.12.1 单独发布后可安装：
 
 ```text
-cargo install miresidian_pack --version 0.12.0 --locked
+cargo install miresidian_pack --version 0.12.1 --locked
 ```
 
 ## 最小模板
@@ -36,8 +36,10 @@ cargo install miresidian_pack --version 0.12.0 --locked
 默认显示名等于包名；显示名同时作为交付目录名，必须符合 Windows 文件名规则。
 已存在的目录即使为空也拒绝覆盖。
 
-生成内容：Cargo.toml、src/lib.rs、src/node.rs、tools/smoke.testflow、README.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
+生成内容：Cargo.toml、src/lib.rs、src/node.rs、tools/smoke.testflow、README.md、AGENTS.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
 以及 docs/<节点名称>.md。节点只使用宏标注，不手写 ABI 导出或字符串分发；不引入设备通信依赖。
+
+AGENTS.md 填入当前项目名称、包名、初始化选定的框架版本及调用说明路径，包含依赖边界、源码与宏契约、features/租约、生命周期、针对性验证及版本交付规则，并提供完整 Node skill 的来源入口。它随新项目一次性生成，之后由项目维护者补充；不要求相邻框架目录、检查脚本或 Git 钩子，也不会修改已有项目。
 
 模板默认通过 Cargo 查询 crates.io 最新未撤回正式版，排除预发布版，不按当前 Rust 版本静默回退。
 --miresidian-version 与 --mires-version 为等价参数，--framework-version 兼容保留；重复指定报错。

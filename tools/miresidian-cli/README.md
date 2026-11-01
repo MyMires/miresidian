@@ -1,7 +1,9 @@
 # Miresidian CLI
 
-独立版本 **0.2.1**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
-两个后端各自为 **0.12.0**，继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
+独立版本 **0.2.2**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
+Pack 为 **0.12.1**，TestFlow 为 **0.12.0**，继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
+
+new 要求 Pack 至少 0.12.1，默认生成包含项目开发规则的 AGENTS.md；已有项目不会被覆盖。
 
 ## 完整指令与实际调用
 
@@ -49,8 +51,8 @@ CLI 安装本身只安装 cargo-miresidian 和 cargo-mires；--full 是 CLI 子�
 | 管理指令（也支持 cargo mires） | 实际 Cargo 调用 |
 | --- | --- |
 | install --full | cargo install miresidian_pack miresidian_testflow_windows |
-| install --full --pack-version 0.12.0 --testflow-version 0.12.0 | cargo install miresidian_pack@0.12.0 miresidian_testflow_windows@0.12.0 |
-| install pack --version 0.12.0 | cargo install miresidian_pack@0.12.0 |
+| install --full --pack-version 0.12.1 --testflow-version 0.12.0 | cargo install miresidian_pack@0.12.1 miresidian_testflow_windows@0.12.0 |
+| install pack --version 0.12.1 | cargo install miresidian_pack@0.12.1 |
 | update --full | cargo install miresidian_pack miresidian_testflow_windows |
 | update pack | cargo install miresidian_pack |
 | use pack 0.10.0 | cargo install miresidian_pack@0.10.0 |
@@ -73,7 +75,7 @@ CLI 安装本身只安装 cargo-miresidian 和 cargo-mires；--full 是 CLI 子�
 CLI 本体使用原生 Cargo 命令更新或切换，避免运行中的 CLI 替换自身：
 
     cargo install miresidian_cli
-    cargo install miresidian_cli --version 0.2.1
+    cargo install miresidian_cli --version 0.2.2
 
 公开发行前可在框架根目录从源码安装（同样由 Cargo 管理安装记录）：
 
@@ -89,7 +91,7 @@ Python 仅用于仓库内部构建和测试，不是用户安装前提。可选�
     python3 tools/miresidian-cli/distribution/bundle.py --host linux-x64
     python3 tools/miresidian-cli/distribution/bundle.py --host windows-x64
 
-仅在对应 x64 宿主构建；输出名含套件版本 0.2.1，附 SHA-256。
+仅在对应 x64 宿主构建；输出名含套件版本 0.2.2，附 SHA-256。
 Cargo 安装是正式用户安装方式，归档文件用于分发和开发验证，不改 Cargo 安装记录。
 
 ## 后续工具接入

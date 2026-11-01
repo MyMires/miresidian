@@ -2,6 +2,7 @@
 
 由 miresidian_pack 生成的最小单实例节点，只实现回显，不访问硬件。
 依赖 crates.io 精确版本 `miresidian ={{version}}`；Cargo.lock 由 Cargo 生成。
+AI 开发规则见 AGENTS.md，包含项目边界、features、生命周期及针对性验证要求，可按实际项目补充。
 
 ```text
 cargo check --locked
