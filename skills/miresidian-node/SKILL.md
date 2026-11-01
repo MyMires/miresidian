@@ -1,6 +1,6 @@
 ---
 name: miresidian-node
-description: "指导 AI 将设备或业务需求实现为 Miresidian Rust Node 项目，完成节点契约设计、业务与通信实现、生命周期管理、针对性验证及 DLL 交付。用于新建、完善或维护独立 Node 项目。"
+description: "将设备或业务需求实现为符合 Miresidian 契约的 Rust Node 项目，完成节点契约设计、业务与通信实现、生命周期管理、针对性验证及 DLL 交付。用于新建、完善或维护独立 Node 项目；适用关键词：Miresidian 节点、Mires 节点、Miresidian 设备驱动、Mires 设备驱动、设备驱动。"
 ---
 
 # Miresidian Node 项目开发
@@ -75,9 +75,16 @@ description: "指导 AI 将设备或业务需求实现为 Miresidian Rust Node �
 
 向用户报告已实现的业务、项目版本和产物位置、实际验证结论，以及未完成或未验证的事项。区分结构检查、编译、打包、DLL 加载、无硬件测试和真实设备测试，不跨层声称完成。
 
+## 更新来源
+
+本 skill 的权威副本随公开仓库发布：[MyMires/miresidian](https://github.com/MyMires/miresidian)，仓库内路径 `skills/miresidian-node/`，默认分支 `master`。本地安装副本位于 `${CODEX_HOME:-$HOME/.codex}/skills/miresidian-node/` 或 DSH 的 `~/.dsh/skills/miresidian-node/`，以实际安装位置为准。
+
+需要更新时以仓库副本为准，取该目录全部文件覆盖本地安装副本；本地确认的修改按 AGENTS.md 同步回仓库副本，不以旧副本反向覆盖。
+
 ## 按需参考
 
 - [节点设计与实现约束](references/node-contract.md)：实现节点时读取，含宏契约、配置、资源、实例和 ABI 边界。
 - [框架能力与 features](references/features.md)：确定节点能力时读取，含默认行为、依赖声明、instances/lease 标注、组合与验收要求。
+- [租约接入、调用与验收](references/lease.md)：选择 lease 时读取，含激活策略、资源与配置一致性、Config/TestFlow 示例、失效恢复和部署要求。
 - [节点验证与验收](references/verification.md)：确定测试和交付证据时读取，含范围选择与停止条件。
 - [工具操作参考](references/commands.md)：需要创建、检查、构建、打包或生成烟测时查阅，含安装和环境限制。
