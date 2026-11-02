@@ -100,7 +100,7 @@ def check_lock(repo, name, expected):
             raise VersionError(f"{name} 的 {package} 应锁定 {version}，实际为 {actual}")
 
 
-FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
+FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
 CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
 
@@ -137,7 +137,7 @@ def versioned_path(name):
         return False  # 独立测试节点只提升自身版本，不触发库和工具无关升版。
     if name in {"Cargo.toml", "Cargo.lock", "README.md", ".cargo/config.toml"}:
         return True
-    if name.startswith(("src/", "abi/", "codec/", "lease/", "macro/", ".github/workflows/")):
+    if name.startswith(("src/", "abi/", "codec/", "features/", "macro/", ".github/workflows/")):
         return True
     if name.startswith("tools/"):
         return "/src/" in name or name.endswith(("Cargo.toml", "Cargo.lock", ".testflow", ".bat", ".ps1"))

@@ -1,6 +1,6 @@
 # 租约接入、调用与验收
 
-在节点选择 lease 能力时读取。依赖 features 和 activation 选择见 [框架能力与 features](features.md#lease租约与实际设备连接配套)。以节点精确依赖的已发布版本为准；框架源码的 `lease/README.md`、`docs/宏驱动开发.md` 及相关测试用于核对契约，不能把未发布行为直接用于节点。
+在节点选择 lease 能力时读取。依赖 features 和 activation 选择见 [框架能力与 features](features.md#lease租约与实际设备连接配套)。以节点精确依赖的已发布版本为准；框架源码的 `features/lease/README.md`、`docs/宏驱动开发.md` 及相关测试用于核对契约，不能把未发布行为直接用于节点。
 
 ## 资源身份与兼容性字段
 

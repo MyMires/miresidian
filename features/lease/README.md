@@ -1,6 +1,6 @@
 # Miresidian Lease
 
-[文档中心](../docs/README.md) · [架构总览](../docs/architecture.md)
+[文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_lease` 定义设备类型无关的资源租约协议：资源键、配置一致性、随机租约 ID、获取、验证和释放。最低 Rust 版本为 **1.89**。
 
@@ -44,7 +44,7 @@ impl CanNode {
 }
 ```
 
-`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 引用 `init_device` 的 Rust 参数名；宏规范化参数并生成租约请求，运行时持有租约、回滚失败初始化并在清理时释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。`selectable` 会发布资源访问方式配置，允许初始化时选择租约或直连；完整标注规则见[宏驱动开发](../docs/宏驱动开发.md)。
+`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 引用 `init_device` 的 Rust 参数名；宏规范化参数并生成租约请求，运行时持有租约、回滚失败初始化并在清理时释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。`selectable` 会发布资源访问方式配置，允许初始化时选择租约或直连；完整标注规则见[宏驱动开发](../../docs/宏驱动开发.md)。
 
 根 crate 始终重导出租约通用模型；未启用 `lease` feature 时不启用本地 IPC，未声明租约的节点保持普通调用路径。
 

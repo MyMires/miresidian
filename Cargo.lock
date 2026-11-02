@@ -262,12 +262,13 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.16.7"
+version = "0.17.0"
 dependencies = [
  "futures-util",
  "inventory",
  "libc",
  "miresidian_abi",
+ "miresidian_batch",
  "miresidian_codec",
  "miresidian_instances",
  "miresidian_lease",
@@ -281,6 +282,13 @@ dependencies = [
 [[package]]
 name = "miresidian_abi"
 version = "0.14.0"
+
+[[package]]
+name = "miresidian_batch"
+version = "0.1.0"
+dependencies = [
+ "miresidian_codec",
+]
 
 [[package]]
 name = "miresidian_cli"
@@ -318,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

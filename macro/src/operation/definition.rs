@@ -2,7 +2,7 @@
 
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
-    Attribute, Error, FnArg, GenericArgument, ImplItemFn, LitStr, PathArguments, Result,
+    Attribute, Error, Expr, FnArg, GenericArgument, ImplItemFn, Lit, LitStr, PathArguments, Result,
     ReturnType, Token, Type, punctuated::Punctuated,
 };
 
@@ -14,6 +14,7 @@ pub(super) struct Parameter {
     pub(super) definition: LitStr,
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
+    pub(super) batch: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -108,7 +109,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             Ok(NodeMethod::Init(InitMethod {
                 method: identifier,
                 asynchronous: method.sig.asyncness.is_some(),
-                parameters: parse_parameters(method, ParameterSource::Config)?,
+                parameters: parse_parameters(method, ParameterSource::Config, false)?,
                 outputs,
                 has_output,
             }))
@@ -118,7 +119,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             Ok(NodeMethod::Close(FixedMethod {
                 method: identifier,
                 asynchronous: method.sig.asyncness.is_some(),
-                parameters: parse_parameters(method, ParameterSource::Input)?,
+                parameters: parse_parameters(method, ParameterSource::Input, false)?,
             }))
         }
         "get_port_no" => {
@@ -126,16 +127,18 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             Ok(NodeMethod::PortProbe(FixedMethod {
                 method: identifier,
                 asynchronous: method.sig.asyncness.is_some(),
-                parameters: parse_parameters(method, ParameterSource::Input)?,
+                parameters: parse_parameters(method, ParameterSource::Input, false)?,
             }))
         }
         _ => {
             require_mut_receiver(method)?;
+            let parameters = parse_parameters(method, ParameterSource::Input, true)?;
+            validate_batch_parameters(&parameters)?;
             Ok(NodeMethod::Operation(OperationMethod {
                 method: identifier,
                 asynchronous: method.sig.asyncness.is_some(),
                 name,
-                parameters: parse_parameters(method, ParameterSource::Input)?,
+                parameters,
                 outputs: take_output(&mut method.attrs, &method.sig.output)?,
             }))
         }
@@ -178,6 +181,7 @@ fn require_mut_receiver(method: &ImplItemFn) -> Result<()> {
 fn parse_parameters(
     method: &mut ImplItemFn,
     default_source: ParameterSource,
+    batch_allowed: bool,
 ) -> Result<Vec<Parameter>> {
     method
         .sig
@@ -197,23 +201,29 @@ fn parse_parameters(
                     "同一参数不能同时标注 #[config] 和 #[input]",
                 ));
             }
-            let (source, name, definition, default) = match (config, input) {
+            let (source, name, definition, default, batch) = match (config, input) {
                 (Some(attribute), None) => {
                     let definition = one_name(&attribute, "config")?;
                     let (name, default) = split_definition(&definition);
-                    (ParameterSource::Config, name, definition, default)
+                    (ParameterSource::Config, name, definition, default, false)
                 }
                 (None, Some(attribute)) => {
-                    let definition = one_name(&attribute, "input")?;
+                    let (definition, batch) = input_definition(&attribute)?;
                     let (name, default) = split_definition(&definition);
-                    (ParameterSource::Input, name, definition, default)
+                    (ParameterSource::Input, name, definition, default, batch)
                 }
                 (None, None) => {
                     let name = parameter_name(argument)?;
-                    (default_source, name.clone(), name, None)
+                    (default_source, name.clone(), name, None, false)
                 }
                 (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
+            if batch && !batch_allowed {
+                return Err(Error::new_spanned(
+                    argument,
+                    "batch 只能标注普通业务方法的 Input 参数",
+                ));
+            }
             Ok(Parameter {
                 ty: (*argument.ty).clone(),
                 rust_name,
@@ -221,9 +231,75 @@ fn parse_parameters(
                 definition,
                 default,
                 source,
+                batch,
             })
         })
         .collect()
+}
+
+/// 解析 `#[input("名称", batch)]`。batch 是参数级能力，不能写在方法或节点上。
+fn input_definition(attribute: &Attribute) -> Result<(LitStr, bool)> {
+    let arguments = attribute.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+    let Some(Expr::Lit(value)) = arguments.first() else {
+        return Err(Error::new_spanned(
+            attribute,
+            "#[input] 的第一个参数必须是字符串名称",
+        ));
+    };
+    let Lit::Str(definition) = &value.lit else {
+        return Err(Error::new_spanned(
+            value,
+            "#[input] 的第一个参数必须是字符串名称",
+        ));
+    };
+    let batch = match arguments.len() {
+        1 => false,
+        2 if matches!(arguments.iter().nth(1), Some(Expr::Path(path)) if path.path.is_ident("batch")) => {
+            true
+        }
+        _ => {
+            return Err(Error::new_spanned(
+                attribute,
+                "#[input] 只接受字符串名称和可选的 batch 标记",
+            ));
+        }
+    };
+    Ok((definition.clone(), batch))
+}
+
+/// 第一版 batch 仅公开整数数组，以免文本竖线、字节编码和领域枚举被误解释为批量调用。
+fn validate_batch_parameters(parameters: &[Parameter]) -> Result<()> {
+    for parameter in parameters.iter().filter(|parameter| parameter.batch) {
+        if parameter.source != ParameterSource::Input || !is_integer(&parameter.ty) {
+            return Err(Error::new_spanned(
+                &parameter.ty,
+                "batch 参数必须是普通业务方法的基础整数 Input 参数",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn is_integer(ty: &Type) -> bool {
+    let Type::Path(path) = ty else {
+        return false;
+    };
+    path.qself.is_none()
+        && path.path.segments.len() == 1
+        && matches!(
+            path.path.segments[0].ident.to_string().as_str(),
+            "i8" | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+        )
 }
 fn contains_option_pairs(value: &str) -> bool {
     value.split('/').any(|choice| {

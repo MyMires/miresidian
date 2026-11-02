@@ -23,7 +23,7 @@
 | 开发设备节点 | [节点声明](宏驱动开发.md#声明方式) → [数据编解码](宏驱动开发.md#数据编解码) → [打包工具](../tools/miresidian-pack/README.md) |
 | 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [Windows TestFlow](../tools/miresidian-testflow-windows/README.md) |
 | 扩展测试平台 | [核心类型关系](architecture.md#核心类型关系uml) → [平台适配器](c-abi.md#平台适配器) |
-| 启用资源租约 | [节点开发](宏驱动开发.md) → [租约接入与协议](../lease/README.md) |
+| 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) |
 | 修改框架或准备发布 | [版本管理](versioning.md) → [开发规范](coding-standards.md) → [构建环境](coding-standards.md#构建环境) → [打包工具](../tools/miresidian-pack/README.md) |
 
 ## crate 与开发工具
@@ -37,7 +37,7 @@
 | `miresidian_abi` | [ABI crate](../abi/README.md) · [公共头文件](../abi/api/miresidian.h) |
 | `miresidian_codec` | [编解码 crate](../codec/README.md) |
 | `miresidian_macro` | [过程宏 crate](../macro/README.md) |
-| `miresidian_lease` | [租约接入、v2 协议、配置锁与迁移](../lease/README.md) |
+| `miresidian_lease` | [租约接入、v2 协议、配置锁与迁移](../features/lease/README.md) |
 | `miresidian_pack` | [安装、输入要求与交付目录](../tools/miresidian-pack/README.md) |
 | `miresidian_testflow_windows` | [安装、BAT 生成与执行边界](../tools/miresidian-testflow-windows/README.md) |
 | 独立工具冒烟夹具 | [节点交付说明](../tools/fixtures/smoke-node/docs/工具冒烟节点.md) · [夹具修订](../tools/fixtures/smoke-node/CHANGELOG.md) |

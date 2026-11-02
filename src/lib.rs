@@ -47,6 +47,17 @@ mod runtime;
 /// 身份验证和资源一致性的责任。
 pub use miresidian_lease as lease;
 
+/// batch feature 的参数对齐与输出聚合实现。节点一般只通过参数上的 `batch` 标记接入。
+#[cfg(feature = "batch")]
+#[doc(hidden)]
+pub use miresidian_batch as batch;
+
+/// 参数级顺序批量执行。只有启用 Cargo feature `batch` 并在普通业务 Input 参数上写入
+/// `#[miresidian::input("名称", batch)]` 时，宏才会展开整数数组。
+#[cfg(feature = "batch")]
+#[doc(hidden)]
+pub const fn __require_batch_feature() {}
+
 /// 仅当 Cargo feature `lease` 启用时由租约节点引用；缺失该符号会使误用的租约声明在编译期失败。
 #[cfg(feature = "lease")]
 #[doc(hidden)]
