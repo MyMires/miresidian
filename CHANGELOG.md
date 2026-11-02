@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-02
+
+- 完善并同步 Miresidian Node skill 的 batch 指引：明确参数级标记、整数数组范围与列表、按位置对齐和单值广播、顺序首错停止、输出槽位聚合，以及与 instances 的对象定位边界。
+- 根 crate 按本次随版本交付的 skill 文档修订升补丁版本；运行时 batch 行为、宏/feature API、C ABI v7、租约协议 v2 与内部 feature crate 版本不变。
+
 ## [0.17.0] - 2026-11-02
 
 - 新增可选 `batch` feature。普通业务方法可在具体 Input 参数上使用 `#[miresidian::input("名称", batch)]`，将基础整数文本的单值、竖线列表和递增范围展开为顺序单值调用；多个批量参数按位置组成记录，长度为一的参数自动广播，无法对齐时返回参数错误。

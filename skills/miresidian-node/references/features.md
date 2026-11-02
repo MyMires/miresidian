@@ -13,10 +13,12 @@
 | 同时保留多个设备对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
 | 跨 DLL/进程协调同一资源的配置兼容性 | lease | lease(resource = ..., configuration = ..., activation = ...) |
 | 多实例/多通道，并需要资源租约 | instances、lease | 同一 node 上组合 instances(...) 和 lease(...) |
+| 一次操作按多个整数记录顺序重复同一业务逻辑 | batch | 需要展开的普通 Input 参数写 `#[miresidian::input("名称", batch)]` |
+| 多实例定位后，在同一设备上按整数记录顺序执行 | instances、batch | node 上声明 instances(...)，业务 operation 的 Input 参数单独标记 batch |
 
 框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi 或 codec feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
 
-根 feature instances 转发到 miresidian_instances/runtime，lease 转发到 miresidian_lease/local-ipc；普通节点通过 miresidian 开启，不为此额外直接依赖内部 crate。不要把内部 crate 的 feature 名当作根 crate 的 feature。
+根 feature instances 转发到 miresidian_instances/runtime，lease 转发到 miresidian_lease/local-ipc，batch 转发到 miresidian_batch；普通节点通过 miresidian 开启，不为此额外直接依赖内部 crate。不要把内部 crate 的 feature 名当作根 crate 的 feature。
 
 ## 在节点 Cargo.toml 中声明
 
@@ -45,6 +47,14 @@ miresidian = { version = "=0.14.0", features = ["lease"] }
 [dependencies]
 miresidian = { version = "=0.14.0", features = ["instances", "lease"] }
 ```
+
+```toml
+# 普通 operation 需要整数数组批量输入；业务方法仍接收单个整数。
+[dependencies]
+miresidian = { version = "=0.17.1", features = ["batch"] }
+```
+
+组合 batch 与已有能力时，在同一个依赖条目中列出实际所需项，例如 `features = ["instances", "batch"]`。batch 不增加初始化 Config，也不替代 instances 或 lease。
 
 这些是框架依赖的 features，不是节点包自己的同名 feature。节点自身写一个空的 instances = [] 不会启用 miresidian/instances。Rust 的 cfg(feature = "...") 判断当前 crate 的 feature，也不能据此判断依赖 feature 是否打开。
 
@@ -146,6 +156,31 @@ selectable 调用显式传 Lease 或 Direct。当前解析中，Direct/直连选
 
 实现时按 [租约参考](lease.md) 完成资源键一致性、兼容性字段、完整 Config/TestFlow 示例、失效恢复及部署要求；不能只复制宏声明就声称完成租约支持。
 
+## batch：参数级顺序批量调用
+
+batch 适用于一个 operation 需要用不同整数记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化设备对象。
+
+开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持标量基础整数类型：
+
+```rust
+#[miresidian::operation("读取寄存器")]
+#[miresidian::output("值")]
+fn read_register(
+    &mut self,
+    #[miresidian::input("站号", batch)] station: i32,
+    #[miresidian::input("通道", batch)] channel: i32,
+    #[miresidian::input("倍率:1")] scale: i32,
+) -> MiresidianResult<i32> {
+    self.read_one(station, channel, scale)
+}
+```
+
+平台侧标记参数采用 `int[]` 文本：`1`、`1|3|5`、`1-5`、`1-3|5` 分别表示单项、指定项、递增范围和混合范围。所有 batch 参数先展开为数组，最长数组决定调用次数；长度为一的数组广播，其余数组必须与最长数组等长。例如 `站号=1`、`通道=1|3|5` 依次调用 `(1, 1)`、`(1, 3)`、`(1, 5)`；`站号=1|2`、`通道=1|3` 依次调用 `(1, 1)`、`(2, 3)`。不能对齐时报告参数错误，不定义笛卡尔积。
+
+未标记的 Input 在每轮按原文本、默认值和类型规则复用。batch 不能标记 Config、`init_device`、`close_device` 或 `get_port_no`，也不能把 Config 主键展开为多实例选择；需要访问多个 Config/Handle 对象时仍应分别调用。batch 固定顺序执行，首个失败即停止，已有副作用不回滚；每个输出槽位按调用顺序聚合为可逆竖线集合。第一版不提供 batch 并行或执行方式 Config。
+
+与 instances 组合时，框架先按 Config/Handle 定位一个对象，再在该对象内执行每条 batch 记录。平台多通道输入与一个 Input 槽位内的 `|` 数组是独立维度；若节点同时支持两者，应验证每个有效平台通道内部的 batch 输出槽位、失败位置及通信事务互斥。
+
 ## 组合使用及 Config 布局
 
 需要两项能力时，在一个 node 声明中组合，依赖 features 同时开启两项：
@@ -181,5 +216,7 @@ struct Device { /* 实际连接与业务状态 */ }
 | 单/多实例多通道 | 仅验证声明的固定策略，或任务要求支持的 selectable 选项；核对输出槽位和相关副作用 |
 | lease | 按 [租约验收场景](lease.md#验收场景) 验证所选激活路径、兼容/冲突配置、失败回滚与关闭；跨进程交付增加服务退出后的失效和重建验证 |
 | instances + lease | 所选对象的配置/资源正确关联，关闭对象释放对应连接和租约，其他对象行为符合设计 |
+| batch | 单项、列表、范围和混合范围；单值广播；多参数等长对齐；未标记参数复用；不对齐错误；顺序、首错停止和按输出槽位聚合 |
+| instances + batch | Config/Handle 只定位一个对象；batch 不展开主键；该对象内各记录按顺序执行；需要多平台通道时核对每个槽位的聚合输出 |
 
 编译配置要与实际交付一致，不能拿仅临时启用 feature 的宿主检查代替正式 DLL。命令见 [工具参考中的 feature 检查](commands.md#feature-配置的检查与构建)。本次若只修改此 skill，检查示例与来源、格式、引用和同步即可，不执行上述节点行为测试。
