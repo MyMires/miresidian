@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "futures-util",
  "inventory",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_format"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "miresidian_codec",
 ]

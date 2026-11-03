@@ -3,12 +3,14 @@
 根框架 0.18.0 起提供可选 `codec` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
 ```toml
-miresidian = { version = "=0.18.0", features = ["codec", "batch"] }
+miresidian = { version = "=0.18.1", features = ["codec"] }
 ```
 
 以上为源码候选示例；外部节点只采用 crates.io 已发布精确版本。框架更新不自动修改、升级或重新打包已有节点。
 
-## 标注与槽位
+codec 与 batch 可分别使用：codec 决定数据如何编解码，batch 决定业务方法是否按多条记录重复调用。启用 codec 不会自动启用 batch，启用 batch 也不要求 codec。
+
+## 单独使用 codec：标注与槽位
 
 ```rust,ignore
 #[miresidian::operation("转换")]
@@ -17,7 +19,7 @@ miresidian = { version = "=0.18.0", features = ["codec", "batch"] }
 ))]
 fn convert(
     &mut self,
-    #[miresidian::input("发送数据", batch, codec(
+    #[miresidian::input("发送数据", codec(
         formats = [utf8, hex, base64], selector = "发送数据格式"
     ))]
     data: Vec<u8>,
@@ -26,7 +28,7 @@ fn convert(
 }
 ```
 
-生成的 Input 顺序为：发送数据、发送数据格式、接收数据格式；Output 只有接收数据。业务方法只接收内部数据。格式选择值由框架消费，在执行业务之前校验，整次 batch 复用同一个选择。
+生成的 Input 顺序为：发送数据、发送数据格式、接收数据格式；Output 只有接收数据。业务方法只接收内部数据。格式选择值由框架消费，在执行业务之前校验。上例每次调用只处理一份数据，不需要 batch。
 
 - `formats` 必填且非空，允许 ascii、gbk、utf8、utf16le、hex、base64；不允许重复格式。
 - 第一项为默认格式，选择输入缺失或空白时采用它；非法值报错。
@@ -54,9 +56,22 @@ fn convert(
 
 无内置 Vec<String>、嵌套数组或 char 数组实现，避免臆造元素边界。缺少转换 trait 的类型在编译期失败。普通 bool、数值等无需标注 codec，默认规则始终可用。
 
-## batch
+## 可选组合：codec + batch
 
-codec 参数可同时标记 batch，先按转义竖线拆分记录，再逐条解码，每次业务方法仍接收单条数据。
+只有需要批量处理时，才同时开启两个 feature：
+
+```toml
+miresidian = { version = "=0.18.1", features = ["codec", "batch"] }
+```
+
+并在需要展开的参数上增加 batch 标记，例如：
+
+```rust,ignore
+#[miresidian::input("发送数据", batch, codec(formats = [hex]))]
+data: Vec<u8>,
+```
+
+codec 参数同时标记 batch 后，先按转义竖线拆分记录，再逐条解码，每次业务方法仍接收单条数据。
 
 ```text
 HEX 输入：31 32|44 45

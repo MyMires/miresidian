@@ -8,7 +8,7 @@
 
 | 节点需要的行为 | miresidian 依赖 features | 节点需要的声明 |
 | --- | --- | --- |
-| 指定格式解码输入或编码输出（0.18.0 起） | codec，批量时另加 batch | Input/Output 上 codec(formats = [...], selector = ...) |
+| 指定格式解码输入或编码输出（0.18.0 起） | codec | Input/Output 上 codec(formats = [...], selector = ...) |
 | 普通单实例，初始化后执行操作和关闭 | 不额外开启 | 基本 node、operation 等标注 |
 | 单实例接受多通道输入 | instances | instances(mode = single, execution = ...) |
 | 同时保留多个节点对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
@@ -19,7 +19,7 @@
 
 框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
 
-根框架 0.18.0 起新增可选 codec feature，只用于显式标注的格式转换增强，基础解析始终可用；旧版本不要盲加此 feature。实现位于 features/codec，内部 crate 为 miresidian_format。完整规则见 [显式格式编解码](codec.md)。
+根框架 0.18.0 起新增可选 codec feature，只用于显式标注的格式转换增强，基础解析始终可用。codec 和 batch 分别按需选择：只转换格式开启 codec，只重复数值调用开启 batch；同时需要两种行为时才组合，并且分别添加对应标注。旧版本不要盲加此 feature。实现位于 features/codec，内部 crate 为 miresidian_format。完整规则见 [显式格式编解码](codec.md)。
 
 根 feature instances 转发到 miresidian_instances/runtime，lease 转发到 miresidian_lease/local-ipc，batch 转发到 miresidian_batch；普通节点通过 miresidian 开启，不为此额外直接依赖内部 crate。不要把内部 crate 的 feature 名当作根 crate 的 feature。
 
