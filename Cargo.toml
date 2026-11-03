@@ -1,9 +1,9 @@
 [package]
 name = "miresidian"
-version = "0.17.2"
+version = "0.17.3"
 edition.workspace = true
 rust-version.workspace = true
-description = "A Rust runtime for cross-language test-device nodes."
+description = "A Rust runtime for cross-language node plugins."
 license.workspace = true
 repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"

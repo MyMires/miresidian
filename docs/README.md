@@ -20,7 +20,7 @@
 | 任务 | 建议顺序 |
 | --- | --- |
 | 第一次了解项目 | [项目首页](../README.md) → [架构总览](architecture.md) |
-| 开发设备节点 | [节点声明](宏驱动开发.md#声明方式) → [数据编解码](宏驱动开发.md#数据编解码) → [打包工具](../tools/miresidian-pack/README.md) |
+| 开发节点插件 | [节点声明](宏驱动开发.md#声明方式) → [数据编解码](宏驱动开发.md#数据编解码) → [打包工具](../tools/miresidian-pack/README.md) |
 | 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [Windows TestFlow](../tools/miresidian-testflow-windows/README.md) |
 | 扩展测试平台 | [核心类型关系](architecture.md#核心类型关系uml) → [平台适配器](c-abi.md#平台适配器) |
 | 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) |

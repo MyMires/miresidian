@@ -71,7 +71,7 @@ classDiagram
         pending
         running
     }
-    class Instance["设备实例（Instance）"] {
+    class Instance["节点实例（Instance）"] {
         <<内部类型>>
         key
         config
@@ -148,7 +148,7 @@ classDiagram
 
 | 所属类型 | 成员名称与含义 |
 | --- | --- |
-| 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭设备 |
+| 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭节点实例 |
 | 运行时 `NodeRuntime` | `core` 共享运行时状态；`platforms` 平台注册表；管理状态保存 objects 与 active_platform |
 | 运行时调用方法 | `invoke` 按配置选择平台并调用；`invoke_with` 使用指定适配器调用；`invoke_with_platform` 按平台编号调用；`shutdown` 关闭全部通道 |
 | 对象 `Instance` / `InstanceState` | `key` 关联键；`config` 已保存业务配置；`execution` 对象执行方式；`state` 加锁状态；`node` 业务对象；`fault` 故障原因；`lease` 可选租约 |
@@ -178,11 +178,11 @@ sequenceDiagram
     participant FFI as 跨语言入口<br/>ffi_runtime
     participant Runtime as 节点运行时<br/>NodeRuntime
     participant Adapter as 平台适配器<br/>PlatformAdapter
-    participant Instance as 设备通道<br/>Instance
+    participant Instance as 节点通道<br/>Instance
     participant Lease as 可选资源租约<br/>LocalLease
     participant Node as 宏生成的节点接口<br/>DeviceNode 实现
     participant Codec as 数据编解码<br/>miresidian_codec
-    participant Device as 节点业务方法与设备
+    participant Target as 节点业务逻辑与目标资源
     Host->>FFI: 提交函数名、配置数组与输入数组
     Note over Host,FFI: function 为函数名；config_json 和 input_json 为 JSON 字符串数组
     FFI->>FFI: 校验文本与 JSON，构造请求（Invocation）
@@ -199,8 +199,8 @@ sequenceDiagram
     Note over Node,Codec: 宏生成包装负责类型转换，业务方法接收 Rust 参数
     Node->>Codec: 将平台文本解析为强类型参数
     Codec-->>Node: 返回 Rust 参数值
-    Node->>Device: 执行设备业务方法
-    Device-->>Node: 返回业务结果
+    Node->>Target: 执行业务方法
+    Target-->>Node: 返回业务结果
     Node->>Codec: 将业务结果编码为平台文本
     Codec-->>Node: 返回文本输出
     Node-->>Instance: 返回业务输出（InvocationOutput）
@@ -215,7 +215,7 @@ sequenceDiagram
     Note over Host,FFI: 宿主立即复制文本；同一线程下一次调用前有效；不得释放
 ```
 
-图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用设备节点。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按节点策略从 Config[0] 或 Handle 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../features/lease/README.md)。
+图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用节点实例。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按节点策略从 Config[0] 或 Handle 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../features/lease/README.md)。
 
 ## 职责与源码位置
 
@@ -232,15 +232,15 @@ sequenceDiagram
 | `codec/` | 值模型、统一错误、参数与编解码 | [lib.rs](../codec/src/lib.rs) |
 | `macro/` | 属性宏入口、节点声明与逐方法生成 | [lib.rs](../macro/src/lib.rs)、[node.rs](../macro/src/node.rs)、[operation.rs](../macro/src/operation.rs) |
 | `macro/src/operation/` 与 `macro/src/node/` | 方法标注校验、描述及调用包装；节点注册绑定与 FFI | [definition.rs](../macro/src/operation/definition.rs)、[dispatch.rs](../macro/src/operation/dispatch.rs)、[generate.rs](../macro/src/node/generate.rs)、[ffi.rs](../macro/src/node/ffi.rs) |
-| `features/lease/` | 设备无关租约模型与可选本地 IPC | [lib.rs](../features/lease/src/lib.rs)、[local_ipc.rs](../features/lease/src/local_ipc.rs) |
+| `features/lease/` | 资源无关租约模型与可选本地 IPC | [lib.rs](../features/lease/src/lib.rs)、[local_ipc.rs](../features/lease/src/local_ipc.rs) |
 | `tools/` | 发布打包、Windows 流程执行及版本检查 | [打包说明](../tools/miresidian-pack/README.md)、[TestFlow 说明](../tools/miresidian-testflow-windows/README.md)、[check_versions.py](../tools/check_versions.py) |
 | `tools/fixtures/smoke-node/` | 独立的工具链集成夹具 | [节点源码](../tools/fixtures/smoke-node/src/lib.rs) |
 | `tests/` 与各 crate 的测试 | 跨 crate 契约、宏编译诊断与功能回归 | [根集成测试目录](../tests)、[宏诊断测试](../tests/macro_compile_fail.rs)、[编解码测试](../codec/tests) |
-| 独立节点项目 | 设备状态、私有通信依赖、业务操作、节点测试与交付说明 | [宏驱动开发](宏驱动开发.md) |
+| 独立节点项目 | 资源状态、私有通信依赖、业务操作、节点测试与交付说明 | [宏驱动开发](宏驱动开发.md) |
 
 源码使用新式 Rust 模块结构，不使用 `mod.rs`。入口文件负责声明与导出；同一概念具有多个协作职责时采用 `概念.rs + 概念/`，完整规则见[编码规范](coding-standards.md)。
 
-修改时先按上表定位归属：节点标注与生成改 `macro/`，通用编解码改 `codec/`，平台协议映射改适配器，生命周期与共享调度改运行时，设备协议留在独立节点。涉及依赖、核心类型或调用链变化时同步更新本页。
+修改时先按上表定位归属：节点标注与生成改 `macro/`，通用编解码改 `codec/`，平台协议映射改适配器，生命周期与共享调度改运行时，资源专有协议留在独立节点。涉及依赖、核心类型或调用链变化时同步更新本页。
 
 ## 并行与异步执行
 
@@ -313,7 +313,7 @@ C ABI v7 的现有同步接口保持参数、返回方式和文本内存契约�
 
 加载器边界依据 [Windows GetModuleHandleExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexw)、[FreeLibrary](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibrary) 和 [dlopen/dlclose](https://man7.org/linux/man-pages/man3/dlopen.3.html)；通过 libc 复用平台声明，不自行定义 Unix ABI。测试夹具 module_lifetime 的私有 probe 导出只用于原生加载器测试，不属于节点公共 C ABI。
 
-本轮 Linux Debug DLL 验证使用两个各等待 30ms 的模拟请求，5 次采样中位数：同步同实例 61.78ms、不同实例 30.96ms；async 同实例 64.08ms、不同实例 32.40ms。该观测仅说明示例的执行重叠，实际设备性能需另测。
+本轮 Linux Debug DLL 验证使用两个各等待 30ms 的模拟请求，5 次采样中位数：同步同实例 61.78ms、不同实例 30.96ms；async 同实例 64.08ms、不同实例 32.40ms。该观测仅说明示例的执行重叠，实际目标资源性能需另测。
 
 0.16.0 广播语义以[实例规范](instances.md#broadcast-的执行源与输出规则0160)为准：固定调用通道1一次并复制完整输出，其他通道无需同值；跳过目标保持空槽位，源通道被跳过时整批跳过，不选择后续源。此次同步与 Future 调度同时修正，并以实际业务计数等于1验收。
 

@@ -79,7 +79,7 @@ JSON 转义、中文与换行由标准 JSON 编解码器处理，调用方不得
 GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig 和 GetPortNO 是常驻查询；它们不要求先调用 InitDevice。`CloseAllDevices` 也不要求先初始化：它会幂等地清理当前运行时持有的全部通道。
 GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；GetProjectVersion 的 output 为当前 DLL 项目的语义化版本。
 这两个值来自 DLL 的编译期元数据，可用于与发布包 `manifest.json` 交叉核对。
-只有节点定义的设备操作才会在未初始化时返回“设备尚未初始化”。
+只有节点定义的业务操作才会在未初始化时返回“设备尚未初始化”。
 
 ### 状态码
 
@@ -94,7 +94,7 @@ GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；Ge
 
 节点的可展开 panic 返回 `status = 3`。业务操作 panic 后对应通道被标记为故障，后续操作和重复初始化会继续报告故障；版本、描述查询和其他通道保持可用。调用 `CloseDevice` 清理故障通道，再调用 `InitDevice` 创建新对象；也可使用 `CloseAllDevices` 清理全部通道。
 
-`CloseDevice` 无论关闭、析构或租约释放是否失败，都移除原通道并报告错误。`CloseAllDevices` 尝试全部通道后汇总清理错误。租约失效返回 `status = 2`，禁止继续访问设备，须先关闭再初始化。框架不会在故障对象上自动恢复业务调用。
+`CloseDevice` 无论关闭、析构或租约释放是否失败，都移除原通道并报告错误。`CloseAllDevices` 尝试全部通道后汇总清理错误。租约失效返回 `status = 2`，禁止继续访问目标资源，须先关闭再初始化。框架不会在故障对象上自动恢复业务调用。
 
 FFI 和异步请求边界捕获额外运行时异常并执行清理。两个同步入口共用内部并发运行时，不再持有覆盖业务的全局锁；旧 Rust FFI 容器仅在取得共享运行时引用时短暂加锁，污染时先清理再恢复。`panic = "abort"`、内存访问违规与进程级崩溃无法由此机制恢复。
 
@@ -151,7 +151,7 @@ Function + Config[] + Input[] -> Output[]
 - `Output[]` 是有序字符串数组；无业务输出的方法返回空数组。
 - Rust 运行时内部仍使用 `operation` 表示节点调度语义。不得将内部名称反向暴露为平台契约，也不得把平台的 `Function` 擅自改称为其他名称。
 
-固定入口的外部名称为 `GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`。其中两个版本查询不依赖设备初始化。普通节点方法使用 `operation` 标注发布名称。
+固定入口的外部名称为 `GetFunctions`、`GetFrameworkVersion`、`GetProjectVersion`、`GetInitConfig`、`GetPortNO`、`InitDevice`、`CloseDevice`、`CloseAllDevices`。其中两个版本查询不依赖节点初始化。普通节点方法使用 `operation` 标注发布名称。
 
 ### 参数通道
 
@@ -171,7 +171,7 @@ Function + Config[] + Input[] -> Output[]
 - 固定 execution 不发布执行方式参数；selectable 才发布 TB 兼容的 `共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播`，缺省或空白采用声明默认值，未知文本兼容回退 Sequential。选择保存在每个对象上；相同主键重复初始化必须一致。
 - 业务 panic 或租约失效后对象只能清理，其他对象、元数据与版本查询继续可用。CloseDevice 清理后始终移除对象；CloseAllDevices 不接受 Config/Input，逆序尝试清理全部对象并汇总错误。
 - TB 自定义操作 Input[0] 为 `共享` 时映射成框架多通道请求。一份 Config 定位一次对象，各输入使用同一对象。后续输入项按英文逗号拆分参数，内部数组仍用 `|`。位置只对应输出位置，与创建顺序和对象数无关。
-- Sequential 顺序执行，Parallel 调度 Future 但同一对象的完整调用仍互斥，Broadcast 固定使用通道1输入执行一次，将整份结果复制到有效通道，其他输入值不必相同。空白或参数数目非法的输入跳过并返回空字符串；实际执行失败时整个调用失败并保留平台通道序号，已完成的设备操作不会回滚。
+- Sequential 顺序执行，Parallel 调度 Future 但同一对象的完整调用仍互斥，Broadcast 固定使用通道1输入执行一次，将整份结果复制到有效通道，其他输入值不必相同。空白或参数数目非法的输入跳过并返回空字符串；实际执行失败时整个调用失败并保留平台通道序号，已完成的业务操作不会回滚。
 
 ### 参数描述文本原样透传
 

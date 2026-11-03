@@ -4,7 +4,7 @@
 
 ## 默认单实例
 
-未声明 `instances(...)` 的节点最多保留一个对象；只开启 Cargo feature 不改变此默认行为。同一份规范化业务 Config 初始化会复用当前对象；不同 Config 初始化先预解析参数，成功后关闭并析构旧对象、释放租约，再构造新对象。预解析失败保留旧对象；关闭失败阻止新构造；旧对象释放后构造失败保持未初始化。普通调用和关闭使用当前对象的完整业务 Config 校验目标，不会隐式切换设备。
+未声明 `instances(...)` 的节点最多保留一个对象；只开启 Cargo feature 不改变此默认行为。同一份规范化业务 Config 初始化会复用当前对象；不同 Config 初始化先预解析参数，成功后关闭并析构旧对象、释放租约，再构造新对象。预解析失败保留旧对象；关闭失败阻止新构造；旧对象释放后构造失败保持未初始化。普通调用和关闭使用当前对象的完整业务 Config 校验目标，不会隐式切换目标资源。
 
 无配置的单实例节点可用空 Config 初始化。默认节点不接受多通道请求，也不发布执行方式配置。
 
@@ -21,29 +21,29 @@ miresidian = { version = "=0.17.1", features = ["instances"] }
 
 ```rust,ignore
 // 单实例，允许多通道输入。
-#[miresidian::node("设备", instances(
+#[miresidian::node("示例节点", instances(
     mode = single,
     execution = selectable,
     default_execution = sequential
 ))]
-struct Device;
+struct ExampleNode;
 
 // 多实例，以 Config[0] 为主键。
-#[miresidian::node("设备", instances(
+#[miresidian::node("示例节点", instances(
     mode = multiple,
     binding = config,
     execution = selectable,
     default_execution = sequential
 ))]
-struct Device;
+struct ExampleNode;
 
 // 多实例，以框架 Handle 为主键，固定顺序执行。
-#[miresidian::node("设备", instances(
+#[miresidian::node("示例节点", instances(
     mode = multiple,
     binding = handle,
     execution = sequential
 ))]
-struct Device;
+struct ExampleNode;
 ```
 
 上面是三种独立声明示意；一个节点模块仍只声明一个节点，初始化、关闭和业务方法继续由 `operation` 标注。
@@ -59,7 +59,7 @@ struct Device;
 
 ## Config[0] 主键（新节点项目强制规则）
 
-初始化的第一个业务 Config 参数必须是对象主键，位于 `Config[0]`，例如串口端口名或设备地址。其他配置如波特率、超时不参与对象身份。宏拒绝没有业务 Config 的 `multiple + config` 节点；业务上哪个字段是主键由节点作者正确放在第一位，框架不根据名称猜测。
+初始化的第一个业务 Config 参数必须是对象主键，位于 `Config[0]`，例如连接端点、端口名或逻辑资源标识。其他配置如通信参数、超时不参与对象身份。宏拒绝没有业务 Config 的 `multiple + config` 节点；业务上哪个字段是主键由节点作者正确放在第一位，框架不根据名称猜测。
 
 判空先于默认值补齐：未提供 Config[0]、空字符串、纯空白或只有参数名前缀（如 `地址:`）时，InitDevice 成功返回空输出，跳过创建、参数预解析和租约获取，保持已有对象不变。后面的业务参数或框架字段非空，也不能代替主键；元数据中的默认值不能把空通道变成对象。
 
@@ -70,8 +70,8 @@ struct Device;
 Handle 由平台放在 Config 中，框架自动在业务 Config 之后追加 `Handle` 元数据项，不进入节点初始化参数和业务 Config 索引。
 
 ```text
-业务 Config: [设备, 波特率]
-实际 Config: [设备, 波特率, Handle, ...其他框架字段]
+业务 Config: [资源标识, 通信参数]
+实际 Config: [资源标识, 通信参数, Handle, ...其他框架字段]
 
 ["COM3", "9600", "H1"] → 对象 H1
 ["COM3", "9600", "H2"] → 独立对象 H2
