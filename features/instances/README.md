@@ -3,7 +3,7 @@
 通用实例策略、单实例容器，以及可选的多实例容器与多通道输入调度。最低 Rust 版本为 1.89。
 
 ```toml
-miresidian_instances = "=0.16.0"
+miresidian_instances = "=0.16.1"
 ```
 
 基础类型及单实例容器始终可用；`runtime` feature 启用多实例容器和顺序、并行、广播调度。不依赖节点 trait、过程宏、平台标记或具体通信实现。节点项目通常通过根 crate 的 `instances` feature 与同名宏配置接入，参见[实例管理](../../docs/instances.md)。

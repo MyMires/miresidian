@@ -3,7 +3,7 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-工具独立版本为 **0.12.1**；本地源码候选尚未发布时，可在框架仓库执行
+工具独立版本为 **0.13.0**；本地源码候选尚未发布时，可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -23,15 +23,21 @@ cargo miresidian-pack --version
 新增入口使用长选项，`new`、`check` 等文字仍可作为原有节点名。
 Cargo 必须能找到 `cargo-miresidian-pack` 二进制；也可以直接运行该二进制，省略 `miresidian-pack`。
 
-0.12.1 单独发布后可安装：
+0.13.0 单独发布后可安装：
 
 ```text
-cargo install miresidian_pack --version 0.12.1 --locked
+cargo install miresidian_pack --version 0.13.0 --locked
 ```
 
 ## 最小模板
 
 `--new <目录> [--name <显示名称>] [--miresidian-version <已发布版本>|--mires-version <已发布版本>]` 创建独立单实例回显项目。
+
+`--init [目录]` 使用相同选项在已有目录初始化，省略目录时使用当前目录。模板目标文件或 Cargo.lock 已存在时拒绝写入；其他文件保留。
+
+new 和 init 均以目标目录末段作为 Rust package 名，目录名须符合 Rust 包名规则；`--name` 只指定节点显示名称及调用说明文件名。省略时节点名称默认使用目录名，仍生成 `#[node("目录名")]`。例如目录 `serial-node` 指定 `--name "串口节点"` 后，package 名为 `serial-node`，节点名称为 `串口节点`，说明文件为 `docs/串口节点.md`。
+
+init 的常见冲突文件包括 Cargo.toml、Cargo.lock、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 和 `docs/<节点名称>.md`；存在时先处理冲突再运行。已有 src、docs、tools 子目录必须是普通目录，不跟随符号链接。
 目录必须不存在，父目录必须存在；包名取目录末段，须为合法 Rust 名称，可含连字符。
 默认显示名等于包名；显示名同时作为交付目录名，必须符合 Windows 文件名规则。
 已存在的目录即使为空也拒绝覆盖。

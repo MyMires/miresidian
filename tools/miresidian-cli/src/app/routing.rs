@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use toml::Value;
 
 pub(super) const TOOLSET: &str = include_str!("../../toolset.toml");
-pub(super) const HELP: &str = "用法：cargo miresidian <命令>（cargo mires 为等价入口）\n  new <目录> [--name <名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  check [--node <名称>]\n  build [--node <名称>] [--arch x64|x86|all]\n  pack [--node <名称>] [--arch x64|x86|all]\n  testflow --os windows <流程.testflow>\n  install --full|<工具> [版本选项] [Cargo 参数]\n  update --full|<工具> [Cargo 参数]\n  use <工具> <X.Y.Z> [Cargo 参数]\n  list [--root <目录>]\n  <命令> --help\n  --help|-h\n  --version|-V\nbuild/pack 默认全部节点、all 架构、release；new 默认最新正式版框架。";
+pub(super) const HELP: &str = "用法：cargo miresidian <命令>（cargo mires 为等价入口）\n  init [目录] [--name <名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  new <目录> [--name <名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  check [--node <名称>]\n  build [--node <名称>] [--arch x64|x86|all]\n  pack [--node <名称>] [--arch x64|x86|all]\n  testflow --os windows <流程.testflow>\n  install --full|<工具> [版本选项] [Cargo 参数]\n  update --full|<工具> [Cargo 参数]\n  use <工具> <X.Y.Z> [Cargo 参数]\n  list [--root <目录>]\n  <命令> --help\n  --help|-h\n  --version|-V\nbuild/pack 默认全部节点、all 架构、release；new 默认最新正式版框架。";
 
 pub(super) enum Action {
     Help,
@@ -114,6 +114,12 @@ mod tests {
     #[test]
     fn 两入口参数保持一致且操作系统只用于选择工具() {
         for name in ["mires", "miresidian"] {
+            let Action::Invoke { arguments, .. } =
+                parse(args(&[name, "init", "--name", "节点"])).unwrap()
+            else {
+                panic!()
+            };
+            assert_eq!(arguments, args(&["--init", "--name", "节点"]));
             let Action::Invoke {
                 binary, arguments, ..
             } = parse(args(&[

@@ -68,7 +68,10 @@ impl FromStr for ByteTextFormat {
         if normalized.eq_ignore_ascii_case("GBK") {
             return Ok(Self::Gbk);
         }
-        if normalized.eq_ignore_ascii_case("UTF-8") || normalized.eq_ignore_ascii_case("UTF8") {
+        if normalized.eq_ignore_ascii_case("UTF-8")
+            || normalized.eq_ignore_ascii_case("UTF8")
+            || normalized.eq_ignore_ascii_case("UTF_8")
+        {
             return Ok(Self::Utf8);
         }
         if normalized.eq_ignore_ascii_case("Unicode")

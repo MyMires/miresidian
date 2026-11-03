@@ -5,6 +5,7 @@
 - 本项目是独立的 Miresidian Rust Node，包名为 `{{package}}`。初始化选用框架 `={{version}}`；后续以 Cargo.toml 与 Cargo.lock 的实际版本为准。
 - 开始工作先读取 README.md、`docs/{{name}}.md` 和本次涉及的源码。初始模板只有无硬件回显，不能作为真实设备业务已完成的证据。
 - 已安装 miresidian-node skill 时使用其开发指导；需要安装时，从 [框架仓库的完整 skill 目录](https://github.com/MyMires/miresidian/tree/master/skills/miresidian-node) 获取全部文件。框架契约查阅项目精确依赖版本对应的文档，不默认采用 master/latest 的行为。
+- 构建 Node 项目时，编写业务代码前必须整理节点契约、通信与生命周期、features、错误处理和验证交付方案，以及实施计划，提交用户并等待明确确认；初始化模板可在确认前进行。方案尽量附 UML 类图说明主要对象和关系，简单项目或信息不足时可说明并使用文字。方案调整后重新确认；已有节点局部维护按任务范围处理。
 
 ## 依赖、源码与节点契约
 

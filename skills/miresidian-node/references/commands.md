@@ -4,11 +4,12 @@
 
 ## 创建和交付常用操作
 
-统一入口 cargo mires 与 cargo miresidian 等价。在目标节点项目中执行检查、构建、打包和流程生成；创建时从目标目录的父目录执行。
+统一入口 cargo mires 与 cargo miresidian 等价。在目标节点项目中执行检查、构建、打包和流程生成；new 从目标目录的父目录创建新目录，init 默认在当前已有目录初始化，也可以指定已有目录。
 
 | 需要的操作 | 命令 |
 | --- | --- |
-| 创建项目 | `cargo miresidian new demo-node --name "演示设备"` |
+| 创建项目 | `cargo miresidian new demo-node --name "演示节点"` |
+| 初始化已有目录 | `cargo miresidian init --name "演示节点"`（需要 CLI 0.3.0 与 Pack 0.13.0；也可指定已有目录） |
 | 创建时指定框架 | `cargo miresidian new demo-node --miresidian-version X.Y.Z`，或等价的 `--mires-version X.Y.Z` |
 | 编译类型检查 | `cargo check --locked` |
 | 结构/依赖/说明检查 | `cargo miresidian check` |
@@ -19,9 +20,13 @@
 
 new 的目标目录须不存在、父目录须存在；包名取目录末段，显示名须适合作为 Windows 文件名。未指定框架版本时查询最新未撤回正式版并精确锁定；已有项目不因此自动升级。创建会生成真实锁文件但不代替编译，失败后保留的文件不等于创建成功。
 
+init 默认当前目录；所有模板文件及 Cargo.lock 必须不存在，其他文件保留。常见冲突包括 Cargo.toml、Cargo.lock、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 和 `docs/<节点名称>.md`。模板子目录已存在时必须是普通目录，不跟随符号链接；冲突时先处理已有文件，再重新初始化。
+
+new 和 init 的 Cargo package 名均取目标目录末段，须符合 Rust 包名规则；--name 指定独立的节点显示名称，用于 #[node("名称")]、调用说明文件名和模板文档，不改变 package 名。省略 --name 时节点名称默认取目录名，仍生成带该名称的 #[node(...)]。例如在 serial-node 目录执行 `cargo miresidian init --name "串口节点"`，package 是 `serial-node`，节点名称是 `串口节点`。CLI 0.3.0 和 Pack 0.13.0 的 init 当前为源码候选，使用前确认已安装工具版本支持该命令。
+
 build/pack 默认全部发现节点和 all 架构；用 --node "名称" 选择节点，--arch x64/x86/all 选择本次位数。均 release/locked 构建；pack 已包含编译，输出 dist/<节点显示名>/。清单的 artifacts 反映本次构建，旧位数目录可能仍存在。
 
-check 不编译、不加载 DLL、不生成 dist；当前目录有 tools/smoke.testflow 时还静态检查该流程。它不能证明业务实现、文档准确或设备正常。
+check 不编译、不加载 DLL、不生成 dist；当前目录有 tools/smoke.testflow 时还静态检查该流程。它不能证明业务实现、文档准确或目标资源可用。
 
 ## TestFlow 写法与执行
 
@@ -30,7 +35,7 @@ check 不编译、不加载 DLL、不生成 dist；当前目录有 tools/smoke.t
 ```text
 GetFunctions()
 GetInitConfig()
-Config("设备地址", "1000")
+Config("连接地址", "1000")
 InitDevice()
 实际操作名("业务输入")
 CloseDevice()
@@ -50,9 +55,9 @@ CloseAllDevices()
 cargo tree --locked -e features -i miresidian
 # 临时启用依赖 feature，只用于相应诊断/检查，不修改 Cargo.toml。
 cargo check --locked --features miresidian/instances
-# 节点确有 multi-device 转发 feature 时才可使用。
-cargo check --locked --features multi-device
-cargo test --locked --features multi-device
+# 节点确有 instances 转发 feature 时才可使用。
+cargo check --locked --features instances
+cargo test --locked --features instances
 ```
 
 不能在未定义同名项目 feature 的节点中直接写 --features instances，来假设会开启框架依赖。--all-features 也不是独立开启依赖全部 features 的通用替代方式。

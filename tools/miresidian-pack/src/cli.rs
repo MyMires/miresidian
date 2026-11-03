@@ -15,7 +15,7 @@ pub(crate) enum Command {
 pub(crate) fn command_from_args(arguments: Vec<String>) -> Result<Command, String> {
     if matches!(
         arguments.first().map(String::as_str),
-        Some("--new" | "--check" | "--build" | "--pack")
+        Some("--new" | "--init" | "--check" | "--build" | "--pack")
     ) && matches!(arguments.get(1).map(String::as_str), Some("--help" | "-h"))
         && arguments.len() == 2
     {
@@ -28,6 +28,7 @@ pub(crate) fn command_from_args(arguments: Vec<String>) -> Result<Command, Strin
         Some("--build") => Ok(Command::Build(options(&arguments[1..], true)?)),
         Some("--pack") => Ok(Command::Package(options(&arguments[1..], true)?)),
         Some("--new") => TemplateRequest::from_args(&arguments[1..]).map(Command::New),
+        Some("--init") => TemplateRequest::init_from_args(&arguments[1..]).map(Command::New),
         Some(value) if value.starts_with('-') => Err(usage()),
         _ => request_from_args(arguments).map(Command::Package),
     }
@@ -115,7 +116,7 @@ fn target_from_architecture(architecture: &str) -> Result<WindowsTarget, String>
 }
 
 pub(crate) fn usage() -> String {
-    "用法：\n  cargo miresidian-pack --new <目录> [--name <节点名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  cargo miresidian-pack --check [--node <节点名称>]\n  cargo miresidian-pack --build [--node <节点名称>] [--arch x64|x86|all]\n  cargo miresidian-pack --pack [--node <节点名称>] [--arch x64|x86|all]\n  cargo miresidian-pack [x86|x64] [节点名称]  （兼容入口）\n  cargo miresidian-pack --help|-h\n  cargo miresidian-pack --version|-V\n默认：最新未撤回正式版框架；全部节点；all 架构；release 构建。\n--framework-version 保留为版本参数的兼容别名。".to_owned()
+    "用法：\n  cargo miresidian-pack --init [目录] [--name <节点名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  cargo miresidian-pack --new <目录> [--name <节点名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  cargo miresidian-pack --check [--node <节点名称>]\n  cargo miresidian-pack --build [--node <节点名称>] [--arch x64|x86|all]\n  cargo miresidian-pack --pack [--node <节点名称>] [--arch x64|x86|all]\n  cargo miresidian-pack [x86|x64] [节点名称]  （兼容入口）\n  cargo miresidian-pack --help|-h\n  cargo miresidian-pack --version|-V\n默认：最新未撤回正式版框架；全部节点；all 架构；release 构建。\n--framework-version 保留为版本参数的兼容别名。".to_owned()
 }
 
 pub(crate) fn windows_x64() -> WindowsTarget {

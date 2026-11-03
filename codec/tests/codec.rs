@@ -6,6 +6,33 @@ use miresidian_codec::{
 };
 
 #[test]
+fn utf8_平台选项兼容新旧名称() {
+    for name in ["UTF_8", "utf_8", "UTF8", "UTF-8"] {
+        assert_eq!(
+            name.parse::<ByteTextFormat>().unwrap(),
+            ByteTextFormat::Utf8
+        );
+        let values = vec![name.to_owned()];
+        let format = decode_value_with_definition::<ByteTextFormat>(
+            &values,
+            0,
+            "数据格式",
+            "数据格式:ASCII/GBK/UTF_8/Unicode/HEX/Base64",
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            decode_text_to_bytes("测试", format).unwrap(),
+            "测试".as_bytes()
+        );
+        assert_eq!(
+            encode_bytes_to_text("测试".as_bytes(), format).unwrap(),
+            "测试"
+        );
+    }
+}
+
+#[test]
 fn 文本格式可以经由原始字节无损转码() {
     assert_eq!(
         transcode_text("测试", ByteTextFormat::Gbk, ByteTextFormat::Hex).expect("GBK 应可转 HEX"),

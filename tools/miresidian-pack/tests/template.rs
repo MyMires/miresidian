@@ -43,6 +43,26 @@ fn success(output: Output) {
 }
 
 #[test]
+#[ignore = "需要 crates.io 已发布 0.14.0 及传递依赖"]
+fn 初始化当前目录生成真实锁文件并保留其他文件() {
+    let project = Project::new();
+    let root = project.0.join("demo-node");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("已有文件.txt"), "保留").unwrap();
+    success(tool(&root, &["--init", ".", "--mires-version", "0.14.0"]));
+    assert!(root.join("Cargo.lock").is_file());
+    assert_eq!(
+        fs::read_to_string(root.join("已有文件.txt")).unwrap(),
+        "保留"
+    );
+    assert!(
+        !tool(&root, &["--init", ".", "--mires-version", "0.14.0"])
+            .status
+            .success()
+    );
+}
+
+#[test]
 #[ignore = "需要 crates.io 已发布 0.14.0 及传递依赖；可在预热缓存后设置 CARGO_NET_OFFLINE=true"]
 fn 生成模板通过真实编译且检查不构建不改锁文件() {
     let project = Project::new();

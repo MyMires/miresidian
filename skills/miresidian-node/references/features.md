@@ -10,11 +10,11 @@
 | --- | --- | --- |
 | 普通单实例，初始化后执行操作和关闭 | 不额外开启 | 基本 node、operation 等标注 |
 | 单实例接受多通道输入 | instances | instances(mode = single, execution = ...) |
-| 同时保留多个设备对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
+| 同时保留多个节点对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
 | 跨 DLL/进程协调同一资源的配置兼容性 | lease | lease(resource = ..., configuration = ..., activation = ...) |
 | 多实例/多通道，并需要资源租约 | instances、lease | 同一 node 上组合 instances(...) 和 lease(...) |
 | 一次操作按多个整数记录顺序重复同一业务逻辑 | batch | 需要展开的普通 Input 参数写 `#[miresidian::input("名称", batch)]` |
-| 多实例定位后，在同一设备上按整数记录顺序执行 | instances、batch | node 上声明 instances(...)，业务 operation 的 Input 参数单独标记 batch |
+| 多实例定位后，在同一节点对象上按整数记录顺序执行 | instances、batch | node 上声明 instances(...)，业务 operation 的 Input 参数单独标记 batch |
 
 框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi 或 codec feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
 
@@ -65,11 +65,11 @@ miresidian = { version = "=0.17.1", features = ["batch"] }
 miresidian = { version = "=0.14.0" }
 
 [features]
-default = ["multi-device"]
-multi-device = ["miresidian/instances"]
+default = ["instances"]
+instances = ["miresidian/instances"]
 ```
 
-示例让普通构建启用 multi-device，配套节点必须有实例策略声明。不要无需求引入这一层转发。确需支持禁用分支时，业务源码和契约也必须支持对应分支；不能仅声明可选开关却让禁用后编译失败。当前 Pack 不传 --features，所需能力应位于依赖固定 features 或有效的节点默认 feature 中，不能只靠一次临时检查启用。
+这是节点项目可选的 feature 转发写法，名称与框架能力保持为 `instances`；配套节点必须有实例策略声明。不要无需求引入这一层转发。确需支持禁用分支时，业务源码和契约也必须支持对应分支；不能仅声明可选开关却让禁用后编译失败。当前 Pack 不传 --features，所需能力应位于依赖固定 features 或有效的节点默认 feature 中，不能只靠一次临时检查启用。
 
 Cargo feature 是加法合并的；default-features = false 只关闭该依赖默认 feature，不会撤销显式 features 或其他依赖路径已启用的能力。普通交付按真实能力配置验证，不把 --all-features 当作节点默认验收方式。
 
@@ -80,41 +80,41 @@ Cargo feature 是加法合并的；default-features = false 只关闭该依赖�
 按业务选择一个声明，替换同一节点的结构体标注；下面各段是独立策略示意，不是在一个 crate 声明三个节点：
 
 ```rust
-// 一个设备对象，多通道输入；初始化时可选执行方式。
-#[miresidian::node("设备", instances(
+// 一个节点对象，多通道输入；初始化时可选执行方式。
+#[miresidian::node("示例节点", instances(
     mode = single,
     execution = selectable,
     default_execution = sequential
 ))]
-struct Device { /* 实际连接与业务状态 */ }
+struct ExampleNode { /* 实际连接与业务状态 */ }
 ```
 
 ```rust
-// 多个设备对象，以第一个业务 Config 关联。
-#[miresidian::node("设备", instances(
+// 多个节点对象，以第一个业务 Config 关联。
+#[miresidian::node("示例节点", instances(
     mode = multiple,
     binding = config,
     execution = selectable,
     default_execution = sequential
 ))]
-struct Device { /* 实际连接与业务状态 */ }
+struct ExampleNode { /* 实际连接与业务状态 */ }
 ```
 
 ```rust
-// 多个设备对象，以框架 Handle 关联，固定顺序执行。
-#[miresidian::node("设备", instances(
+// 多个节点对象，以框架 Handle 关联，固定顺序执行。
+#[miresidian::node("示例节点", instances(
     mode = multiple,
     binding = handle,
     execution = sequential
 ))]
-struct Device { /* 实际连接与业务状态 */ }
+struct ExampleNode { /* 实际连接与业务状态 */ }
 ```
 
 mode 必填；multiple 还须 binding，single 不接受 binding。execution 必填，可选 sequential、parallel、broadcast、selectable；只有 selectable 才声明 default_execution，并向调用方发布执行方式 Config。
 
 config 关联要求初始化第一个业务 Config 为真实主键；空主键跳过初始化，同键同配置复用，同键不同配置报错。handle 关联由框架在业务 Config 后追加 Handle，业务初始化签名不接收它；空 Handle 初始化跳过，业务调用和关闭不能以空 Handle 选择其他对象。
 
-多个对象与多通道输入是两个维度。一次多通道请求仍按一份 Config 定位同一对象；parallel 不等于同一设备上同时执行多段通信事务。broadcast 的具体副作用和执行源规则应按所选发布版本核对，不按名称猜测。
+多个对象与多通道输入是两个维度。一次多通道请求仍按一份 Config 定位同一对象；parallel 不等于在同一节点对象上同时执行多段通信事务。broadcast 的具体副作用和执行源规则应按所选发布版本核对，不按名称猜测。
 
 | execution 声明 | 选择依据与调用影响 |
 | --- | --- |
@@ -123,19 +123,19 @@ config 关联要求初始化第一个业务 Config 为真实主键；空主键�
 | broadcast | 适合一次业务执行后复用结果；先核对所选版本的执行源和结果复制规则，不能用于要求每通道独立副作用的操作 |
 | selectable | 初始化时发布执行方式 Config，实际值为 Sequential、Parallel、Broadcast；声明 default_execution 作为缺省/空值策略 |
 
-执行方式保存在初始化对象上；变更对象配置需遵循该实例策略的复用、冲突或关闭重建规则。设备事务是否允许并行仍由节点通信实现决定。
+执行方式保存在初始化对象上；变更对象配置需遵循该实例策略的复用、冲突或关闭重建规则。资源事务是否允许并行仍由节点通信实现决定。
 
-## lease：租约与实际设备连接配套
+## lease：租约与实际资源连接配套
 
 需要多个遵循同一租约协议的 DLL/进程协调同一资源的配置时启用 lease；只管理本进程对象数量时选择 instances 即可。打开 lease 后，还要声明资源身份和会影响兼容性的配置字段。例如：
 
 ```rust
-#[miresidian::node("串口设备", lease(
+#[miresidian::node("串口节点", lease(
     activation = selectable,
     resource = "port_name",
     configuration = ["baud_rate"]
 ))]
-struct Device { /* 实际串口连接与业务状态 */ }
+struct ExampleNode { /* 实际串口连接与业务状态 */ }
 ```
 
 resource 和 configuration 引用 init_device 中来自 Config 的 Rust 参数名，不是显示标签、Input 参数或固定资源值；该例要求初始化签名确有 port_name、baud_rate，并将 port_name 放在第一个业务 Config。configuration 至少包含一个字段；实际串口还应声明数据位、校验、停止位等影响配置兼容性的字段，不能机械照抄只填波特率。
@@ -148,7 +148,7 @@ resource 和 configuration 引用 init_device 中来自 Config 的 Rust 参数�
 
 普通直连节点省略整个 lease(...) 即可。只要保留 lease(...) 声明，包括 disabled，都要开启依赖的 lease feature；不能靠 activation 绕过宏的 feature 要求。
 
-selectable 发布资源访问方式，允许初始化选择租约或直连；只开启 feature 而不声明 lease(...) 不会给普通节点自动加租约。运行时负责取得、校验、回滚和释放租约；节点只实现实际设备连接，不手工维护令牌或按 LeaseState 判断物理句柄所有权。
+selectable 发布资源访问方式，允许初始化选择租约或直连；只开启 feature 而不声明 lease(...) 不会给普通节点自动加租约。运行时负责取得、校验、回滚和释放租约；节点只实现实际资源连接，不手工维护令牌或按 LeaseState 判断物理句柄所有权。
 
 selectable 调用显式传 Lease 或 Direct。当前解析中，Direct/直连选择直连，空值及其他值走租约；不要依赖拼写错误回退来表达业务意图。Direct 不参与租约配置约束，需要所有调用方受协调时应选 required，并确保所有相关进程都采用租约路径。
 
@@ -158,7 +158,7 @@ selectable 调用显式传 Lease 或 Direct。当前解析中，Direct/直连选
 
 ## batch：参数级顺序批量调用
 
-batch 适用于一个 operation 需要用不同整数记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化设备对象。
+batch 适用于一个 operation 需要用不同整数记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化节点对象。
 
 开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持标量基础整数类型：
 
@@ -186,7 +186,7 @@ fn read_register(
 需要两项能力时，在一个 node 声明中组合，依赖 features 同时开启两项：
 
 ```rust
-#[miresidian::node("串口设备",
+#[miresidian::node("串口节点",
     instances(
         mode = multiple,
         binding = config,
@@ -199,7 +199,7 @@ fn read_register(
         configuration = ["baud_rate"]
     )
 )]
-struct Device { /* 实际连接与业务状态 */ }
+struct ExampleNode { /* 实际连接与业务状态 */ }
 ```
 
 以上只展示能力声明，仍需实现 init_device、业务及 close_device。配置参数和初始化资源必须与声明一致。

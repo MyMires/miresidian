@@ -73,7 +73,7 @@ impl Drop for Fixture {
 #[test]
 fn 独立进程保持参数目录和退出码() {
     let fixture = Fixture::new();
-    fixture.backend("0.12.1");
+    fixture.backend("0.13.0");
     for name in ["cargo-miresidian", "cargo-mires"] {
         let output = fixture
             .command(name)

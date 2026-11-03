@@ -1,6 +1,7 @@
 //! 最小节点模板：只声明已发布精确依赖，锁文件始终由 Cargo 生成。
 use std::{
-    fs,
+    fs::{self, OpenOptions},
+    io::Write,
     path::PathBuf,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
@@ -13,14 +14,40 @@ pub(crate) struct TemplateRequest {
     package: String,
     name: String,
     version: String,
+    init: bool,
 }
 
 impl TemplateRequest {
     pub(crate) fn from_args(args: &[String]) -> Result<Self, String> {
+        Self::parse(args, false)
+    }
+
+    pub(crate) fn init_from_args(args: &[String]) -> Result<Self, String> {
+        Self::parse(args, true)
+    }
+
+    fn parse(args: &[String], init: bool) -> Result<Self, String> {
+        let mut args = args.to_vec();
+        if init && args.first().is_none_or(|s| s.starts_with('-')) {
+            args.insert(
+                0,
+                std::env::current_dir()
+                    .map_err(|e| e.to_string())?
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+        }
         let Some(directory) = args.first().filter(|s| !s.starts_with('-')) else {
             return Err(crate::cli::usage());
         };
         let directory = PathBuf::from(directory);
+        let directory = if init {
+            directory
+                .canonicalize()
+                .map_err(|e| format!("无法访问 init 目录 {}：{e}", directory.display()))?
+        } else {
+            directory
+        };
         let package = directory
             .file_name()
             .and_then(|s| s.to_str())
@@ -65,12 +92,16 @@ impl TemplateRequest {
             package,
             name,
             version,
+            init,
         })
     }
 }
 
 pub(crate) fn create(mut request: TemplateRequest) -> Result<(), String> {
-    if request.directory.exists() {
+    if request.init && !request.directory.is_dir() {
+        return Err("init 目标目录必须已经存在".into());
+    }
+    if !request.init && request.directory.exists() {
         return Err("模板目录已存在，拒绝覆盖".into());
     }
     let parent = request
@@ -126,15 +157,14 @@ fn validate_version(version: &str) -> Result<(), String> {
 }
 
 fn write_project(request: &TemplateRequest) -> Result<(), String> {
-    // 原子地取得新目录；即使既有目录为空也不覆盖。后续失败保留文件供检查。
-    fs::create_dir(&request.directory).map_err(|e| {
-        format!(
-            "无法创建模板目录 {}（目录必须不存在，父目录须已存在）：{e}",
-            request.directory.display()
-        )
-    })?;
-    for directory in ["src", "docs", "tools"] {
-        fs::create_dir(request.directory.join(directory)).map_err(|e| e.to_string())?;
+    if !request.init {
+        // new 原子地取得新目录，不覆盖既有目录。
+        fs::create_dir(&request.directory).map_err(|e| {
+            format!(
+                "无法创建模板目录 {}（目录必须不存在，父目录须已存在）：{e}",
+                request.directory.display()
+            )
+        })?;
     }
     let date = utc_date(
         SystemTime::now()
@@ -143,7 +173,7 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
             .as_secs()
             / 86_400,
     );
-    for (file, content) in [
+    let files: [(String, &str); 9] = [
         (
             "Cargo.toml".into(),
             include_str!("../templates/Cargo.toml.in"),
@@ -174,9 +204,40 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
             format!("docs/{}.md", request.name),
             include_str!("../templates/node.md.in"),
         ),
-    ] {
+    ];
+    // 检查全部目标后再写入，且禁止沿符号链接写入已有目录。
+    for directory in ["src", "docs", "tools"] {
+        let path = request.directory.join(directory);
+        if let Ok(metadata) = fs::symlink_metadata(&path)
+            && (!metadata.is_dir() || metadata.file_type().is_symlink())
+        {
+            return Err(format!("模板目录冲突：{}", path.display()));
+        }
+    }
+    for file in files
+        .iter()
+        .map(|(file, _)| file.as_str())
+        .chain(["Cargo.lock"])
+    {
+        let path = request.directory.join(file);
+        if path.symlink_metadata().is_ok() {
+            return Err(format!("模板文件已存在，拒绝覆盖：{}", path.display()));
+        }
+    }
+    for directory in ["src", "docs", "tools"] {
+        fs::create_dir_all(request.directory.join(directory)).map_err(|e| e.to_string())?;
+    }
+    for (file, content) in files {
         let rendered = render(content, request, &date);
-        fs::write(request.directory.join(file), rendered).map_err(|e| e.to_string())?;
+        let path = request.directory.join(file);
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| format!("无法创建 {}：{e}", path.display()))?;
+        output
+            .write_all(rendered.as_bytes())
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -331,6 +392,9 @@ mod tests {
         assert!(agents.contains("`demo-node`"));
         assert!(agents.contains("`=0.14.0`"));
         assert!(agents.contains("`docs/演示设备.md`"));
+        assert!(agents.contains("编写业务代码前"));
+        assert!(agents.contains("等待明确确认"));
+        assert!(agents.contains("UML 类图"));
         fs::write(path.join("README.md"), "用户文件").unwrap();
         fs::write(path.join("AGENTS.md"), "用户规则").unwrap();
         assert!(write_project(&template).is_err());
@@ -342,5 +406,31 @@ mod tests {
             fs::read_to_string(path.join("AGENTS.md")).unwrap(),
             "用户规则"
         );
+    }
+
+    #[test]
+    fn 初始化已有目录且冲突时不写入任何模板文件() {
+        let temp = crate::test_support::TempDir::new();
+        let path = temp.0.join("demo-node");
+        fs::create_dir(&path).unwrap();
+        fs::write(path.join("keep.txt"), "保留").unwrap();
+        let args = vec![
+            path.to_str().unwrap().to_owned(),
+            "--mires-version".into(),
+            "0.14.0".into(),
+        ];
+        let template = TemplateRequest::init_from_args(&args).unwrap();
+        fs::write(path.join("README.md"), "原有文件").unwrap();
+        assert!(write_project(&template).is_err());
+        assert!(!path.join("Cargo.toml").exists());
+        assert_eq!(
+            fs::read_to_string(path.join("README.md")).unwrap(),
+            "原有文件"
+        );
+        fs::remove_file(path.join("README.md")).unwrap();
+        write_project(&template).unwrap();
+        assert_eq!(fs::read_to_string(path.join("keep.txt")).unwrap(), "保留");
+        assert!(path.join("Cargo.toml").is_file());
+        assert!(write_project(&template).is_err());
     }
 }

@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "futures-util",
  "inventory",
@@ -285,14 +285,14 @@ version = "0.14.0"
 
 [[package]]
 name = "miresidian_batch"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "miresidian_codec",
 ]
 
 [[package]]
 name = "miresidian_cli"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "semver",
  "toml",
@@ -300,7 +300,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_codec"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -309,14 +309,14 @@ dependencies = [
 
 [[package]]
 name = "miresidian_instances"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "miresidian_codec",
 ]
 
 [[package]]
 name = "miresidian_lease"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "getrandom",
  "interprocess",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_pack"
-version = "0.12.1"
+version = "0.13.0"
 dependencies = [
  "cargo_metadata",
  "serde_json",
