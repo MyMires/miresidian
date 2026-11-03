@@ -8,7 +8,7 @@
 
 | 节点需要的行为 | miresidian 依赖 features | 节点需要的声明 |
 | --- | --- | --- |
-| 指定格式解码输入或编码输出（0.18.0 起） | codec | Input/Output 上 codec(formats = [...], selector = ...) |
+| 指定格式解码输入或编码输出（0.19.0 起） | format | Input/Output 上 format(formats = [...], selector = ...) |
 | 普通单实例，初始化后执行操作和关闭 | 不额外开启 | 基本 node、operation 等标注 |
 | 单实例接受多通道输入 | instances | instances(mode = single, execution = ...) |
 | 同时保留多个节点对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
@@ -19,7 +19,7 @@
 
 框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
 
-根框架 0.18.0 起新增可选 codec feature，只用于显式标注的格式转换增强，基础解析始终可用。codec 和 batch 分别按需选择：只转换格式开启 codec，只重复数值调用开启 batch；同时需要两种行为时才组合，并且分别添加对应标注。旧版本不要盲加此 feature。实现位于 features/codec，内部 crate 为 miresidian_format。完整规则见 [显式格式编解码](codec.md)。
+根框架 0.19.0 起统一命名为可选 format feature，只用于显式标注的格式转换增强，基础解析始终可用。format 和 batch 分别按需选择：只转换格式开启 format，只重复数值调用开启 batch；同时需要两种行为时才组合，并且分别添加对应标注。旧版本不要盲加此 feature。实现位于 features/format，内部 crate 为 miresidian_format。完整规则见 [显式格式编解码](format.md)。
 
 根 feature instances 转发到 miresidian_instances/runtime，lease 转发到 miresidian_lease/local-ipc，batch 转发到 miresidian_batch；普通节点通过 miresidian 开启，不为此额外直接依赖内部 crate。不要把内部 crate 的 feature 名当作根 crate 的 feature。
 
@@ -161,9 +161,9 @@ selectable 调用显式传 Lease 或 Direct。当前解析中，Direct/直连选
 
 ## batch：参数级顺序批量调用
 
-batch 适用于一个 operation 需要用不同数值或 codec 记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化节点对象。
+batch 适用于一个 operation 需要用不同数值或 format 记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化节点对象。
 
-开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持单条记录的数值类型；0.18.0 起支持 f32/f64，或与 codec 组合接收单条业务数据：
+开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持单条记录的数值类型；0.18.0 起支持 f32/f64，或与 format 组合接收单条业务数据：
 
 ```rust
 #[miresidian::operation("读取寄存器")]

@@ -1,4 +1,4 @@
-#![cfg(feature = "codec")]
+#![cfg(feature = "format")]
 //! 经真实节点调度验证格式选择、输出槽位和批量编解码。
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 
@@ -17,13 +17,12 @@ impl FormatNode {
     }
 
     #[miresidian::operation("转换")]
-    #[miresidian::output("数据", codec(formats = [hex, utf8], selector = "输出格式"))]
+    #[miresidian::output("数据", format(formats = [hex, utf8], selector = "输出格式"))]
     #[miresidian::output("次数")]
     fn convert(
         &mut self,
-        #[miresidian::input("数据", codec(formats = [utf8, hex], selector = "输入格式"))] data: Vec<
-            u8,
-        >,
+        #[miresidian::input("数据", format(formats = [utf8, hex], selector = "输入格式"))]
+        data: Vec<u8>,
         #[miresidian::input("后缀:!")] suffix: String,
     ) -> MiresidianResult<(Vec<u8>, usize)> {
         self.calls += 1;
@@ -32,21 +31,21 @@ impl FormatNode {
         Ok((data, self.calls))
     }
     #[miresidian::operation("异步")]
-    #[miresidian::output("数据", codec(formats = [hex]))]
+    #[miresidian::output("数据", format(formats = [hex]))]
     async fn echo_async(
         &mut self,
-        #[miresidian::input("数据", codec(formats = [hex]))] data: Vec<u8>,
+        #[miresidian::input("数据", format(formats = [hex]))] data: Vec<u8>,
     ) -> MiresidianResult<Vec<u8>> {
         Ok(data)
     }
 
     #[cfg(feature = "batch")]
     #[miresidian::operation("批量")]
-    #[miresidian::output("数据", codec(formats = [hex, utf8], selector = "输出格式"))]
+    #[miresidian::output("数据", format(formats = [hex, utf8], selector = "输出格式"))]
     #[miresidian::output("次数")]
     fn batch(
         &mut self,
-        #[miresidian::input("数据", batch, codec(formats = [hex, utf8], selector = "输入格式"))]
+        #[miresidian::input("数据", batch, format(formats = [hex, utf8], selector = "输入格式"))]
         data: Vec<u8>,
         #[miresidian::input("倍率", batch)] scale: f64,
     ) -> MiresidianResult<(Vec<u8>, usize)> {
@@ -56,12 +55,12 @@ impl FormatNode {
     }
     #[cfg(feature = "batch")]
     #[miresidian::operation("顺序失败")]
-    #[miresidian::output("数据", codec(formats = [utf8]))]
+    #[miresidian::output("数据", format(formats = [utf8]))]
     fn fail(&mut self, #[miresidian::input("序号", batch)] n: u16) -> MiresidianResult<Vec<u8>> {
         self.calls += 1;
         Ok(if n == 2 { vec![0xff] } else { vec![b'A'] })
     }
-    #[miresidian::output("数据", codec(formats = [hex]))]
+    #[miresidian::output("数据", format(formats = [hex]))]
     #[miresidian::operation("单元组")]
     fn single_tuple(&mut self) -> MiresidianResult<(Vec<u8>,)> {
         Ok((vec![0x41],))
@@ -118,7 +117,7 @@ fn descriptors_defaults_and_independent_selectors() {
     assert_eq!(invoke(&runtime, "次数", &[]).unwrap().as_slice(), ["3"]);
 }
 #[test]
-fn fixed_codec_async_has_no_selector() {
+fn fixed_format_async_has_no_selector() {
     let runtime = runtime();
     assert_eq!(invoke(&runtime, "单元组", &[]).unwrap().as_slice(), ["41"]);
     assert_eq!(

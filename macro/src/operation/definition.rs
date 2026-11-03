@@ -1,6 +1,6 @@
 //! 方法级属性解析；参数名称、来源、默认值及输出标注沿用既有规则。
 
-use super::codec::{self, Codec};
+use super::format::{self, Format};
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
     Attribute, Error, FnArg, GenericArgument, ImplItemFn, LitStr, PathArguments, Result,
@@ -16,7 +16,7 @@ pub(super) struct Parameter {
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
     pub(super) batch: bool,
-    pub(super) codec: Option<Codec>,
+    pub(super) format: Option<Format>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -39,7 +39,7 @@ pub(super) struct OperationMethod {
     pub(super) name: LitStr,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
-    pub(super) output_codecs: Vec<Option<Codec>>,
+    pub(super) output_codecs: Vec<Option<Format>>,
     pub(super) output_types: Vec<Type>,
     pub(super) output_tuple: bool,
 }
@@ -141,7 +141,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             validate_batch_parameters(&parameters)?;
             let (outputs, output_codecs) =
                 operation_outputs(&mut method.attrs, &method.sig.output)?;
-            let platform = codec::platform_parameters(&parameters, &output_codecs);
+            let platform = format::platform_parameters(&parameters, &output_codecs);
             let mut names = std::collections::HashSet::new();
             for parameter in platform
                 .iter()
@@ -229,7 +229,7 @@ fn parse_parameters(
                     "同一参数不能同时标注 #[config] 和 #[input]",
                 ));
             }
-            let (source, name, definition, default, batch, codec) = match (config, input) {
+            let (source, name, definition, default, batch, format) = match (config, input) {
                 (Some(attribute), None) => {
                     let definition = one_name(&attribute, "config")?;
                     let (name, default) = split_definition(&definition);
@@ -243,7 +243,7 @@ fn parse_parameters(
                     )
                 }
                 (None, Some(attribute)) => {
-                    let (mut definitions, batch, codec) = codec::annotation(&attribute, true)?;
+                    let (mut definitions, batch, format) = format::annotation(&attribute, true)?;
                     if definitions.len() != 1 {
                         return Err(Error::new_spanned(
                             attribute,
@@ -258,7 +258,7 @@ fn parse_parameters(
                         definition,
                         default,
                         batch,
-                        codec,
+                        format,
                     )
                 }
                 (None, None) => {
@@ -267,10 +267,10 @@ fn parse_parameters(
                 }
                 (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
-            if codec.is_some() && !batch_allowed {
+            if format.is_some() && !batch_allowed {
                 return Err(Error::new_spanned(
                     argument,
-                    "codec 只能标注普通业务方法的 Input 或 Output",
+                    "format 只能标注普通业务方法的 Input 或 Output",
                 ));
             }
             if batch && !batch_allowed {
@@ -287,21 +287,21 @@ fn parse_parameters(
                 default,
                 source,
                 batch,
-                codec,
+                format,
             })
         })
         .collect()
 }
 
-/// 默认 batch 支持基础数值，其他业务类型必须显式声明 codec 字节契约。
+/// 默认 batch 支持基础数值，其他业务类型必须显式声明 format 字节契约。
 fn validate_batch_parameters(parameters: &[Parameter]) -> Result<()> {
     for parameter in parameters.iter().filter(|parameter| parameter.batch) {
         if parameter.source != ParameterSource::Input
-            || !(is_numeric(&parameter.ty) || parameter.codec.is_some())
+            || !(is_numeric(&parameter.ty) || parameter.format.is_some())
         {
             return Err(Error::new_spanned(
                 &parameter.ty,
-                "batch 参数必须是普通业务方法的基础数值 Input 参数，或声明 codec",
+                "batch 参数必须是普通业务方法的基础数值 Input 参数，或声明 format",
             ));
         }
     }
@@ -367,7 +367,7 @@ pub(super) fn take_output(
 fn operation_outputs(
     attributes: &mut Vec<Attribute>,
     return_type: &ReturnType,
-) -> Result<(Vec<LitStr>, Vec<Option<Codec>>)> {
+) -> Result<(Vec<LitStr>, Vec<Option<Format>>)> {
     let expected = output_count(return_type);
     let mut outputs = Vec::new();
     let mut codecs = Vec::new();
@@ -377,7 +377,7 @@ fn operation_outputs(
         if first_attribute.is_none() {
             first_attribute = Some(attribute.clone());
         }
-        let (names, _, codec) = codec::annotation(&attribute, false)?;
+        let (names, _, format) = format::annotation(&attribute, false)?;
         if (!outputs.is_empty() && names.len() > 1) || multi_names {
             return Err(Error::new_spanned(
                 attribute,
@@ -387,7 +387,7 @@ fn operation_outputs(
         multi_names = names.len() > 1;
         for name in names {
             outputs.push(name);
-            codecs.push(codec.clone());
+            codecs.push(format.clone());
         }
     }
     if outputs.is_empty() {

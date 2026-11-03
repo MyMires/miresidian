@@ -7,7 +7,7 @@ impl Node {
     fn close_device(&mut self) -> miresidian::MiresidianResult<()> { Ok(()) }
     #[miresidian::operation]
     fn echo(&mut self,
-        #[miresidian::input("数据", codec(formats = [hex]))] data: Vec<u8>,
+        #[miresidian::input("数据", format(formats = [hex]))] data: Vec<u8>,
     ) -> miresidian::MiresidianResult<()> { Ok(()) }
 }
 fn main() {}

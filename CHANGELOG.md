@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-03
+
+- 将新增格式增强能力的目录、Cargo feature、宏标签和公开模块统一为 format，转换 trait 命名为 FormatInput/FormatOutput；不保留新能力旧名别名。
+- 基础 codec 库及默认解析保持不变；同步宏、内部精确依赖、锁文件、迁移说明与完整 Node skill，现有 Node 项目不升级。C ABI v7 和租约协议 v2 不变。
+- 验证：默认/全特性回归、format 独立调用、缺失 feature 与旧标注拒绝诊断、严格 Clippy/Rustdoc、Rust 1.89 检查、Release 构建和 skill 完整同步校验通过。
+
+
 ## [0.18.1] - 2026-11-03
 
 - 将 codec 基础示例改为独立启用和单次调用，将与 batch 的组合移入可选章节；同步框架说明及完整 Node skill，明确两项能力可独立使用。

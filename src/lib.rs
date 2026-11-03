@@ -68,6 +68,15 @@ pub fn __lease_feature_required() {}
 #[doc(hidden)]
 pub const fn __require_instances_runtime() {}
 
+/// 显式格式编解码增强；启用 Cargo feature `format` 后可用。
+#[cfg(feature = "format")]
+pub mod format {
+    pub use miresidian_format::{
+        FormatInput, FormatOutput, decode_formatted, decode_formatted_batch, encode_formatted,
+        select_format,
+    };
+}
+
 /// 当前编译进节点 DLL 的 Miresidian 框架版本。
 pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -80,11 +89,6 @@ pub mod codec {
         ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
         decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
         normalize_value_with_definition, parse_byte_text_format, transcode_text,
-    };
-    #[cfg(feature = "codec")]
-    pub use miresidian_format::{
-        CodecInput, CodecOutput, decode_formatted, decode_formatted_batch, encode_formatted,
-        select_format,
     };
 }
 
@@ -121,6 +125,6 @@ pub use runtime::{
 };
 
 /// 宏通过框架符号检查显式格式转换能力。
-#[cfg(feature = "codec")]
+#[cfg(feature = "format")]
 #[doc(hidden)]
-pub const fn __require_codec_feature() {}
+pub const fn __require_format_feature() {}

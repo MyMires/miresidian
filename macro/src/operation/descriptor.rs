@@ -29,7 +29,7 @@ pub(super) fn outputs(
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {
     let name = &operation.name;
     let platform_parameters =
-        super::codec::platform_parameters(&operation.parameters, &operation.output_codecs);
+        super::format::platform_parameters(&operation.parameters, &operation.output_codecs);
     let inputs = parameters(&platform_parameters);
     let outputs = outputs(&operation.outputs);
     let channel_parameters = platform_parameters

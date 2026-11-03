@@ -1,5 +1,0 @@
-error: formats 不能为空
- --> tests/ui-codec/invalid_formats.rs:4:48
-  |
-4 |     #[miresidian::output("结果", codec(formats = []))]
-  |                                                  ^^

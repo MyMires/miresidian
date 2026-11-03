@@ -23,7 +23,7 @@
 | 开发节点插件 | [节点声明](宏驱动开发.md#声明方式) → [数据编解码](宏驱动开发.md#数据编解码) → [打包工具](../tools/miresidian-pack/README.md) |
 | 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [Windows TestFlow](../tools/miresidian-testflow-windows/README.md) |
 | 扩展测试平台 | [核心类型关系](architecture.md#核心类型关系uml) → [平台适配器](c-abi.md#平台适配器) |
-| 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) / [codec feature](../features/codec/README.md) |
+| 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) / [format feature](../features/format/README.md) |
 | 修改框架或准备发布 | [版本管理](versioning.md) → [开发规范](coding-standards.md) → [构建环境](coding-standards.md#构建环境) → [打包工具](../tools/miresidian-pack/README.md) |
 
 ## crate 与开发工具

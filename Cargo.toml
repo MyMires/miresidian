@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.18.1"
+version = "0.19.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -14,8 +14,8 @@ crate-type = ["rlib"]
 
 [workspace]
 # 具体节点是框架外的独立项目；工作区仅包含框架库与配套开发工具。
-members = ["abi", "codec", "features/codec", "features/batch", "features/instances", "features/lease", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows", "tools/miresidian-cli"]
-default-members = [".", "codec", "features/codec", "features/batch", "features/instances", "features/lease", "macro"]
+members = ["abi", "codec", "features/format", "features/batch", "features/instances", "features/lease", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows", "tools/miresidian-cli"]
+default-members = [".", "codec", "features/format", "features/batch", "features/instances", "features/lease", "macro"]
 resolver = "3"
 
 [features]
@@ -25,7 +25,7 @@ instances = ["miresidian_instances/runtime"]
 # 跨 DLL 的通用本地 IPC 租约协调服务；节点只声明资源与配置字段。
 lease = ["miresidian_lease/local-ipc"]
 # 显式参数/输出格式转换；基础类型解析始终可用。
-codec = ["dep:miresidian_format"]
+format = ["dep:miresidian_format"]
 # 由参数级 batch 标记启用数值记录的顺序展开与结果聚合。
 batch = ["dep:miresidian_batch"]
 
@@ -34,10 +34,10 @@ edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 [dependencies]
-miresidian_format = { version = "=0.1.1", path = "features/codec", optional = true }
+miresidian_format = { version = "=0.2.0", path = "features/format", optional = true }
 miresidian_abi = { version = "=0.14.0", path = "abi" }
 miresidian_codec = { version = "=0.14.1", path = "codec" }
-miresidian_macro = { version = "=0.17.0", path = "macro" }
+miresidian_macro = { version = "=0.18.0", path = "macro" }
 miresidian_batch = { version = "=0.1.1", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"

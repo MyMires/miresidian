@@ -1,15 +1,15 @@
-//! 显式 codec 标注及其合成的格式选择输入。
+//! 显式 format 标注及其合成的格式选择输入。
 use super::definition::{Parameter, ParameterSource};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Error, Expr, Lit, LitStr, Result, Token, punctuated::Punctuated};
 
 #[derive(Clone)]
-pub(super) struct Codec {
+pub(super) struct Format {
     pub(super) formats: Vec<syn::Ident>,
     pub(super) selector: Option<LitStr>,
 }
-impl Codec {
+impl Format {
     pub(super) fn formats(&self) -> TokenStream {
         let formats = self.formats.iter().map(|format| {
             let variant = match format.to_string().as_str() {
@@ -29,7 +29,7 @@ impl Codec {
     pub(super) fn selection(&self, index: usize) -> TokenStream {
         let formats = self.formats();
         if let Some(name) = &self.selector {
-            quote!(::miresidian::codec::select_format(input, #index, #name, #formats)?)
+            quote!(::miresidian::format::select_format(input, #index, #name, #formats)?)
         } else {
             quote!((#formats)[0])
         }
@@ -60,7 +60,7 @@ impl Codec {
                 default: Some(LitStr::new(choices[0], name.span())),
                 source: ParameterSource::Input,
                 batch: false,
-                codec: None,
+                format: None,
             }
         })
     }
@@ -70,14 +70,14 @@ impl Codec {
 pub(super) fn annotation(
     attribute: &syn::Attribute,
     allow_batch: bool,
-) -> Result<(Vec<LitStr>, bool, Option<Codec>)> {
+) -> Result<(Vec<LitStr>, bool, Option<Format>)> {
     let args = attribute.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
     let mut names = Vec::new();
     let mut batch = false;
-    let mut codec = None;
+    let mut format = None;
     for arg in args {
         match arg {
-            Expr::Lit(value) if !batch && codec.is_none() => {
+            Expr::Lit(value) if !batch && format.is_none() => {
                 let Lit::Str(value) = value.lit else {
                     return Err(Error::new_spanned(value, "名称必须是字符串"));
                 };
@@ -87,17 +87,17 @@ pub(super) fn annotation(
                 batch = true
             }
             Expr::Call(call)
-                if matches!(call.func.as_ref(), Expr::Path(path) if path.path.is_ident("codec"))
-                    && codec.is_none() =>
+                if matches!(call.func.as_ref(), Expr::Path(path) if path.path.is_ident("format"))
+                    && format.is_none() =>
             {
                 let mut formats = None;
                 let mut selector = None;
                 for option in &call.args {
                     let Expr::Assign(assign) = option else {
-                        return Err(Error::new_spanned(option, "codec 选项必须为 key = value"));
+                        return Err(Error::new_spanned(option, "format 选项必须为 key = value"));
                     };
                     let Expr::Path(key) = assign.left.as_ref() else {
-                        return Err(Error::new_spanned(option, "codec 选项名称无效"));
+                        return Err(Error::new_spanned(option, "format 选项名称无效"));
                     };
                     if key.path.is_ident("formats") && formats.is_none() {
                         let Expr::Array(array) = assign.right.as_ref() else {
@@ -116,7 +116,7 @@ pub(super) fn annotation(
                                 "ascii" | "gbk" | "utf8" | "utf16le" | "hex" | "base64"
                             ) || list.contains(ident)
                             {
-                                return Err(Error::new_spanned(value, "未知或重复的 codec 格式"));
+                                return Err(Error::new_spanned(value, "未知或重复的 format 格式"));
                             }
                             list.push(ident.clone());
                         }
@@ -140,45 +140,45 @@ pub(super) fn annotation(
                     } else {
                         return Err(Error::new_spanned(
                             option,
-                            "未知或重复的 codec 选项；只支持 formats 和 selector",
+                            "未知或重复的 format 选项；只支持 formats 和 selector",
                         ));
                     }
                 }
                 let formats =
-                    formats.ok_or_else(|| Error::new_spanned(&call, "codec 必须声明 formats"))?;
+                    formats.ok_or_else(|| Error::new_spanned(&call, "format 必须声明 formats"))?;
                 if (formats.len() > 1) != selector.is_some() {
                     return Err(Error::new_spanned(
                         &call,
                         "单格式不接受 selector，多格式必须声明 selector",
                     ));
                 }
-                codec = Some(Codec { formats, selector });
+                format = Some(Format { formats, selector });
             }
             other => return Err(Error::new_spanned(other, "无效或重复的参数标注选项")),
         }
     }
-    if names.is_empty() || ((batch || codec.is_some()) && names.len() != 1) {
+    if names.is_empty() || ((batch || format.is_some()) && names.len() != 1) {
         return Err(Error::new_spanned(
             attribute,
             "增强标注必须且只能声明一个名称",
         ));
     }
-    Ok((names, batch, codec))
+    Ok((names, batch, format))
 }
 
 /// 平台输入包括参数就地附加的格式选择，以及末尾的输出格式选择。
 pub(super) fn platform_parameters(
     parameters: &[Parameter],
-    codecs: &[Option<Codec>],
+    codecs: &[Option<Format>],
 ) -> Vec<Parameter> {
     let mut result = Vec::new();
     for parameter in parameters {
         result.push(parameter.clone());
-        if let Some(selector) = parameter.codec.as_ref().and_then(Codec::parameter) {
+        if let Some(selector) = parameter.format.as_ref().and_then(Format::parameter) {
             result.push(selector);
         }
     }
-    result.extend(codecs.iter().flatten().filter_map(Codec::parameter));
+    result.extend(codecs.iter().flatten().filter_map(Format::parameter));
     result
 }
 
@@ -186,14 +186,15 @@ pub(super) fn platform_parameters(
 mod tests {
     use super::annotation;
     #[test]
-    fn rejects_invalid_codec_contracts() {
+    fn rejects_invalid_format_contracts() {
         for attr in [
-            syn::parse_quote!(#[input("数据", codec(formats = []))]),
-            syn::parse_quote!(#[input("数据", codec(formats = [hex, hex], selector = "格式"))]),
-            syn::parse_quote!(#[input("数据", codec(formats = [hex], selector = "格式"))]),
-            syn::parse_quote!(#[input("数据", codec(formats = [hex, utf8]))]),
-            syn::parse_quote!(#[input("数据", codec(formats = [hex], default = hex))]),
-            syn::parse_quote!(#[input("数据", codec(formats = [json]))]),
+            syn::parse_quote!(#[input("数据", codec(formats = [hex]))]),
+            syn::parse_quote!(#[input("数据", format(formats = []))]),
+            syn::parse_quote!(#[input("数据", format(formats = [hex, hex], selector = "格式"))]),
+            syn::parse_quote!(#[input("数据", format(formats = [hex], selector = "格式"))]),
+            syn::parse_quote!(#[input("数据", format(formats = [hex, utf8]))]),
+            syn::parse_quote!(#[input("数据", format(formats = [hex], default = hex))]),
+            syn::parse_quote!(#[input("数据", format(formats = [json]))]),
         ] {
             assert!(annotation(&attr, true).is_err());
         }
