@@ -1,0 +1,39 @@
+error[E0425]: cannot find function `__require_codec_feature` in crate `::miresidian`
+ --> tests/ui-codec-feature/missing_feature.rs:8:5
+  |
+8 |     #[miresidian::operation]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^ not found in `::miresidian`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  | #[cfg(feature = "codec")]
+  |       ----------------- the item is gated behind the `codec` feature
+  | #[doc(hidden)]
+  | pub const fn __require_codec_feature() {}
+  |              ^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `miresidian::operation` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0425]: cannot find function `decode_formatted` in module `::miresidian::codec`
+ --> tests/ui-codec-feature/missing_feature.rs:8:5
+  |
+8 |     #[miresidian::operation]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^ not found in `::miresidian::codec`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  |     #[cfg(feature = "codec")]
+  |           ----------------- the item is gated behind the `codec` feature
+  |     pub use miresidian_format::{
+  |         CodecInput, CodecOutput, decode_formatted, decode_formatted_batch, encode_formatted,
+  |                                  ^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `miresidian::operation` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `data`
+  --> tests/ui-codec-feature/missing_feature.rs:10:60
+   |
+10 |         #[miresidian::input("数据", codec(formats = [hex]))] data: Vec<u8>,
+   |                                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_data`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default

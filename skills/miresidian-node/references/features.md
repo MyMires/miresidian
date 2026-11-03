@@ -8,15 +8,18 @@
 
 | 节点需要的行为 | miresidian 依赖 features | 节点需要的声明 |
 | --- | --- | --- |
+| 指定格式解码输入或编码输出（0.18.0 起） | codec，批量时另加 batch | Input/Output 上 codec(formats = [...], selector = ...) |
 | 普通单实例，初始化后执行操作和关闭 | 不额外开启 | 基本 node、operation 等标注 |
 | 单实例接受多通道输入 | instances | instances(mode = single, execution = ...) |
 | 同时保留多个节点对象 | instances | instances(mode = multiple, binding = config 或 handle, execution = ...) |
 | 跨 DLL/进程协调同一资源的配置兼容性 | lease | lease(resource = ..., configuration = ..., activation = ...) |
 | 多实例/多通道，并需要资源租约 | instances、lease | 同一 node 上组合 instances(...) 和 lease(...) |
-| 一次操作按多个整数记录顺序重复同一业务逻辑 | batch | 需要展开的普通 Input 参数写 `#[miresidian::input("名称", batch)]` |
-| 多实例定位后，在同一节点对象上按整数记录顺序执行 | instances、batch | node 上声明 instances(...)，业务 operation 的 Input 参数单独标记 batch |
+| 一次操作按多个数值记录顺序重复同一业务逻辑 | batch | 需要展开的普通 Input 参数写 `#[miresidian::input("名称", batch)]` |
+| 多实例定位后，在同一节点对象上按数值记录顺序执行 | instances、batch | node 上声明 instances(...)，业务 operation 的 Input 参数单独标记 batch |
 
-框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi 或 codec feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
+框架根 crate 的 default 为空。节点宏、基本运行时、ABI 和通用编解码不需要另开 macro、runtime、abi feature；不要根据模块名猜测 feature。串口/TCP 等具体通信依赖由节点选择，不是框架的同名 feature。
+
+根框架 0.18.0 起新增可选 codec feature，只用于显式标注的格式转换增强，基础解析始终可用；旧版本不要盲加此 feature。实现位于 features/codec，内部 crate 为 miresidian_format。完整规则见 [显式格式编解码](codec.md)。
 
 根 feature instances 转发到 miresidian_instances/runtime，lease 转发到 miresidian_lease/local-ipc，batch 转发到 miresidian_batch；普通节点通过 miresidian 开启，不为此额外直接依赖内部 crate。不要把内部 crate 的 feature 名当作根 crate 的 feature。
 
@@ -158,9 +161,9 @@ selectable 调用显式传 Lease 或 Direct。当前解析中，Direct/直连选
 
 ## batch：参数级顺序批量调用
 
-batch 适用于一个 operation 需要用不同整数记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化节点对象。
+batch 适用于一个 operation 需要用不同数值或 codec 记录重复同一业务逻辑、但节点作者只应实现单条记录的场景。它不是实例选择、平台多通道输入或并行调度；先确认一次调用中的所有记录确实应定位到同一已初始化节点对象。
 
-开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持标量基础整数类型：
+开启 feature 后，只在普通业务 operation 的具体 Input 参数上标记，Rust 参数仍保持单条记录的数值类型；0.18.0 起支持 f32/f64，或与 codec 组合接收单条业务数据：
 
 ```rust
 #[miresidian::operation("读取寄存器")]
@@ -175,7 +178,7 @@ fn read_register(
 }
 ```
 
-平台侧标记参数采用 `int[]` 文本：`1`、`1|3|5`、`1-5`、`1-3|5` 分别表示单项、指定项、递增范围和混合范围。所有 batch 参数先展开为数组，最长数组决定调用次数；长度为一的数组广播，其余数组必须与最长数组等长。例如 `站号=1`、`通道=1|3|5` 依次调用 `(1, 1)`、`(1, 3)`、`(1, 5)`；`站号=1|2`、`通道=1|3` 依次调用 `(1, 1)`、`(2, 3)`。不能对齐时报告参数错误，不定义笛卡尔积。
+整数标记参数采用 `int[]` 文本：`1`、`1|3|5`、`1-5`、`1-3|5` 分别表示单项、指定项、递增范围和混合范围。0.18.0 起浮点支持 `3.14|3.15` 等逐项列表及科学计数法，不接受范围、不推断步长；整数继续支持既有范围。所有 batch 参数先展开为数组，最长数组决定调用次数；长度为一的数组广播，其余数组必须与最长数组等长。例如 `站号=1`、`通道=1|3|5` 依次调用 `(1, 1)`、`(1, 3)`、`(1, 5)`；`站号=1|2`、`通道=1|3` 依次调用 `(1, 1)`、`(2, 3)`。不能对齐时报告参数错误，不定义笛卡尔积。
 
 未标记的 Input 在每轮按原文本、默认值和类型规则复用。batch 不能标记 Config、`init_device`、`close_device` 或 `get_port_no`，也不能把 Config 主键展开为多实例选择；需要访问多个 Config/Handle 对象时仍应分别调用。batch 固定顺序执行，首个失败即停止，已有副作用不回滚；每个输出槽位按调用顺序聚合为可逆竖线集合。第一版不提供 batch 并行或执行方式 Config。
 
@@ -216,7 +219,7 @@ struct ExampleNode { /* 实际连接与业务状态 */ }
 | 单/多实例多通道 | 仅验证声明的固定策略，或任务要求支持的 selectable 选项；核对输出槽位和相关副作用 |
 | lease | 按 [租约验收场景](lease.md#验收场景) 验证所选激活路径、兼容/冲突配置、失败回滚与关闭；跨进程交付增加服务退出后的失效和重建验证 |
 | instances + lease | 所选对象的配置/资源正确关联，关闭对象释放对应连接和租约，其他对象行为符合设计 |
-| batch | 单项、列表、范围和混合范围；单值广播；多参数等长对齐；未标记参数复用；不对齐错误；顺序、首错停止和按输出槽位聚合 |
+| batch | 整数单项、列表、范围和混合范围；浮点列表与范围拒绝；单值广播；多参数等长对齐；未标记参数复用；不对齐错误；顺序、首错停止和按输出槽位聚合 |
 | instances + batch | Config/Handle 只定位一个对象；batch 不展开主键；该对象内各记录按顺序执行；需要多平台通道时核对每个槽位的聚合输出 |
 
 编译配置要与实际交付一致，不能拿仅临时启用 feature 的宿主检查代替正式 DLL。命令见 [工具参考中的 feature 检查](commands.md#feature-配置的检查与构建)。本次若只修改此 skill，检查示例与来源、格式、引用和同步即可，不执行上述节点行为测试。

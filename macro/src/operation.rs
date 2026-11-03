@@ -1,5 +1,6 @@
 //! 方法级平台契约生成；生命周期直接生成桥接，业务方法提交独立注册项。
 
+mod codec;
 mod definition;
 mod descriptor;
 mod dispatch;
@@ -150,6 +151,8 @@ pub(crate) fn expand_output(attribute: TokenStream, item: TokenStream) -> TokenS
         }
     };
     let output: proc_macro2::TokenStream = attribute.into();
-    method.attrs.push(syn::parse_quote!(#[output(#output)]));
+    method
+        .attrs
+        .insert(0, syn::parse_quote!(#[output(#output)]));
     expand(arguments.into(), quote!(#method).into())
 }

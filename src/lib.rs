@@ -81,6 +81,11 @@ pub mod codec {
         decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
         normalize_value_with_definition, parse_byte_text_format, transcode_text,
     };
+    #[cfg(feature = "codec")]
+    pub use miresidian_format::{
+        CodecInput, CodecOutput, decode_formatted, decode_formatted_batch, encode_formatted,
+        select_format,
+    };
 }
 
 pub use interop::{ffi, ffi_runtime};
@@ -114,3 +119,8 @@ pub use runtime::{
     ParameterDescriptor, SHARED_INVOCATION_MARKER, TaskService, TaskSnapshot, TaskState,
     shutdown_executor,
 };
+
+/// 宏通过框架符号检查显式格式转换能力。
+#[cfg(feature = "codec")]
+#[doc(hidden)]
+pub const fn __require_codec_feature() {}

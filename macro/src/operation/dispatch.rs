@@ -77,90 +77,27 @@ pub(super) fn lease_parameters(method: &InitMethod) -> proc_macro2::TokenStream 
     }
 }
 
-/// 注册包装使用模块内的具体节点绑定，不依赖方法宏获知外层 impl 类型。
+/// 同步桥接与原生 async 桥接共用一套参数布局和输出转换。
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {
-    if operation.parameters.iter().any(|parameter| parameter.batch) {
-        return batch_operation(operation, false);
-    }
-    let method = &operation.method;
-    let arguments = parse_arguments(&operation.parameters);
-    let variables = argument_variables(operation.parameters.len());
-    let call = if operation.asynchronous {
-        quote!(::miresidian::__private::block_on(Self::#method(node,#(#variables),*)))
-    } else {
-        quote!(Self::#method(node,#(#variables),*))
-    };
-    quote! { #(#arguments)* let value=#call; ::miresidian::codec::encode_value(value?) }
+    operation_body(operation, false)
 }
-
 pub(super) fn operation_async(operation: &OperationMethod) -> proc_macro2::TokenStream {
-    if operation.parameters.iter().any(|parameter| parameter.batch) {
-        return batch_operation(operation, true);
-    }
-    let method = &operation.method;
-    let arguments = parse_arguments(&operation.parameters);
-    let variables = argument_variables(operation.parameters.len());
-    quote! { Box::pin(async move { #(#arguments)* let value=Self::#method(node,#(#variables),*).await; ::miresidian::codec::encode_value(value?) }) }
+    let body = operation_body(operation, true);
+    quote!(Box::pin(async move { #body }))
 }
 
-/// 批量操作仍向业务方法传递标量。宏在入口解析整数集合、按位置广播后依次重复原调用。
-fn batch_operation(operation: &OperationMethod, asynchronous: bool) -> proc_macro2::TokenStream {
-    let method = &operation.method;
-    let batch_values = parse_batch_values(&operation.parameters);
-    let batch_lengths = operation
-        .parameters
-        .iter()
-        .enumerate()
-        .filter(|(_, parameter)| parameter.batch)
-        .map(|(index, parameter)| {
-            let variable = format_ident!("__miresidian_batch_values_{index}");
-            let name = &parameter.name;
-            quote!((#name, #variable.len()))
-        });
-    let arguments = parse_batch_arguments(&operation.parameters);
-    let variables = argument_variables(operation.parameters.len());
-    let call = if asynchronous {
-        quote!(Self::#method(node,#(#variables),*).await)
-    } else {
-        quote!(Self::#method(node,#(#variables),*))
-    };
-    let body = quote! {
-        ::miresidian::__require_batch_feature();
-        #(#batch_values)*
-        let __miresidian_batch_length = ::miresidian::__private::batch_length(&[#(#batch_lengths),*])?;
-        let mut __miresidian_batch_outputs = ::std::vec::Vec::with_capacity(__miresidian_batch_length);
-        for __miresidian_batch_index in 0..__miresidian_batch_length {
-            #(#arguments)*
-            let __miresidian_batch_value = #call?;
-            __miresidian_batch_outputs.push(::miresidian::codec::encode_value(__miresidian_batch_value)?);
-        }
-        ::miresidian::__private::batch_outputs(__miresidian_batch_outputs)
-    };
-    if asynchronous {
-        quote!(Box::pin(async move { #body }))
-    } else {
-        body
-    }
-}
-
-/// 解析每个批量 Input 为整数数组；普通参数在每轮调用内按原规则解析。
-fn parse_batch_values(
-    parameters: &[Parameter],
-) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
+fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro2::TokenStream {
+    let has_batch = operation.parameters.iter().any(|p| p.batch);
+    let has_codec = operation.parameters.iter().any(|p| p.codec.is_some())
+        || operation.output_codecs.iter().any(Option::is_some);
+    let mut prepare = Vec::new();
+    let mut arguments = Vec::new();
+    let mut lengths = Vec::new();
+    let mut config_index = 0usize;
     let mut input_index = 0usize;
-    parameters.iter().enumerate().filter_map(move |(index, parameter)| {
-        let source_index = match parameter.source {
-            ParameterSource::Config => return None,
-            ParameterSource::Input => {
-                let current = input_index;
-                input_index += 1;
-                current
-            }
-        };
-        if !parameter.batch {
-            return None;
-        }
-        let variable = format_ident!("__miresidian_batch_values_{index}");
+    for (index, parameter) in operation.parameters.iter().enumerate() {
+        let variable = format_ident!("__miresidian_argument_{index}");
+        let stored = format_ident!("__miresidian_values_{index}");
         let ty = &parameter.ty;
         let name = &parameter.name;
         let definition = &parameter.definition;
@@ -168,60 +105,112 @@ fn parse_batch_values(
             Some(value) => quote!(Some(#value)),
             None => quote!(None),
         };
-        Some(quote! {
-            let #variable: ::std::vec::Vec<#ty> = ::miresidian::codec::decode_value_with_definition(
-                input, #source_index, #name, #definition, #default,
-            )?;
-        })
-    })
-}
-
-fn parse_batch_arguments(
-    parameters: &[Parameter],
-) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
-    let mut config_index = 0usize;
-    let mut input_index = 0usize;
-    parameters
-        .iter()
-        .enumerate()
-        .map(move |(index, parameter)| {
-            let variable = format_ident!("__miresidian_argument_{index}");
-            let ty = &parameter.ty;
-            if parameter.batch {
-                // batch 只能来自 Input；仍须推进该通道的索引，保证后续普通 Input
-                // 与平台参数位置保持一致。
+        let (values, source_index) = match parameter.source {
+            ParameterSource::Config => {
+                let current = config_index;
+                config_index += 1;
+                (quote!(config), current)
+            }
+            ParameterSource::Input => {
+                let current = input_index;
                 input_index += 1;
-                let batch_values = format_ident!("__miresidian_batch_values_{index}");
-                return quote! {
-                    let #variable: #ty = #batch_values[
-                        if #batch_values.len() == 1 { 0 } else { __miresidian_batch_index }
-                    ].clone();
-                };
+                (quote!(input), current)
             }
-            let name = &parameter.name;
-            let definition = &parameter.definition;
-            let default = match &parameter.default {
-                Some(value) => quote!(Some(#value)),
-                None => quote!(None),
+        };
+        let parse = if let Some(codec) = &parameter.codec {
+            let selection = codec.selection(input_index);
+            input_index += usize::from(codec.selector.is_some());
+            let format = format_ident!("__miresidian_input_format_{index}");
+            prepare.push(quote!(let #format = #selection;));
+            let decode = if parameter.batch {
+                quote!(::miresidian::codec::decode_formatted_batch::<#ty>)
+            } else {
+                quote!(::miresidian::codec::decode_formatted::<#ty>)
             };
-            let (values, source_index) = match parameter.source {
-                ParameterSource::Config => {
-                    let current = config_index;
-                    config_index += 1;
-                    (quote!(config), current)
-                }
-                ParameterSource::Input => {
-                    let current = input_index;
-                    input_index += 1;
-                    (quote!(input), current)
-                }
+            quote!({
+                let text = ::miresidian::codec::normalize_value_with_definition(#values, #source_index, #name, #definition, #default)?;
+                #decode(&text, #format, #name)?
+            })
+        } else {
+            let parsed_type = if parameter.batch {
+                quote!(::std::vec::Vec<#ty>)
+            } else {
+                quote!(#ty)
             };
-            quote! {
-                let #variable: #ty = ::miresidian::codec::decode_value_with_definition(
-                    #values, #source_index, #name, #definition, #default,
-                )?;
+            quote!(::miresidian::codec::decode_value_with_definition::<#parsed_type>(#values, #source_index, #name, #definition, #default)?)
+        };
+        if parameter.batch || !has_batch {
+            prepare.push(quote!(let #stored = #parse;));
+        }
+        if parameter.batch {
+            lengths.push(quote!((#name, #stored.len())));
+            arguments.push(quote!(let #variable: #ty = #stored[if #stored.len() == 1 { 0 } else { __miresidian_batch_index }].clone();));
+        } else if has_batch {
+            arguments.push(quote!(let #variable: #ty = #parse;));
+        } else {
+            arguments.push(quote!(let #variable: #ty = #stored;));
+        }
+    }
+    let mut encoded = Vec::new();
+    let mut output_variables = Vec::new();
+    for (index, (ty, codec)) in operation
+        .output_types
+        .iter()
+        .zip(&operation.output_codecs)
+        .enumerate()
+    {
+        let variable = format_ident!("__miresidian_output_{index}");
+        output_variables.push(variable.clone());
+        if let Some(codec) = codec {
+            let selection = codec.selection(input_index);
+            input_index += usize::from(codec.selector.is_some());
+            let format = format_ident!("__miresidian_output_format_{index}");
+            prepare.push(quote!(let #format = #selection;));
+            encoded.push(quote!(__miresidian_encoded.push(::miresidian::codec::encode_formatted::<#ty>(#variable, #format)?);));
+        } else {
+            encoded.push(quote!(__miresidian_encoded.extend(::miresidian::codec::encode_value(#variable)?.into_values());));
+        }
+    }
+    let encode = if operation.output_codecs.iter().any(Option::is_some) {
+        let destructure = if !operation.output_tuple {
+            let variable = &output_variables[0];
+            quote!(let #variable = __miresidian_value;)
+        } else {
+            quote!(let (#(#output_variables,)*) = __miresidian_value;)
+        };
+        quote!({ #destructure let mut __miresidian_encoded = ::std::vec::Vec::new(); #(#encoded)* ::miresidian::InvocationOutput::new(__miresidian_encoded) })
+    } else {
+        quote!(::miresidian::codec::encode_value(__miresidian_value)?)
+    };
+    let method = &operation.method;
+    let variables = argument_variables(operation.parameters.len());
+    let call = if asynchronous {
+        quote!(Self::#method(node, #(#variables),*).await)
+    } else if operation.asynchronous {
+        quote!(::miresidian::__private::block_on(Self::#method(node, #(#variables),*)))
+    } else {
+        quote!(Self::#method(node, #(#variables),*))
+    };
+    let feature = has_codec.then(|| quote!(::miresidian::__require_codec_feature();));
+    if has_batch {
+        quote! {
+            #feature ::miresidian::__require_batch_feature(); #(#prepare)*
+            let __miresidian_batch_length = ::miresidian::__private::batch_length(&[#(#lengths),*])?;
+            let mut __miresidian_batch_outputs = ::std::vec::Vec::with_capacity(__miresidian_batch_length);
+            for __miresidian_batch_index in 0..__miresidian_batch_length {
+                #(#arguments)* let __miresidian_value = #call?;
+                __miresidian_batch_outputs.push(#encode);
             }
-        })
+            ::miresidian::__private::batch_outputs(__miresidian_batch_outputs)
+        }
+    } else {
+        let result = if operation.output_codecs.iter().any(Option::is_some) {
+            quote!(Ok(#encode))
+        } else {
+            quote!(::miresidian::codec::encode_value(__miresidian_value))
+        };
+        quote! { #feature #(#prepare)* #(#arguments)* let __miresidian_value = #call?; #result }
+    }
 }
 
 pub(super) fn port_probe(method: &FixedMethod) -> proc_macro2::TokenStream {

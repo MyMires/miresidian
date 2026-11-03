@@ -1,8 +1,9 @@
 //! 方法级属性解析；参数名称、来源、默认值及输出标注沿用既有规则。
 
+use super::codec::{self, Codec};
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
-    Attribute, Error, Expr, FnArg, GenericArgument, ImplItemFn, Lit, LitStr, PathArguments, Result,
+    Attribute, Error, FnArg, GenericArgument, ImplItemFn, LitStr, PathArguments, Result,
     ReturnType, Token, Type, punctuated::Punctuated,
 };
 
@@ -15,6 +16,7 @@ pub(super) struct Parameter {
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
     pub(super) batch: bool,
+    pub(super) codec: Option<Codec>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -37,6 +39,9 @@ pub(super) struct OperationMethod {
     pub(super) name: LitStr,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
+    pub(super) output_codecs: Vec<Option<Codec>>,
+    pub(super) output_types: Vec<Type>,
+    pub(super) output_tuple: bool,
 }
 
 pub(super) struct FixedMethod {
@@ -134,12 +139,35 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             require_mut_receiver(method)?;
             let parameters = parse_parameters(method, ParameterSource::Input, true)?;
             validate_batch_parameters(&parameters)?;
+            let (outputs, output_codecs) =
+                operation_outputs(&mut method.attrs, &method.sig.output)?;
+            let platform = codec::platform_parameters(&parameters, &output_codecs);
+            let mut names = std::collections::HashSet::new();
+            for parameter in platform
+                .iter()
+                .filter(|p| p.source == ParameterSource::Input)
+            {
+                if !names.insert(parameter.name.value()) {
+                    return Err(Error::new_spanned(
+                        &parameter.name,
+                        "输入参数或格式选择名称重复",
+                    ));
+                }
+            }
+            let output_types = match output_value_type(&method.sig.output) {
+                Some(Type::Tuple(tuple)) => tuple.elems.iter().cloned().collect(),
+                Some(ty) => vec![ty.clone()],
+                None => Vec::new(),
+            };
             Ok(NodeMethod::Operation(OperationMethod {
                 method: identifier,
                 asynchronous: method.sig.asyncness.is_some(),
                 name,
                 parameters,
-                outputs: take_output(&mut method.attrs, &method.sig.output)?,
+                outputs,
+                output_codecs,
+                output_types,
+                output_tuple: matches!(output_value_type(&method.sig.output), Some(Type::Tuple(_))),
             }))
         }
     }
@@ -201,23 +229,50 @@ fn parse_parameters(
                     "同一参数不能同时标注 #[config] 和 #[input]",
                 ));
             }
-            let (source, name, definition, default, batch) = match (config, input) {
+            let (source, name, definition, default, batch, codec) = match (config, input) {
                 (Some(attribute), None) => {
                     let definition = one_name(&attribute, "config")?;
                     let (name, default) = split_definition(&definition);
-                    (ParameterSource::Config, name, definition, default, false)
+                    (
+                        ParameterSource::Config,
+                        name,
+                        definition,
+                        default,
+                        false,
+                        None,
+                    )
                 }
                 (None, Some(attribute)) => {
-                    let (definition, batch) = input_definition(&attribute)?;
+                    let (mut definitions, batch, codec) = codec::annotation(&attribute, true)?;
+                    if definitions.len() != 1 {
+                        return Err(Error::new_spanned(
+                            attribute,
+                            "input 必须且只能声明一个名称",
+                        ));
+                    }
+                    let definition = definitions.remove(0);
                     let (name, default) = split_definition(&definition);
-                    (ParameterSource::Input, name, definition, default, batch)
+                    (
+                        ParameterSource::Input,
+                        name,
+                        definition,
+                        default,
+                        batch,
+                        codec,
+                    )
                 }
                 (None, None) => {
                     let name = parameter_name(argument)?;
-                    (default_source, name.clone(), name, None, false)
+                    (default_source, name.clone(), name, None, false, None)
                 }
                 (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
+            if codec.is_some() && !batch_allowed {
+                return Err(Error::new_spanned(
+                    argument,
+                    "codec 只能标注普通业务方法的 Input 或 Output",
+                ));
+            }
             if batch && !batch_allowed {
                 return Err(Error::new_spanned(
                     argument,
@@ -232,55 +287,28 @@ fn parse_parameters(
                 default,
                 source,
                 batch,
+                codec,
             })
         })
         .collect()
 }
 
-/// 解析 `#[input("名称", batch)]`。batch 是参数级能力，不能写在方法或节点上。
-fn input_definition(attribute: &Attribute) -> Result<(LitStr, bool)> {
-    let arguments = attribute.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
-    let Some(Expr::Lit(value)) = arguments.first() else {
-        return Err(Error::new_spanned(
-            attribute,
-            "#[input] 的第一个参数必须是字符串名称",
-        ));
-    };
-    let Lit::Str(definition) = &value.lit else {
-        return Err(Error::new_spanned(
-            value,
-            "#[input] 的第一个参数必须是字符串名称",
-        ));
-    };
-    let batch = match arguments.len() {
-        1 => false,
-        2 if matches!(arguments.iter().nth(1), Some(Expr::Path(path)) if path.path.is_ident("batch")) => {
-            true
-        }
-        _ => {
-            return Err(Error::new_spanned(
-                attribute,
-                "#[input] 只接受字符串名称和可选的 batch 标记",
-            ));
-        }
-    };
-    Ok((definition.clone(), batch))
-}
-
-/// 第一版 batch 仅公开整数数组，以免文本竖线、字节编码和领域枚举被误解释为批量调用。
+/// 默认 batch 支持基础数值，其他业务类型必须显式声明 codec 字节契约。
 fn validate_batch_parameters(parameters: &[Parameter]) -> Result<()> {
     for parameter in parameters.iter().filter(|parameter| parameter.batch) {
-        if parameter.source != ParameterSource::Input || !is_integer(&parameter.ty) {
+        if parameter.source != ParameterSource::Input
+            || !(is_numeric(&parameter.ty) || parameter.codec.is_some())
+        {
             return Err(Error::new_spanned(
                 &parameter.ty,
-                "batch 参数必须是普通业务方法的基础整数 Input 参数",
+                "batch 参数必须是普通业务方法的基础数值 Input 参数，或声明 codec",
             ));
         }
     }
     Ok(())
 }
 
-fn is_integer(ty: &Type) -> bool {
+fn is_numeric(ty: &Type) -> bool {
     let Type::Path(path) = ty else {
         return false;
     };
@@ -288,7 +316,10 @@ fn is_integer(ty: &Type) -> bool {
         && path.path.segments.len() == 1
         && matches!(
             path.path.segments[0].ident.to_string().as_str(),
-            "i8" | "i16"
+            "f32"
+                | "f64"
+                | "i8"
+                | "i16"
                 | "i32"
                 | "i64"
                 | "i128"
@@ -331,6 +362,48 @@ pub(super) fn take_output(
         }
         None => Ok(default_output_names(expected_count)),
     }
+}
+/// 业务输出允许逐槽位标注；旧的单标注多名称继续可用。
+fn operation_outputs(
+    attributes: &mut Vec<Attribute>,
+    return_type: &ReturnType,
+) -> Result<(Vec<LitStr>, Vec<Option<Codec>>)> {
+    let expected = output_count(return_type);
+    let mut outputs = Vec::new();
+    let mut codecs = Vec::new();
+    let mut multi_names = false;
+    let mut first_attribute = None;
+    while let Some(attribute) = take_attribute(attributes, "output") {
+        if first_attribute.is_none() {
+            first_attribute = Some(attribute.clone());
+        }
+        let (names, _, codec) = codec::annotation(&attribute, false)?;
+        if (!outputs.is_empty() && names.len() > 1) || multi_names {
+            return Err(Error::new_spanned(
+                attribute,
+                "不能混用逐项输出和多名称输出标注",
+            ));
+        }
+        multi_names = names.len() > 1;
+        for name in names {
+            outputs.push(name);
+            codecs.push(codec.clone());
+        }
+    }
+    if outputs.is_empty() {
+        outputs = default_output_names(expected);
+        codecs = vec![None; expected];
+    }
+    if outputs.len() != expected {
+        return Err(Error::new_spanned(
+            first_attribute.as_ref().expect("显式输出数量不匹配"),
+            format!(
+                "#[output] 声明了 {} 个输出名称，但该返回类型需要 {expected} 个输出名称",
+                outputs.len()
+            ),
+        ));
+    }
+    Ok((outputs, codecs))
 }
 /// 返回类型会映射成多少个平台输出。
 ///

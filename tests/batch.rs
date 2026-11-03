@@ -34,6 +34,15 @@ impl BatchNode {
     ) -> MiresidianResult<(i32, String)> {
         Ok((station, format!("{station}:{channel}:{}", channel * scale)))
     }
+    #[miresidian::operation("浮点")]
+    #[miresidian::output("单精度", "双精度")]
+    fn floats(
+        &mut self,
+        #[miresidian::input("单精度", batch)] single: f32,
+        #[miresidian::input("双精度", batch)] double: f64,
+    ) -> MiresidianResult<(f32, f64)> {
+        Ok((single, double))
+    }
 }
 
 fn request(input: &[&str]) -> Invocation {
@@ -90,4 +99,24 @@ fn batch_rejects_unaligned_arrays_before_business_execution() {
         runtime.invoke(&request(&["1|2", "1|3|5", "2"])),
         Err(MiresidianError::InvalidArgument { field, .. }) if field == "站号"
     ));
+}
+
+#[test]
+fn floats_accept_lists_and_scientific_notation_but_not_ranges() {
+    let runtime = NodeRuntime::<BatchNode>::new();
+    runtime
+        .invoke(&Invocation::new("InitDevice", vec!["A".into()], vec![]))
+        .unwrap();
+    let request = |single: &str, double: &str| {
+        Invocation::new("浮点", vec!["A".into()], vec![single.into(), double.into()])
+    };
+    assert_eq!(
+        runtime
+            .invoke(&request("3.14|3.15", "1e-3"))
+            .unwrap()
+            .as_slice(),
+        ["3.14|3.15", "0.001|0.001"]
+    );
+    assert!(runtime.invoke(&request("1-5", "1")).is_err());
+    assert!(runtime.invoke(&request("1", "3.14-3.15")).is_err());
 }

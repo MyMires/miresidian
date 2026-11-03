@@ -1,0 +1,12 @@
+[package]
+name = "miresidian_format"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository = "https://github.com/MyMires/miresidian"
+description = "Miresidian 显式格式编解码增强。"
+readme = "README.md"
+
+[dependencies]
+miresidian_codec = { version = "=0.14.1", path = "../../codec" }

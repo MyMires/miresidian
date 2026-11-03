@@ -100,7 +100,7 @@ def check_lock(repo, name, expected):
             raise VersionError(f"{name} 的 {package} 应锁定 {version}，实际为 {actual}")
 
 
-FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
+FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_format", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
 CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
 

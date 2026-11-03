@@ -28,10 +28,11 @@ pub(super) fn outputs(
 /// 生成一个完整的平台操作描述。
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {
     let name = &operation.name;
-    let inputs = parameters(&operation.parameters);
+    let platform_parameters =
+        super::codec::platform_parameters(&operation.parameters, &operation.output_codecs);
+    let inputs = parameters(&platform_parameters);
     let outputs = outputs(&operation.outputs);
-    let channel_parameters = operation
-        .parameters
+    let channel_parameters = platform_parameters
         .iter()
         .filter(|parameter| parameter.source == ParameterSource::Input)
         .cloned()
