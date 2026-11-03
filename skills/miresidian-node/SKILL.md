@@ -48,7 +48,7 @@ description: "将外部资源集成或业务需求实现为符合 Miresidian 契
 
 把选定的框架 features 写入节点 Cargo.toml，使正常构建、测试及交付使用同一能力配置；若项目确需自身的可选 feature，显式转发依赖 feature 并保证交付路径启用。同步记录对实例关联、Config 布局和资源访问行为的影响。
 
-按 [Node 项目规范](references/project-standards.md) 确定源码边界与测试布局；节点状态和标注方法保持语义完整，独立职责按真实变化边界拆分。单元测试允许内联，不把文件行数、目录数量或测试外置当作结构改善的证据。
+按 [Node 项目规范](references/project-standards.md) 确定源码边界与测试布局；[node.rs 优先保持契约可读性](references/project-standards.md#noders-契约可读性)，集中展示节点声明及操作、参数、输出标注，方法体仅做简短委托与契约适配，设备状态、检查和业务流程交由业务对象管理。普通业务模块的单元测试允许内联，不把文件行数、目录数量或测试外置当作结构改善的证据。
 
 需要创建模板、安装工具或准备目标环境时才查阅 [工具操作参考](references/commands.md)。不把工具升级、完整环境配置或框架修改作为每个 Node 任务的前置步骤。
 
