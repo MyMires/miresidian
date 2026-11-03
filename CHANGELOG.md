@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-03
+
+- Windows 工具 CI 统一使用 PowerShell 7，修复中文脚本被旧版 PowerShell 错误解码导致的解析失败；32 位宿主仍显式调用 Windows PowerShell，并为临时脚本写入 UTF-8 BOM。
+- Cargo 工具安装逐项检查退出码，安装失败立即终止，避免后续成功命令掩盖错误。仅调整 CI 和根版本元数据，其他 crate、节点依赖、C ABI v7 与租约协议 v2 不变。
+- 验证：YAML 结构、PowerShell 7 的 5 段脚本解析、UTF-8 BOM 内容往返、3 个安装失败立即终止场景及版本门禁通过；Windows DLL 加载与完整 TestFlow 待推送后 CI 实测。
+
 ## [0.19.0] - 2026-11-03
 
 - 将新增格式增强能力的目录、Cargo feature、宏标签和公开模块统一为 format，转换 trait 命名为 FormatInput/FormatOutput；不保留新能力旧名别名。
