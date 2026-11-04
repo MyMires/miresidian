@@ -13,7 +13,7 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 | 组件 | 适配版本 |
 | --- | --- |
-| 框架 `miresidian` | 0.20.1 |
+| 框架 `miresidian` | 0.21.0 |
 | 资源共享实现 `miresidian_lease` | 0.15.1 |
 | CLI `miresidian_cli` | 0.3.0 |
 | Pack `miresidian_pack` | 0.13.0 |
@@ -38,7 +38,7 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 | --- | --- |
 | 多实例或多通道 | `instances`：[声明与调用](references/instances.md) |
 | 跨 DLL/进程协调配置或共用物理连接 | `lease`：[配置租约与资源代理](references/lease.md) |
-| 同一对象按多条记录顺序执行 | `batch`：[参数展开](references/batch.md) |
+| 同一对象按原参数类型展开多条记录 | `batch`：[参数展开](references/batch.md) |
 | 显式输入/输出格式转换 | `format`：[编解码与槽位](references/format.md) |
 
 所选能力须落实依赖 features、适用的宏声明或通信层接入及验收行为；需要多种能力时组合启用。共享独占连接时先明确物理资源身份与通信事务协议，不能将取得兼容租约视为已共享连接。

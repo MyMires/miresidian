@@ -2,5 +2,5 @@
 mod conversion;
 pub use conversion::{
     FormatInput, FormatOutput, decode_formatted, decode_formatted_batch, encode_formatted,
-    select_format,
+    select_format, select_format_value,
 };

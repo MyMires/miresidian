@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.20.1", features = ["instances"] }
+miresidian = { version = "=0.21.0", features = ["instances"] }
 ```
 
 仅启用 feature 仍是默认单实例；多实例/多通道还须节点策略标注。例如：

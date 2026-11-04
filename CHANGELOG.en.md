@@ -2,6 +2,13 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.21.0] - 2026-11-05
+
+- Parse plain batch inputs using the original Rust argument's codec traits. Strings, booleans, characters, aliases, and compatible custom elements no longer require format. Preserve integer single/list/range/mixed syntax and float validation.
+- Keep batch and format crates independent. Macro composition aligns data and input/output format columns with singleton broadcast or equal length. Fixed single-format annotations generate no selector or additional input slot.
+- Add decode_batch/batch_records and select_format_value APIs; retain existing formatted-record helpers. Preserve pre-execution input validation, sequential invocation, stop-on-error, output grouping, and sync/native async dispatch.
+- Update implementation comments, feature guides, ABI call documentation, examples, and the complete installed Node skill. Root 0.21.0, macro 0.19.0, batch 0.2.0, and format 0.3.0; unrelated crates, tools, C ABI v7, configuration leases v2, and resource proxies v1 are unchanged. Publication is a separate action.
+
 ## [0.20.1] - 2026-11-04
 
 - Complete the Node skill and call documentation for fixed operations, parameter channels, defaults, optional values, collections, object reuse, initialization failures, asynchronous execution, and cancellation boundaries.

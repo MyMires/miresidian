@@ -293,45 +293,19 @@ fn parse_parameters(
         .collect()
 }
 
-/// 默认 batch 支持基础数值，其他业务类型必须显式声明 format 字节契约。
+/// batch 只约束参数来源；原 Rust 类型的 codec trait 决定可接受的输入形式。
 fn validate_batch_parameters(parameters: &[Parameter]) -> Result<()> {
     for parameter in parameters.iter().filter(|parameter| parameter.batch) {
-        if parameter.source != ParameterSource::Input
-            || !(is_numeric(&parameter.ty) || parameter.format.is_some())
-        {
+        if parameter.source != ParameterSource::Input {
             return Err(Error::new_spanned(
                 &parameter.ty,
-                "batch 参数必须是普通业务方法的基础数值 Input 参数，或声明 format",
+                "batch 只能标注普通业务方法的 Input 参数",
             ));
         }
     }
     Ok(())
 }
 
-fn is_numeric(ty: &Type) -> bool {
-    let Type::Path(path) = ty else {
-        return false;
-    };
-    path.qself.is_none()
-        && path.path.segments.len() == 1
-        && matches!(
-            path.path.segments[0].ident.to_string().as_str(),
-            "f32"
-                | "f64"
-                | "i8"
-                | "i16"
-                | "i32"
-                | "i64"
-                | "i128"
-                | "isize"
-                | "u8"
-                | "u16"
-                | "u32"
-                | "u64"
-                | "u128"
-                | "usize"
-        )
-}
 fn contains_option_pairs(value: &str) -> bool {
     value.split('/').any(|choice| {
         let Some((actual, display)) = choice.split_once('-') else {

@@ -8,8 +8,8 @@
 
 | 操作 | 命令 |
 | --- | --- |
-| 新目录 | `cargo miresidian new demo-node --name "演示节点" --miresidian-version 0.20.1` |
-| 已有目录 | `cargo miresidian init --name "演示节点" --miresidian-version 0.20.1`（可指定已有目录） |
+| 新目录 | `cargo miresidian new demo-node --name "演示节点" --miresidian-version 0.21.0` |
+| 已有目录 | `cargo miresidian init --name "演示节点" --miresidian-version 0.21.0`（可指定已有目录） |
 | 创建时指定框架 | new/init 使用 `--miresidian-version X.Y.Z`，等价别名 `--mires-version X.Y.Z` |
 | 编译检查 | `cargo check --locked` |
 | 结构/依赖/说明检查 | `cargo miresidian check` |

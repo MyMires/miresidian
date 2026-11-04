@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-05
+
+- batch 改为按原 Rust 参数类型及 codec 集合契约解析，移除数值类型名称白名单；String、bool、char、别名与合法自定义集合元素无需 format。整数单项/列表/范围/混合与浮点规则保留，空记录按目标类型校验。
+- batch 与 format 实现 crate 互不依赖，宏组合记录拆分、长度广播/对齐与单条转换。数据和格式选择支持单值或列表，batch 输出格式也支持逐条选择；固定单编码无 selector 且不增加 Input。
+- 新增 batch decode_batch/batch_records 与 format select_format_value，保留既有格式记录便捷 API。保持顺序、首错停止、输入失败前置、逐槽输出聚合及同步/原生 async。
+- 同步注释、当前示例、宏/ABI 调用手册、功能文档和完整 Node skill；框架 0.21.0、宏 0.19.0、batch 0.2.0、format 0.3.0，codec 0.14.2、lease 0.15.1、instances 0.16.2、工具、C ABI v7、配置租约 v2 和资源代理 v1 不变。
+- 验证：旧数值白名单和单格式调度均已证明回归失败；修复后默认 45 项通过、全特性 131 项通过/1 项既有忽略，追加 C ABI 回归通过；batch-only/format-only、相关单元/集成、严格 Clippy、Rust 1.89 与严格 Rustdoc 通过。23 份 Markdown、115 处引用、42 处锚点、完整 9 文件 skill 同步和四组件源码包清单通过。源码候选未自动发布，独立节点仅在 registry 版本可用后升级。
+
 ## [0.20.1] - 2026-11-04
 
 - 完善 Node skill 的固定入口、Config/Input/Output、默认值、Option/集合、初始化复用与替换失败、异步互斥和协作取消指导；合并此前未提交的文档候选，不创建 0.19.5 发行。

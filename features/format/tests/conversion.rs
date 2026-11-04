@@ -1,5 +1,23 @@
 use miresidian_codec::ByteTextFormat::*;
-use miresidian_format::{decode_formatted, decode_formatted_batch, encode_formatted};
+use miresidian_format::{
+    decode_formatted, decode_formatted_batch, encode_formatted, select_format, select_format_value,
+};
+
+#[test]
+fn single_format_selection_does_not_parse_batch_columns() {
+    assert_eq!(select_format_value("", "格式", &[Utf8, Hex]).unwrap(), Utf8);
+    assert_eq!(
+        select_format_value("HEX", "格式", &[Utf8, Hex]).unwrap(),
+        Hex
+    );
+    assert_eq!(select_format(&[], 0, "格式", &[Utf8, Hex]).unwrap(), Utf8);
+    for value in ["UTF8|HEX", "Base64", "unknown"] {
+        assert!(
+            matches!(select_format_value(value, "格式", &[Utf8, Hex]), Err(miresidian_codec::MiresidianError::InvalidArgument { field, .. }) if field == "格式")
+        );
+    }
+    assert!(select_format_value("UTF8", "格式", &[]).is_err());
+}
 #[test]
 fn raw_bytes_all_formats_round_trip() {
     for format in [Ascii, Gbk, Utf8, Utf16Le, Hex, Base64] {

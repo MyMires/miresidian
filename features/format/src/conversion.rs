@@ -105,16 +105,27 @@ pub fn select_format(
     field: &str,
     formats: &[ByteTextFormat],
 ) -> MiresidianResult<ByteTextFormat> {
+    let value =
+        miresidian_codec::normalize_value_with_definition(values, index, field, field, Some(""))?;
+    select_format_value(&value, field, formats)
+}
+
+/// 校验一条格式选择值；空白使用允许列表首项，不解释批量分隔或执行策略。
+/// `formats` 为空、格式未知或不在允许列表中时，返回归属于 `field` 的参数错误。
+pub fn select_format_value(
+    value: &str,
+    field: &str,
+    formats: &[ByteTextFormat],
+) -> MiresidianResult<ByteTextFormat> {
     let first = formats
         .first()
         .copied()
         .ok_or_else(|| invalid(field, "格式列表不能为空"))?;
-    let value =
-        miresidian_codec::normalize_value_with_definition(values, index, field, field, Some(""))?;
     if value.trim().is_empty() {
         return Ok(first);
     }
-    let format = miresidian_codec::parse_byte_text_format(&value)?;
+    let format = miresidian_codec::parse_byte_text_format(value)
+        .map_err(|_| invalid(field, "未知的格式选择值"))?;
     if formats.contains(&format) {
         Ok(format)
     } else {
@@ -149,7 +160,8 @@ pub fn encode_formatted<T: FormatOutput>(
         Ok(text)
     }
 }
-/// 先按转义竖线拆分批量记录，再逐条解码。空文本表示一条空记录。
+/// 按同一种格式解码多条转义竖线记录的兼容便捷函数；不参与批次长度对齐或调用调度。
+/// 空文本表示一条空记录；逐条格式选择由宏组合独立的 batch 与单条 format 接口。
 ///
 /// 记录数由调用上下文保持；单条空结果与空集合不能仅凭一个输出字符串区分。
 pub fn decode_formatted_batch<T: FormatInput>(

@@ -5,7 +5,7 @@
 ## 项目与依赖
 
 - 独立 crate 声明 `cdylib`，一个 crate 声明一个具体节点；不靠多份条件节点声明切换实现。
-- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.20.1" }`，已有项目保留原精确版本，升级须属于本次任务。
+- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.21.0" }`，已有项目保留原精确版本，升级须属于本次任务。
 - 实现前核对框架、标准库、已有依赖和成熟实现。通用通信、编解码及校验优先复用；自行实现或额外封装须有实际缺口。新依赖核实真实 API、维护状态、许可证、MSRV 和目标平台。
 
 ## 能力依赖

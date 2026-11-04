@@ -1,5 +1,6 @@
 //! 方法级平台契约生成；生命周期直接生成桥接，业务方法提交独立注册项。
 
+mod batch;
 mod definition;
 mod descriptor;
 mod dispatch;

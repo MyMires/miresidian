@@ -1,5 +1,5 @@
 #![cfg(feature = "batch")]
-//! 参数级 batch 将整数数组对齐为记录，但节点业务方法始终只接收一条标量记录。
+//! 参数级 batch 按原参数类型解析并对齐记录，业务方法仍接收一条记录。
 
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
 
@@ -11,12 +11,16 @@ use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
     )
 )]
 #[cfg_attr(not(feature = "instances"), miresidian::node("顺序批量"))]
-struct BatchNode;
+struct BatchNode {
+    calls: usize,
+}
+
+type Station = u16;
 
 impl BatchNode {
     #[miresidian::operation]
     fn init_device(#[miresidian::config("设备")] _device: String) -> MiresidianResult<Self> {
-        Ok(Self)
+        Ok(Self { calls: 0 })
     }
 
     #[miresidian::operation]
@@ -42,6 +46,38 @@ impl BatchNode {
         #[miresidian::input("双精度", batch)] double: f64,
     ) -> MiresidianResult<(f32, f64)> {
         Ok((single, double))
+    }
+
+    #[miresidian::operation("文本开关")]
+    fn text_flags(
+        &mut self,
+        #[miresidian::input("文本", batch)] text: String,
+        #[miresidian::input("开关", batch)] enabled: bool,
+    ) -> MiresidianResult<(String, bool)> {
+        self.calls += 1;
+        Ok((text, enabled))
+    }
+
+    #[miresidian::operation("类型别名")]
+    fn aliases(
+        &mut self,
+        #[miresidian::input("站号", batch)] station: Station,
+        #[miresidian::input("标签", batch)] label: std::string::String,
+    ) -> MiresidianResult<(Station, String)> {
+        Ok((station, label))
+    }
+
+    #[miresidian::operation("字符")]
+    fn characters(
+        &mut self,
+        #[miresidian::input("字符", batch)] character: char,
+    ) -> MiresidianResult<char> {
+        Ok(character)
+    }
+
+    #[miresidian::operation("调用次数")]
+    fn count(&mut self) -> MiresidianResult<usize> {
+        Ok(self.calls)
     }
 }
 
@@ -119,4 +155,74 @@ fn floats_accept_lists_and_scientific_notation_but_not_ranges() {
     );
     assert!(runtime.invoke(&request("1-5", "1")).is_err());
     assert!(runtime.invoke(&request("1", "3.14-3.15")).is_err());
+}
+
+fn typed_call(
+    runtime: &NodeRuntime<BatchNode>,
+    operation: &str,
+    input: &[&str],
+) -> miresidian::MiresidianResult<miresidian::InvocationOutput> {
+    runtime.invoke(&Invocation::new(
+        operation,
+        vec!["A".into()],
+        input.iter().map(|s| (*s).into()).collect::<Vec<_>>(),
+    ))
+}
+
+#[test]
+fn original_types_determine_plain_batch_grammar_without_format() {
+    let runtime = NodeRuntime::<BatchNode>::new();
+    runtime
+        .invoke(&Invocation::new("InitDevice", vec!["A".into()], vec![]))
+        .unwrap();
+    assert_eq!(
+        typed_call(&runtime, "文本开关", &[r"1-3|A\|B|C\\D", "true|0|是"])
+            .unwrap()
+            .as_slice(),
+        [r"1-3|A\|B|C\\D", "true|false|true"]
+    );
+    assert_eq!(
+        typed_call(&runtime, "文本开关", &["one|two", "false"])
+            .unwrap()
+            .as_slice(),
+        ["one|two", "false|false"]
+    );
+    assert_eq!(
+        typed_call(&runtime, "文本开关", &["", "true"])
+            .unwrap()
+            .as_slice(),
+        ["", "true"]
+    );
+    assert_eq!(
+        typed_call(&runtime, "类型别名", &["1-3|5|8-10", "literal-1"])
+            .unwrap()
+            .as_slice(),
+        [
+            "1|2|3|5|8|9|10",
+            "literal-1|literal-1|literal-1|literal-1|literal-1|literal-1|literal-1"
+        ]
+    );
+    assert_eq!(
+        typed_call(&runtime, "字符", &["甲|乙"]).unwrap().as_slice(),
+        ["甲|乙"]
+    );
+}
+
+#[test]
+fn invalid_typed_lists_fail_before_business_execution() {
+    let runtime = NodeRuntime::<BatchNode>::new();
+    runtime
+        .invoke(&Invocation::new("InitDevice", vec!["A".into()], vec![]))
+        .unwrap();
+    for (text, flag) in [
+        ("A|B", "true|invalid"),
+        ("A|B", "true|false|true"),
+        ("A", "1-3"),
+    ] {
+        assert!(typed_call(&runtime, "文本开关", &[text, flag]).is_err());
+        assert_eq!(
+            typed_call(&runtime, "调用次数", &[]).unwrap().as_slice(),
+            ["0"]
+        );
+    }
 }

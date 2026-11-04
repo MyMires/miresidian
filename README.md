@@ -4,9 +4,9 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.20.1**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.21.0**，C ABI 为 **v7**，租约协议为 **v2**。
 
-**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次发布说明](docs/releases/0.20.1.md)**
+**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次发布说明](docs/releases/0.21.0.md)**
 
 ## 核心能力与优势
 
@@ -18,7 +18,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 - **统一数据与接入边界**：提供独立编解码和值模型，支持基础类型、一维数组、文本编码、HEX 与 Base64；平台适配器将宿主协议与节点业务解耦。
 - **支持受控的共享资源**：启用 `lease` feature 可协调资源配置；通信层通过 [SharedResource 代理](docs/shared-resources.md) 跨 DLL/进程共用一个物理连接并串行执行完整事务。
 - **显式格式转换**：启用 `format` 并标注 Input/Output，框架按所选字符编码、HEX 或 Base64 自动转换；需要批量处理时可另加 batch，详见 [format feature](features/format/README.md)。基础类型解析不需要启用 format。
-- 对单值业务逻辑需要顺序批量调用时，可启用 `batch` feature，并在具体数值 Input 参数上标记 batch，整数保留范围展开，浮点使用逐项列表；实现位于 [batch feature crate](features/batch/README.md)。
+- 对单值业务逻辑需要顺序批量调用时，可启用 `batch` feature，并在普通 Input 参数上标记 batch，按原类型解析字符串、布尔、数值等记录；整数保留范围与混合展开，格式可逐条选择；实现位于 [batch feature crate](features/batch/README.md)。
 
 节点项目通常只直接依赖 `miresidian`。具体串口、TCP、USB、CAN 等通信实现和私有依赖归独立节点项目所有。框架库、过程宏、开发工具与节点 DLL 的关系见[架构总览](docs/architecture.md)。
 
@@ -47,7 +47,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.20.1"
+miresidian = "=0.21.0"
 ```
 
 ```rust
@@ -85,4 +85,4 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-0.20.1 为当前框架源码版本；外部项目仅采用 crates.io 已发布精确版本，禁止本地覆盖。
+0.21.0 为当前框架源码版本；外部项目仅采用 crates.io 已发布精确版本，禁止本地覆盖。

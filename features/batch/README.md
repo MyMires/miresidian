@@ -1,40 +1,51 @@
 # miresidian_batch
 
-`miresidian_batch` 是 Miresidian 参数级顺序批量调用的无状态支持 crate：它校验多个记录数组按位置对齐时的广播规则，并把每次标量调用的输出按槽位聚合。
-
-节点项目不直接依赖此 crate；通过根 crate 启用：
+设备类型无关的批量记录解析、长度对齐和输出聚合。节点通过根 crate 启用：
 
 ```toml
-miresidian = { version = "=0.19.4", features = ["batch"] }
+miresidian = { version = "=0.21.0", features = ["batch"] }
 ```
 
-## 节点接入
+示例表示源码适配版本；独立节点须先确认该精确版本已发布，不用本地覆盖。
 
-节点通过根 crate 启用 feature，并仅在普通业务 operation 的具体 Input 参数上标记 `batch`：
+## 按原方法类型解析
 
-```rust
-#[miresidian::operation("读取")]
-#[miresidian::output("值")]
-fn read(
+```rust,ignore
+#[miresidian::operation("设置")]
+fn set(
     &mut self,
-    #[miresidian::input("站号", batch)] station: i32,
-    #[miresidian::input("通道", batch)] channel: i32,
-    #[miresidian::input("倍率:1")] scale: i32,
-) -> MiresidianResult<i32> {
-    self.device.read(station, channel, scale)
+    #[miresidian::input("名称", batch)] name: String,
+    #[miresidian::input("开关", batch)] enabled: bool,
+    #[miresidian::input("序号", batch)] index: u16,
+) -> MiresidianResult<()> {
+    self.device.set(name, enabled, index)
 }
 ```
 
-业务方法接收单条数值或 format 数据；宏生成的包装层负责记录解析、调用和输出聚合。整数 batch 从框架 0.17.0 起提供，0.18.0 起支持 f32/f64，0.19.0 起使用 format 统一名称。`batch` 不可用于 `init_device`、`close_device`、`get_port_no`、任何 Config 参数或实例主键。
+字符串和布尔直接支持 batch，无需 format。普通 batch 依赖参数类型的 DeviceInput、DeviceCollectionElement、Clone，类型别名和完整路径不影响判断；自定义类型须实现自己的集合语法，不自动构造任意嵌套集合协议。
 
-## 数值输入与顺序执行
+| 类型 | 输入形式 |
+| --- | --- |
+| 整数 | 单值、竖线列表、非负递增范围、混合形式；`1-3\|5\|8-10` 展开为 1、2、3、5、8、9、10 |
+| f32/f64 | 单值、列表、科学计数法和负值；拒绝范围，不推断步长 |
+| String | 单个字符串或列表；`1-3` 保持字符串 |
+| bool | 单值/列表，复用 true/false、1/0、是/否、真/假解析 |
+| char | 单字符或字符列表 |
 
-整数标记参数使用 `int[]` 语义：`1` 是单项，`1|3|5` 是指定项，`1-5` 是递增范围，`1-3|5` 可混用。框架取所有 batch 参数的最大长度；等于最大长度的数组按位置组成记录，长度为一的数组自动广播。其他长度组合返回 `INVALID_ARGUMENT`。浮点支持列表、科学计数法和负值，拒绝范围、不推断步长；format 记录见 [format 说明](../format/README.md)。
+列表中的竖线和反斜杠分别转义为 `\|`、`\\`。空文本是一条空记录，由目标类型判断是否合法；String 可得到空字符串，bool/整数无默认值时失败。默认值先应用，普通 Vec 的空集合规则不变。
 
-例如 `站号=1`、`通道=1|3|5` 依次调用 `(1, 1)`、`(1, 3)`、`(1, 5)`；`站号=1|2`、`通道=1|3` 依次调用 `(1, 1)`、`(2, 3)`。未标记的 `倍率` 在每轮使用原输入与原默认值规则。
+## 对齐与执行
 
-批量固定顺序执行；首个失败立即停止，已经完成的副作用不回滚。每个输出槽位按调用顺序编码为可逆竖线集合。不提供并行、执行方式配置或笛卡尔积。
+最长记录列决定调用次数；长度一广播，其余必须等长，按位置配对，不做笛卡尔积。例如 `名称=A|B|C`、`开关=true`、`序号=1-2|4` 调用 `(A,true,1)`、`(B,true,2)`、`(C,true,4)`。未标记 Input 复用原值/默认值。
 
-## 与 instances 的边界
+批量输入解析及长度校验先于业务调用；固定顺序执行，首个业务或输出转换错误停止，已有副作用不回滚。输出按槽位聚合为可逆竖线集合。batch 不用于 Config、初始化、关闭、探测或实例主键。instances 先定位一个对象，batch 随后在该对象上运行，不提供多对象分发或并行。
 
-`instances` 先用 Config/Handle 定位唯一节点对象；随后 `batch` 只在该对象上展开普通 Input。批量参数不能跨 Config/Handle 选择多个对象。平台多通道和 `|` 数组文本是不同维度：每个有效平台通道分别运行其内部顺序 batch。
+## 与 format 解耦组合
+
+本 crate 不依赖 format，format 也不依赖本 crate；共同复用 codec，宏负责组合。`decode_batch<T>` 按目标类型解析普通输入；`batch_records` 只拆转义记录；`batch_length` 和 `batch_outputs` 分别对齐、聚合。
+
+需要编码转换时额外启用 format。数据与格式选择可分别传单值或列表，长度一广播、其他等长；固定单编码不生成选择器。每条编码记录解码为一个原方法参数，不再次拆分解码结果或展开其中的整数范围。输出格式也可逐条选择，然后按槽位聚合。完整用法见 [format](../format/README.md)。
+
+## 验证
+
+覆盖独立 batch、独立 format、组合 feature；整数混合、文本/布尔、别名、空记录、转义、格式单值/列表、固定格式无选择器、多输入槽位、输出聚合、输入失败无业务执行及同步/async。

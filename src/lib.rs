@@ -53,7 +53,8 @@ pub use miresidian_lease as lease;
 pub use miresidian_batch as batch;
 
 /// 参数级顺序批量执行。只有启用 Cargo feature `batch` 并在普通业务 Input 参数上写入
-/// `#[miresidian::input("名称", batch)]` 时，宏才会展开整数数组。
+/// `#[miresidian::input("名称", batch)]` 时，宏按原参数类型展开记录；
+/// 字符串和布尔无需 format，整数支持列表、范围及混合形式。
 #[cfg(feature = "batch")]
 #[doc(hidden)]
 pub const fn __require_batch_feature() {}
@@ -73,7 +74,7 @@ pub const fn __require_instances_runtime() {}
 pub mod format {
     pub use miresidian_format::{
         FormatInput, FormatOutput, decode_formatted, decode_formatted_batch, encode_formatted,
-        select_format,
+        select_format, select_format_value,
     };
 }
 

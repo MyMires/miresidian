@@ -15,3 +15,10 @@ use miresidian::{config, input, node, operation, output};
 `node` 保留在结构体上，生成节点身份、注册绑定和 C ABI；每个 `operation` 独立生成方法契约，支持同模块多个固有 impl。初始化、关闭和可选探测同样使用 operation，节点不再需要 Default。
 
 0.15.0 支持 operation 标注 async 方法，生成原生业务 Future 桥；构造、关闭和探测的 async 桥由生命周期线程等待。同步 DLL 入口共享内部并发运行时。参见[异步方法](../docs/宏驱动开发.md#异步方法)。
+
+
+## 类型驱动的 batch 与 format 组合
+
+普通业务 Input 的 batch 不再按 Rust 类型名称限制为数值；生成代码使用原参数类型的 DeviceInput、DeviceCollectionElement 与 Clone。整数保留单值/列表/范围/混合，字符串、布尔、字符和别名使用其类型解析。format 的单条编解码独立于 batch；组合宏对齐数据列和格式列，支持格式广播/逐条选择及输出格式列。固定单编码不生成选择输入，原有参数顺序与 metadata 布局保持。
+
+宏只组合各功能 API；batch 与 format 两个实现 crate 不互相依赖。输入解析/选择/长度校验先于业务，保持顺序、首错停止、逐槽输出聚合和同步/async 桥接。

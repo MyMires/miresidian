@@ -3,7 +3,7 @@
 根框架 0.19.0 起提供可选 `format` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
 ```toml
-miresidian = { version = "=0.19.4", features = ["format"] }
+miresidian = { version = "=0.21.0", features = ["format"] }
 ```
 
 以上为源码候选示例；外部节点只采用 crates.io 已发布精确版本。框架更新不自动修改、升级或重新打包已有节点。
@@ -61,7 +61,7 @@ fn convert(
 只有需要批量处理时，才同时开启两个 feature：
 
 ```toml
-miresidian = { version = "=0.19.4", features = ["format", "batch"] }
+miresidian = { version = "=0.21.0", features = ["format", "batch"] }
 ```
 
 并在需要展开的参数上增加 batch 标记，例如：
@@ -71,7 +71,7 @@ miresidian = { version = "=0.19.4", features = ["format", "batch"] }
 data: Vec<u8>,
 ```
 
-format 参数同时标记 batch 后，先按转义竖线拆分记录，再逐条解码，每次业务方法仍接收单条数据。
+format 参数同时标记 batch 后，宏分别拆分数据列和格式列，按长度一广播、其他等长规则对齐，再逐条调用单条 format 解码；原方法类型决定每条值。每个编码记录对应一个业务值，解码后的分隔符或整数范围文本不重新展开。
 
 ```text
 HEX 输入：31 32|44 45
@@ -79,13 +79,28 @@ HEX 输入：31 32|44 45
 HEX 输出：31 32|44 45
 ```
 
+### 逐条格式与固定格式
+
+```rust,ignore
+#[miresidian::input("文本", batch, format(formats = [utf8, hex, base64], selector = "文本输入类型"))]
+text: String,
+```
+
+`文本=A|42|Qw==` 与 `文本输入类型=UTF8|HEX|Base64` 依次得到 A、B、C。单个格式会广播给全部数据；单个数据也可广播给格式列表，例如 `41` 与 `UTF8|HEX` 得到 41、A。格式空项使用允许列表首项，未知/不允许的值或不等长组合在业务执行前拒绝。
+
+只有数据参数标记 batch 时，它的输入格式选择器才接受列表；没有 batch 的 format 仍接受一个格式。batch 方法的输出格式选择器也支持单值广播或等长列表，仍追加在全部方法 Input 之后，按每次调用选择输出编码。
+
+单编码如 `format(formats = [hex])` 不接受 selector，也不生成额外输入。`#[input("文本", batch, format(formats = [hex]))] text: String` 只需传 `41|42`，两次调用分别得到 A、B；不组合 batch 时同样无需选择器。
+
+batch 与 format crate 互不依赖，共同复用 codec，由宏组合。公开函数 select_format_value 只校验一条格式值；兼容函数 decode_formatted_batch 只用一种固定格式解码多条记录，不参与批次长度或方法调度。
+
 输出先逐次编码，再按原 batch 规则按槽位聚合。每段返回数组保持完整，不展平。单条 format 数值数组可输出 `1 2`，批量则为 `1 2|3 4`。
 
 `|` 专用于 format batch 记录；内容中的 `|`、反斜杠由外层 batch 转义为 `\|`、`\\`。先解析外层记录，再按格式解码；非 batch 不增加这层转义。Base64 输出沿用现有 `base64:` 前缀。
 
 空 format batch 输入是一条空记录，`|41` 是两条记录。聚合输出结合请求的批次记录数理解：一个空字符串可以是一条空结果，不得仅凭文本当作零条。未标注 format 的旧数组/输出规则保持不变。
 
-普通 batch 数值参数不需要 format：所有整数支持既有列表和递增范围 `1-5`，f32/f64 支持 `3.14|3.15`、科学计数法及负值，拒绝范围、不会推断步长。按位置对齐、单值广播、顺序执行和首错停止保持不变。
+普通 batch 按原方法类型解析：字符串、布尔、字符、整数和浮点均不需要 format。整数保留 `1-3|5|8-10` 混合展开；字符串中的 `1-3` 保持文本，布尔/浮点不推断范围。类型别名和完整路径按相同 codec trait 处理。
 
 输入转换失败不执行业务；输出转换失败可能发生在业务副作用之后，停止后续记录，不回滚、不重试。所有字符编码严格报错，不替换非法字符。同步和 async 业务使用同样规则。
 
