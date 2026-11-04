@@ -166,6 +166,8 @@ pub fn decode_value<T: DeviceInput>(
 ///
 /// 该入口与宏生成的参数解码共用默认值、参数名前缀和显示值规则。运行时使用它生成
 /// 稳定通道键，因此语义相同的 Config 文本会定位到同一已初始化通道。
+/// 声明的候选文本（如 `9600/19200`）取首项；其他显式输入保持自身值。
+/// `default` 为 `None` 时不隐式补齐候选首项。
 pub fn normalize_value_with_definition(
     values: &[String],
     index: usize,
@@ -173,9 +175,6 @@ pub fn normalize_value_with_definition(
     definition: &str,
     default: Option<&str>,
 ) -> MiresidianResult<String> {
-    let default = (!definition::has_option_pairs(definition))
-        .then_some(default)
-        .flatten();
     let value = definition::value_at(values, index, field, default)?;
     Ok(definition::normalize_option_value(value, definition))
 }

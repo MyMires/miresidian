@@ -1,7 +1,7 @@
 //! 根框架数据编解码的跨模块回归测试。
 
 use miresidian_codec::{
-    ByteTextFormat, DeviceInput, DeviceOutput, decode_text_to_bytes, decode_value,
+    ByteTextFormat, DeviceInput, DeviceOutput, MiresidianError, decode_text_to_bytes, decode_value,
     decode_value_with_definition, encode_bytes_to_text, transcode_text,
 };
 
@@ -144,5 +144,117 @@ fn 选项显示值会在标量与数组解析前规范化为实际值() {
         )
         .expect("数组显示值应逐项映射"),
         vec!["None", "Even"]
+    );
+}
+
+#[test]
+fn 默认候选文本只在采用该文本时取首项() {
+    let definition = "波特率:9600/19200";
+    for values in [
+        vec![],
+        vec!["".to_owned()],
+        vec!["波特率:".to_owned()],
+        vec!["9600/19200".to_owned()],
+    ] {
+        assert_eq!(
+            decode_value_with_definition::<u32>(
+                &values,
+                0,
+                "波特率",
+                definition,
+                Some("9600/19200")
+            )
+            .unwrap(),
+            9600
+        );
+    }
+    for value in ["19200", "波特率:19200", "38400"] {
+        assert_eq!(
+            decode_value_with_definition::<u32>(
+                &[value.to_owned()],
+                0,
+                "波特率",
+                definition,
+                Some("9600/19200")
+            )
+            .unwrap(),
+            if value == "38400" { 38400 } else { 19200 }
+        );
+    }
+    for value in ["bad", "19200/38400"] {
+        let error = decode_value_with_definition::<u32>(
+            &[value.to_owned()],
+            0,
+            "波特率",
+            definition,
+            Some("9600/19200"),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error, MiresidianError::InvalidArgument { field, .. } if field == "波特率")
+        );
+    }
+}
+
+#[test]
+fn 选项实际值与显示值不被默认候选覆盖() {
+    let definition = "校验:None-无校验/Odd-奇校验/Even-偶校验";
+    for (value, expected) in [
+        ("None-无校验/Odd-奇校验/Even-偶校验", "None"),
+        ("Odd", "Odd"),
+        ("奇校验", "Odd"),
+        ("Even", "Even"),
+        ("偶校验", "Even"),
+        ("其他", "其他"),
+    ] {
+        assert_eq!(
+            decode_value_with_definition::<String>(
+                &[value.to_owned()],
+                0,
+                "校验",
+                definition,
+                None
+            )
+            .unwrap(),
+            expected
+        );
+    }
+    assert!(decode_value_with_definition::<String>(&[], 0, "校验", definition, None).is_err());
+    assert_eq!(
+        decode_value_with_definition::<String>(&[], 0, "校验", definition, Some("Odd")).unwrap(),
+        "Odd"
+    );
+}
+
+#[test]
+fn 普通默认文本与显式文本保持原值() {
+    for value in [
+        "https://example.test/a/b",
+        "/tmp/device/config",
+        "./config/device",
+        "../config/device",
+        "C:/device/config",
+        "-1",
+    ] {
+        let definition = format!("值:{value}");
+        assert_eq!(
+            decode_value_with_definition::<String>(&[], 0, "值", &definition, Some(value)).unwrap(),
+            value
+        );
+        assert_eq!(
+            decode_value_with_definition::<String>(
+                &[value.to_owned()],
+                0,
+                "值",
+                &definition,
+                Some(value)
+            )
+            .unwrap(),
+            value
+        );
+    }
+    assert_eq!(
+        decode_value_with_definition::<i32>(&[], 0, "偏移", "偏移:-1/0/1", Some("-1/0/1")).unwrap(),
+        -1
     );
 }
