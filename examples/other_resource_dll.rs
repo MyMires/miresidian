@@ -1,0 +1,26 @@
+//! 不同业务节点独立编译，使用相同通信层事务协议共用物理资源。
+#[path = "support/shared_resource.rs"]
+mod transport;
+
+use miresidian::{MiresidianResult, lease::shared::SharedResource};
+
+#[miresidian::node("共享资源节点 B")]
+struct NodeB {
+    resource: SharedResource,
+    calls: usize,
+}
+
+impl NodeB {
+    #[miresidian::operation]
+    fn init_device(#[miresidian::config("资源")] resource: String) -> MiresidianResult<Self> {
+        transport::connect(&resource).map(|resource| Self { resource, calls: 0 })
+    }
+    #[miresidian::operation]
+    fn close_device(&mut self) -> MiresidianResult<()> {
+        self.resource.close().map_err(transport::error)
+    }
+    #[miresidian::operation("查询")]
+    fn query(&mut self, #[miresidian::input("消息")] text: String) -> MiresidianResult<String> {
+        transport::query(&self.resource, &mut self.calls, "B", &text)
+    }
+}

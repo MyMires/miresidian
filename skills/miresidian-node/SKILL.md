@@ -13,7 +13,7 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 | 组件 | 适配基线 |
 | --- | --- |
-| 框架 `miresidian` | 0.19.4 |
+| 框架 `miresidian` | 0.20.0 |
 | CLI `miresidian_cli` | 0.3.0 |
 | Pack `miresidian_pack` | 0.13.0 |
 | Windows TestFlow `miresidian_testflow_windows` | 0.12.0 |

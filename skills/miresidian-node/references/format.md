@@ -4,7 +4,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.19.4", features = ["format"] }
+miresidian = { version = "=0.20.0", features = ["format"] }
 ```
 
 示例对应当前源码基线，须先核实已发布，不作为升级指令。format 决定编解码，batch 决定重复调用，两者独立启用。

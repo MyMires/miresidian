@@ -8,7 +8,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.19.4", features = ["batch"] }
+miresidian = { version = "=0.20.0", features = ["batch"] }
 ```
 
 ## 参数标注

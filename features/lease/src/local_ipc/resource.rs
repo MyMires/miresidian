@@ -18,7 +18,7 @@ pub(super) struct ResourceGuard {
     _file: File,
 }
 
-pub(super) fn user_scope() -> String {
+pub(crate) fn user_scope() -> String {
     let scope = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .or_else(|| std::env::var_os("USERNAME"))

@@ -8,7 +8,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.19.4", features = ["lease"] }
+miresidian = { version = "=0.20.0", features = ["lease"] }
 ```
 
 节点声明资源键、兼容性字段及激活策略：
@@ -69,6 +69,15 @@ TestFlow 普通入口保留平台项，参数均为 JSON 字符串；执行边�
 - 首调用方自动建立服务：Windows 命名管道，Unix domain socket。参与进程须使用相同用户环境和临时目录；运行期间不得清理临时目录下 `miresidian-lease-v2` 的锁文件。
 - `MIRESIDIAN_LEASE_SERVICE_NAMESPACE` 在启动前设置，用于隔离服务会话，资源文件锁仍共享。IPC 单请求截止 2 秒、配置锁竞争上限 5 秒；资源通信单独设超时。
 - v1 迁移 v2 前停止全部旧协议进程，混用不能保证协调。跨进程部署核对管道 DACL、服务端身份及临时目录权限；用户环境标识不是认证。Windows 服务宿主 DLL 固定到进程退出。
+
+
+## 跨 DLL/对象共享物理资源
+
+`lease(...)` 的运行时配置租约仍独立于物理连接。跨 DLL、不同项目或不同 Handle 使用同一独占资源时，通信层须接入 `miresidian::lease::shared::SharedResource`：统一资源键、规范化连接配置及通信事务协议，工厂内取得资源，一次 transact 完成完整收发。首个所有者打开连接，后续代理共享；节点业务状态不共享，最后代理退出才关闭资源。
+
+通信层可以独立持有 SharedResource 的租约；如同时声明运行时 lease，双方资源键和配置编码必须一致，不能用不同别名绕过冲突。未知协议或不兼容配置应拒绝，不能回退到重复直连。实例复用不增加初始化引用，资源代理引用单独管理；复用时变更 Lease/Direct 必须先关闭。
+
+验收须包括同 DLL 同 Config 复用、不同 Handle/不同名 DLL/不同节点类型的状态隔离、物理资源只打开一次、完整事务互斥、关闭隔离、最后关闭、所有者退出及超时不重放。基础租约测试通过不能代替这些证据。源码接口与可运行示例见框架 docs/shared-resources.md；新版本发布后再升级独立节点依赖并重建 DLL。
 
 ## 验收
 

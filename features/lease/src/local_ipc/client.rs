@@ -124,13 +124,13 @@ impl Drop for LocalLease {
 }
 
 // Windows 同步命名管道没有接收超时，使用非阻塞读写与统一请求截止时间。
-struct Connection {
+pub(crate) struct Connection {
     stream: Stream,
     deadline: Instant,
 }
 
 impl Connection {
-    fn new(stream: Stream) -> Result<Self, LeaseError> {
+    pub(crate) fn new(stream: Stream) -> Result<Self, LeaseError> {
         stream.set_nonblocking(true).map_err(io_error)?;
         Ok(Self {
             stream,
@@ -140,6 +140,14 @@ impl Connection {
 
     fn reset_deadline(&mut self) {
         self.deadline = Instant::now() + REQUEST_TIMEOUT;
+    }
+
+    pub(crate) fn timeout(&mut self, timeout: Duration) -> Result<(), LeaseError> {
+        self.deadline = Instant::now()
+            .checked_add(timeout)
+            .filter(|_| !timeout.is_zero())
+            .ok_or_else(|| LeaseError::LocalIpc("资源请求超时必须为有限正数".into()))?;
+        Ok(())
     }
 
     fn transfer(

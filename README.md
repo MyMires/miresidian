@@ -2,7 +2,7 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.19.4**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.20.0**，C ABI 为 **v7**，租约协议为 **v2**。
 
 **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)**
 
@@ -14,7 +14,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 - Broadcast 固定执行通道1一次并将完整结果复制到有效通道；其他输入无需同值，空通道跳过。规则与例子见[广播规范](docs/instances.md#broadcast-的执行源与输出规则0160)。
 - **按需扩展运行方式**：默认单实例；可用 instances feature 与同名宏配置选择多实例的 Config[0]/Handle 关联，以及顺序、并行或广播多通道执行。空主键初始化跳过，并在对象边界隔离可展开 panic。
 - **统一数据与接入边界**：提供独立编解码和值模型，支持基础类型、一维数组、文本编码、HEX 与 Base64；平台适配器将宿主协议与节点业务解耦。
-- **支持受控的共享资源**：需要跨进程协调资源配置的节点可启用 `lease` feature。
+- **支持受控的共享资源**：启用 `lease` feature 可协调资源配置；通信层通过 [SharedResource 代理](docs/shared-resources.md) 跨 DLL/进程共用一个物理连接并串行执行完整事务。
 - **显式格式转换**：启用 `format` 并标注 Input/Output，框架按所选字符编码、HEX 或 Base64 自动转换；需要批量处理时可另加 batch，详见 [format feature](features/format/README.md)。基础类型解析不需要启用 format。
 - 对单值业务逻辑需要顺序批量调用时，可启用 `batch` feature，并在具体数值 Input 参数上标记 batch，整数保留范围展开，浮点使用逐项列表；实现位于 [batch feature crate](features/batch/README.md)。
 
@@ -45,7 +45,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.19.4"
+miresidian = "=0.20.0"
 ```
 
 ```rust
@@ -83,4 +83,4 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-0.19.4 为当前框架版本；外部项目仅采用 crates.io 已发布精确版本，禁止本地覆盖。
+0.20.0 为当前框架版本；外部项目仅采用 crates.io 已发布精确版本，禁止本地覆盖。

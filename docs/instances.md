@@ -16,7 +16,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.19.4", features = ["instances"] }
+miresidian = { version = "=0.20.0", features = ["instances"] }
 ```
 
 ```rust,ignore
@@ -165,3 +165,19 @@ Broadcast 的含义是“一次业务执行，多通道复用输出”。执行�
 0.15.x 及之前的实现把有效输入逐项调用，文档和测试也曾据此描述；0.16.0 根据明确的执行次数要求将其校正为通道1单次执行和结果复制。
 若业务确实需要重复执行相同参数，应使用 Sequential；Broadcast 不再产生每目标一次的重复副作用。
 C 导出签名、JSON 编码、返回文本生命周期和 Config 布局不变，C ABI 保持 v7。
+
+
+## 实例身份与物理资源身份
+
+| 场景 | 对象行为 | 物理资源行为 |
+| --- | --- | --- |
+| 同一 DLL、Config 关联、规范化业务 Config 相同 | 复用同一对象，不重跑构造、不重复申请运行时租约 | 继续使用原对象持有的连接或代理 |
+| 同一 DLL、Config[0] 相同而其他业务配置不同 | 初始化报冲突，不创建新对象 | 不重新打开资源 |
+| 同一 DLL、Handle 关联、同 Handle 同配置 | 复用同一对象 | 继续使用原连接或代理 |
+| 不同 Handle 或不同 DLL | 各自保留独立业务对象 | 使用 SharedResource 的通信层可共用物理连接 |
+
+重复 InitDevice 的对象复用不增加引用计数；CloseDevice 关闭所定位的对象。资源代理引用单独计数：关闭一个对象只释放其代理，最后一个代理退出才关闭物理连接。
+
+已有对象的执行方式和 Lease/Direct 访问方式不能在复用时变更；先 CloseDevice 再 InitDevice。业务调用和关闭可省略框架选择器，以已保存的对象及资源访问方式执行。
+
+不同对象的实例锁互相独立；纯配置租约不提供物理连接共享或完整 I/O 事务互斥。跨对象或跨 DLL 共享需由通信层接入[共享资源代理](shared-resources.md)，不能靠改变 Handle 或 DLL 文件名实现。

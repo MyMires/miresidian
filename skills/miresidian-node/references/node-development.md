@@ -5,7 +5,7 @@
 ## 项目与依赖
 
 - 独立 crate 声明 `cdylib`，一个 crate 声明一个具体节点；不靠多份条件节点声明切换实现。
-- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.19.4" }`，已有项目保留原精确版本，升级须属于本次任务。
+- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.20.0" }`，已有项目保留原精确版本，升级须属于本次任务。
 - 实现前核对框架、标准库、已有依赖和成熟实现。通用通信、编解码及校验优先复用；自行实现或额外封装须有实际缺口。新依赖核实真实 API、维护状态、许可证、MSRV 和目标平台。
 
 ## 能力依赖
@@ -75,7 +75,7 @@ impl ExampleNode {
 
 - 使用 `node`、`operation` 及参数/输出标注。初始化无 self，返回 `MiresidianResult<Self>` 或 `MiresidianResult<(Self, T)>`，后者只有 T 是业务输出；关闭和普通方法使用 `&mut self`。可选 `get_port_no` 无 self，探测资源自行回收。
 - 不添加旧 `node_impl`，不手写 DeviceNode、操作字符串分发、GetFunctions、GetInitConfig 或 DLL 导出。版本查询与 CloseAllDevices 也由框架提供；普通方法名称可显式声明，或由 snake_case 转为 PascalCase。
-- Config 描述初始化/对象关联配置，Input 描述本次业务输入，Output 描述结果。初始化默认取 Config，其他操作默认取 Input，可用标注明确覆盖来源；参数顺序、类型、单位、默认值、范围和错误须确定。描述保留原默认文本。0.19.4 起，采用 `9600/19200` 等完整候选文本时处理首项实际值；显式 `19200` 仍是 19200，其他输入独立解析或报错，不回退首项。未声明运行时默认值时不因候选首项补缺；旧版按其解析行为显式传值。
+- Config 描述初始化/对象关联配置，Input 描述本次业务输入，Output 描述结果。初始化默认取 Config，其他操作默认取 Input，可用标注明确覆盖来源；参数顺序、类型、单位、默认值、范围和错误须确定。描述保留原默认文本。0.20.0 起，采用 `9600/19200` 等完整候选文本时处理首项实际值；显式 `19200` 仍是 19200，其他输入独立解析或报错，不回退首项。未声明运行时默认值时不因候选首项补缺；旧版按其解析行为显式传值。
 - 存在业务 Config 时，Config[0] 必须是真实对象主键，如端口或资源地址；无业务配置的最小单实例允许空 Config，不伪造主键。实例关联见 [instances](instances.md)，附加框架字段见 [Config 布局](#config-布局)。
 - 类型使用所选版本支持的 String、数值、bool、Option、基础类型 Vec 等；输出标注与实际结果对应，复用框架编解码，不手拼平台响应 JSON。
 

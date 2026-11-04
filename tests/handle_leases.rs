@@ -88,3 +88,50 @@ fn selectable_lease_and_execution_are_published_after_handle_and_parsed_consiste
         call("CloseAllDevices", &[]).unwrap();
     }
 }
+
+#[test]
+fn reused_handle_preserves_state_and_rejects_lease_access_changes() {
+    for initial in ["Lease", "Direct"] {
+        let runtime = NodeRuntime::<LeasedHandleNode>::new();
+        let resource = format!("handle-access:{}:{initial}", std::process::id());
+        let config = [&*resource, "1", "one", initial];
+        runtime.invoke(&request("InitDevice", &config)).unwrap();
+        assert_eq!(
+            runtime
+                .invoke(&request("计数", &config))
+                .unwrap()
+                .as_slice(),
+            ["1:1"]
+        );
+        assert_eq!(
+            runtime
+                .invoke(&request("InitDevice", &config))
+                .unwrap()
+                .as_slice(),
+            [miresidian::CHANNEL_REUSED_MESSAGE]
+        );
+        let changed = [
+            &*resource,
+            "1",
+            "one",
+            if initial == "Lease" {
+                "Direct"
+            } else {
+                "Lease"
+            },
+        ];
+        assert!(
+            matches!(runtime.invoke(&request("InitDevice", &changed)), Err(miresidian::MiresidianError::InvalidArgument { field, .. }) if field == "资源访问方式")
+        );
+        assert_eq!(
+            runtime
+                .invoke(&request("计数", &config))
+                .unwrap()
+                .as_slice(),
+            ["1:2"]
+        );
+        runtime.invoke(&request("CloseDevice", &config)).unwrap();
+        runtime.invoke(&request("InitDevice", &changed)).unwrap();
+        runtime.shutdown().unwrap();
+    }
+}

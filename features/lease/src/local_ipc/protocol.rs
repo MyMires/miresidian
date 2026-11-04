@@ -91,17 +91,17 @@ pub(super) fn write_error(stream: &mut impl Write, error: LeaseError) -> Result<
     write_bytes(stream, error.to_string().as_bytes())
 }
 
-pub(super) fn read_u8(stream: &mut impl Read) -> Result<u8, LeaseError> {
+pub(crate) fn read_u8(stream: &mut impl Read) -> Result<u8, LeaseError> {
     let mut value = [0; 1];
     stream.read_exact(&mut value).map_err(io_error)?;
     Ok(value[0])
 }
 
-pub(super) fn write_u8(stream: &mut impl Write, value: u8) -> Result<(), LeaseError> {
+pub(crate) fn write_u8(stream: &mut impl Write, value: u8) -> Result<(), LeaseError> {
     stream.write_all(&[value]).map_err(io_error)
 }
 
-pub(super) fn read_bytes(stream: &mut impl Read, maximum: usize) -> Result<Vec<u8>, LeaseError> {
+pub(crate) fn read_bytes(stream: &mut impl Read, maximum: usize) -> Result<Vec<u8>, LeaseError> {
     let mut length = [0; 4];
     stream.read_exact(&mut length).map_err(io_error)?;
     let length = usize::try_from(u32::from_le_bytes(length))
@@ -114,7 +114,7 @@ pub(super) fn read_bytes(stream: &mut impl Read, maximum: usize) -> Result<Vec<u
     Ok(bytes)
 }
 
-pub(super) fn write_bytes(stream: &mut impl Write, bytes: &[u8]) -> Result<(), LeaseError> {
+pub(crate) fn write_bytes(stream: &mut impl Write, bytes: &[u8]) -> Result<(), LeaseError> {
     let length = u32::try_from(bytes.len()).map_err(|_| LeaseError::ConfigurationTooLarge)?;
     stream.write_all(&length.to_le_bytes()).map_err(io_error)?;
     stream.write_all(bytes).map_err(io_error)
@@ -137,6 +137,6 @@ pub(super) fn read_session(stream: &mut impl Read) -> Result<(LeaseId, LeaseId),
     Ok((LeaseId(id), LeaseId(generation)))
 }
 
-pub(super) fn io_error(error: std::io::Error) -> LeaseError {
+pub(crate) fn io_error(error: std::io::Error) -> LeaseError {
     LeaseError::LocalIpc(format!("本地租约 IPC 失败：{error}"))
 }

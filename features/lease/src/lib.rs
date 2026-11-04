@@ -297,6 +297,10 @@ impl LeaseRegistry {
 #[cfg(feature = "local-ipc")]
 pub mod local_ipc;
 
+/// 设备无关的跨 DLL/进程资源所有者及完整事务代理。
+#[cfg(feature = "local-ipc")]
+pub mod shared;
+
 #[cfg(test)]
 mod tests {
     use super::{LeaseConfiguration, LeaseError, LeaseId, LeaseRegistry, LeaseState, ResourceKey};

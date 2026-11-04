@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.19.4"
+version = "0.20.0"
 dependencies = [
  "futures-util",
  "inventory",
@@ -324,10 +324,11 @@ dependencies = [
 
 [[package]]
 name = "miresidian_lease"
-version = "0.14.2"
+version = "0.15.0"
 dependencies = [
  "getrandom",
  "interprocess",
+ "libc",
  "miresidian_codec",
  "sha2",
 ]

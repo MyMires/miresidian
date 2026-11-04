@@ -91,6 +91,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
                     message: "已有主键的业务 Config 不一致，不能重新绑定对象".to_owned(),
                 });
             }
+            if channel.access != parsed.access {
+                return Err(MiresidianError::InvalidArgument {
+                    field: "资源访问方式".to_owned(),
+                    message: "已有对象的资源访问方式不能变更，请关闭后重新初始化".to_owned(),
+                });
+            }
             if channel.execution != parsed.execution {
                 return Err(MiresidianError::InvalidArgument {
                     field: "共享执行方式".to_owned(),

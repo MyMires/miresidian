@@ -74,7 +74,7 @@ fn connect() -> Result<Stream, LeaseError> {
 
 /// 服务线程执行框架代码，因此 Windows 上固定首个承载 DLL，直至进程退出。
 #[cfg(windows)]
-fn pin_service_module() -> Result<(), LeaseError> {
+pub(crate) fn pin_service_module() -> Result<(), LeaseError> {
     unsafe extern "system" {
         fn GetModuleHandleExW(
             flags: u32,
@@ -102,9 +102,16 @@ fn pin_service_module() -> Result<(), LeaseError> {
     Ok(())
 }
 
-#[cfg(not(windows))]
-fn pin_service_module() -> Result<(), LeaseError> {
-    Ok(())
+#[cfg(unix)]
+pub(crate) fn pin_service_module() -> Result<(), LeaseError> {
+    super::module::pin()
+}
+
+#[cfg(not(any(windows, unix)))]
+pub(crate) fn pin_service_module() -> Result<(), LeaseError> {
+    Err(LeaseError::LocalIpc(
+        "当前平台不支持资源服务模块保活".into(),
+    ))
 }
 
 fn serve(listener: Listener, generation: LeaseId) {

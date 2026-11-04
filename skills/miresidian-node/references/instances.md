@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.19.4", features = ["instances"] }
+miresidian = { version = "=0.20.0", features = ["instances"] }
 ```
 
 仅启用 feature 仍是默认单实例；多实例/多通道还须节点策略标注。例如：
@@ -37,7 +37,7 @@ struct ExampleNode { /* 持有业务对象 */ }
 ## 版本差异
 
 - 框架 0.14.x–0.15.x 的 Broadcast 要求各有效通道输入一致，仍逐通道执行业务。
-- 0.16.0 起改为通道1单次执行并复制结果；本页 0.19.4 示例使用此行为，旧版不能据此判断副作用次数。
+- 0.16.0 起改为通道1单次执行并复制结果；本页 0.20.0 示例使用此行为，旧版不能据此判断副作用次数。
 
 ## 验收
 
