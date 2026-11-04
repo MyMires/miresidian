@@ -1,6 +1,14 @@
 # Changelog
 
+[中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
+
 ## [Unreleased]
+
+## [0.15.1] - 2026-11-04
+
+- 完善包级接入说明：区分 LocalLease 与 SharedResource，明确运行时 Lease/Direct 选择器不改变通信实现，以及 Windows/Unix 模块保活。
+- 补齐中英文 README 与当前 CHANGELOG，示例适配框架 0.20.1；运行时与公开 API 同 0.15.0，配置租约 v2、资源代理 v1 均不变。
+- 验证：复用 0.15.0 的资源生命周期及跨 DLL/进程回归；本次校验文档、依赖锁文件与真实 registry 发布包。
 
 ## [0.15.0] - 2026-11-04
 

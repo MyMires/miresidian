@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.20.0"
+version = "0.20.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -41,7 +41,7 @@ miresidian_macro = { version = "=0.18.0", path = "macro" }
 miresidian_batch = { version = "=0.1.2", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"
-miresidian_lease = { version = "=0.15.0", path = "features/lease" }
+miresidian_lease = { version = "=0.15.1", path = "features/lease" }
 serde = { version = "1.0", features = ["derive"] }
 
 miresidian_instances = { version = "=0.16.2", path = "features/instances" }

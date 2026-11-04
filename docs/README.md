@@ -2,9 +2,9 @@
 
 [项目首页](../README.md) · [架构总览与 UML](architecture.md) · [修订记录](../CHANGELOG.md)
 
-`docs/` 按阅读任务保留六份文档。先选手册，再通过章节导航查阅具体规则；每个主题集中在一个位置维护。
+`docs/` 按阅读任务组织核心手册与专题。先选手册，再通过章节导航查阅具体规则；每个主题集中在一个位置维护。
 
-## 六份文档
+## 核心文档与专题
 
 | 文档 | 内容与阅读对象 |
 | --- | --- |
@@ -13,6 +13,8 @@
 | [节点开发与数据编解码](宏驱动开发.md) | 节点作者：职责边界、宏标注、参数类型、数组和字节/文本编解码 |
 | [平台接入与 C ABI](c-abi.md) | 宿主及平台开发者：C 入口、内存与错误约定、调用契约、平台适配器 |
 | [开发与维护规范](coding-standards.md) | 框架维护者：代码与文档要求、构建环境、验证命令、提交格式 |
+| [实例管理](instances.md) | 单实例、Config/Handle 身份、复用、多通道与关闭规则 |
+| [共享资源代理](shared-resources.md) | 通信提供者：跨 DLL/项目共用连接、事务协议、所有权与可运行示例 |
 | [版本管理](versioning.md) | P0 门禁：版本判断、依赖/锁文件、修订归档、发布顺序与标签 |
 
 ## 按任务阅读
@@ -24,6 +26,7 @@
 | 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [Windows TestFlow](../tools/miresidian-testflow-windows/README.md) |
 | 扩展测试平台 | [核心类型关系](architecture.md#核心类型关系uml) → [平台适配器](c-abi.md#平台适配器) |
 | 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) / [format feature](../features/format/README.md) |
+| 多个 DLL 共用一个串口或其他独占资源 | [实例身份](instances.md#实例身份与物理资源身份) → [共享连接](shared-resources.md) → [配置租约](../features/lease/README.md) |
 | 修改框架或准备发布 | [版本管理](versioning.md) → [开发规范](coding-standards.md) → [构建环境](coding-standards.md#构建环境) → [打包工具](../tools/miresidian-pack/README.md) |
 
 ## crate 与开发工具
@@ -58,7 +61,7 @@
 
 ## 维护约定
 
-- 按本页六个主题扩展现有章节，相关内容优先合并；新增独立文档须说明主题边界并更新索引与引用。
+- 按本页主题扩展现有章节，相关内容优先合并；新增独立文档须说明主题边界并更新索引与引用。
 - 图表保留源码标识符，并配中文名称和可见注释；依赖、类型、调用链变化时同步核对架构图。
 - 契约规则集中在对应手册，API 精确签名由源码 Rustdoc 维护；交付变更同步[修订记录](../CHANGELOG.md)并按[版本管理](versioning.md)判断影响。
 - 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。

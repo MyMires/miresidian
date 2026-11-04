@@ -1,5 +1,7 @@
 # Miresidian Lease
 
+[中文](README.md) · [English](README.en.md)
+
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_lease` 定义设备类型无关的资源租约协议：资源键、配置一致性、随机租约 ID、获取、验证和释放。最低 Rust 版本为 **1.89**。
@@ -12,7 +14,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.20.0", features = ["lease"] }
+miresidian = { version = "=0.20.1", features = ["lease"] }
 ```
 
 在需要租约的节点结构体上声明资源键与配置字段。例如 CAN 节点可声明：
@@ -64,15 +66,17 @@ impl CanNode {
 
 ## 物理资源共享
 
+固定共享的通信层通常只需 lease feature 与 SharedResource，不必重复声明结构体级 lease。框架 Lease/Direct 选择器仅控制运行时配置租约，不自动切换共享/直连实现；通信路径由业务 Config 或固定的提供者策略决定。
+
 跨 DLL/进程共用独占连接时，通信层使用 `miresidian::lease::shared::SharedResource`。首个所有者执行连接工厂，后续调用方只附着代理；完整事务互斥，最后代理释放后关闭物理连接。各节点仍保留自己的业务状态。接入、生命周期及与实例/纯租约的关系见[共享资源代理](../../docs/shared-resources.md)。
 
 ## 能力边界与升级
 
-租约协调配置兼容性，不共享物理句柄、不提供跨进程设备事务锁。兼容租约不保证同一物理端口可以重复打开，也不保证请求响应的排他性；这些能力由通信实现和操作系统决定。`LeaseState::First` 仅表示当前服务登记表中的首个租约，不能据此判断跨服务代次的物理所有权。
+LocalLease 只协调配置兼容性，不共享物理句柄、不提供跨进程设备事务锁。SharedResource 在此基础上提供唯一连接所有者和完整事务互斥。兼容租约不保证同一物理端口可以重复打开，也不保证请求响应的排他性；这些能力由通信实现和操作系统决定。`LeaseState::First` 仅表示当前服务登记表中的首个租约，不能据此判断跨服务代次的物理所有权。
 
 协议版本为 2，端点使用 `miresidian-lease-v2-<用户标识摘要>`。v1 客户端不参与 v2 文件锁协议，因此升级时必须先停止全部 v1 节点进程，再统一启动 v2 节点。C ABI 仍为 v7。
 
-Windows 上承载服务线程的 DLL 使用 `GetModuleHandleExW` 的 `PIN | FROM_ADDRESS` 固定到进程退出。
+Windows 上使用 GetModuleHandleExW 的 PIN | FROM_ADDRESS，Unix 上保留实际承载模块的加载引用，服务及资源回调所在模块保留到进程退出。
 
 本 crate 不替代部署侧授权。用户环境标识不等于身份验证；部署仍须配置 Windows 管道 DACL、服务端身份验证与临时目录访问权限。
 

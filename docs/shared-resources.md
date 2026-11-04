@@ -2,7 +2,7 @@
 
 [文档中心](README.md) · [实例管理](instances.md) · [配置租约](../features/lease/README.md)
 
-框架 0.20.0、lease 0.15.0 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。版本表表示源码候选；独立节点只能在所需版本发布到 crates.io 后升级依赖并重新构建，旧 DLL 不会自动获得共享能力。
+框架 0.20.1、lease 0.15.1 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
 
 ## 两种身份和生命周期
 
@@ -23,6 +23,12 @@ flowchart LR
 
 LocalLease 继续负责配置兼容性和会话校验；取得兼容租约后直接调用设备 open，仍会重复打开设备。需要共享的通信实现必须使用 SharedResource 的连接工厂和事务入口，不能只增加 `lease(...)` 标注。
 
+## 通信提供者的共同契约
+
+不同项目共用资源前，明确资源键规范、配置编码和事务协议三项共同契约。框架只传递有界字节，不自动识别设备、端口别名或仪器型号。例如同一串口可约定 serial:COM5，配置完整包含波特率、数据位、校验、停止位和流控；读取超时或设备站号是否属于连接配置，由提供者按真实兼容性决定。事务协议版本独立于配置租约 v2 和资源代理 v1。
+
+若运行时 lease 和通信提供者同时使用租约，宏配置编码包含字段名与顺序。通信提供者可用同一 LeaseRequest::from_parameters 编码构造共享请求，或只由 SharedResource 管理配置租约；不能假设任意 JSON/文本与宏编码相同。
+
 ## 通信层接入
 
 1. 所有项目采用同一个资源键规范，如规范化后的 `serial:COM5`。DLL 文件名、项目名和 Handle 不参与物理资源键；别名、大小写和地址规范化归通信提供者。
@@ -32,9 +38,65 @@ LocalLease 继续负责配置兼容性和会话校验；取得兼容租约后直
 5. 节点的操作通过代理 `transact(request, timeout)` 提交完整事务。查询须把发送、等待和接收放在同一事务，分成两个代理调用不会跨调用保留事务锁。
 6. 节点关闭时释放或析构自己的代理。最后使用者退出时，所有者先析构物理连接，再释放其配置租约。业务节点不能直接关闭其他代理使用的底层连接。
 
-通信层可仅由 SharedResource 持有租约，无需重复声明运行时 lease。若同时使用结构体级 lease，双方生成的资源键和配置字节必须完全一致，避免同一资源出现不同的配置契约。Direct 模式应由通信实现明确选择直连；不能在协议不兼容或代理失败时静默回退直连。
+通信层可仅由 SharedResource 持有租约，无需重复声明运行时 lease。若同时使用结构体级 lease，双方生成的资源键和配置字节必须完全一致，避免同一资源出现不同的配置契约。框架的 Lease/Direct 选择器只控制运行时配置租约，不会把 SharedResource 自动切换为直连。需要在共享与直连间选择时，通信层根据明确的业务 Config 分支，或固定采用其中一条路径；不能在协议不兼容或代理失败时静默回退直连。
+
+SharedResource 是同步接口；原生 async 方法应通过阻塞线程桥执行并等待实际完成，避免阻塞异步工作线程。设备 I/O、事务协议及取消边界仍归通信提供者。
 
 已有实例在复用时不能改变 Lease/Direct 或执行方式；先关闭再重新初始化。业务操作和关闭使用已保存的对象，不因调用省略框架选择器而更换访问路径。
+
+## 最小可运行示例：模拟通信提供者
+
+以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.20.1", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
+
+```rust
+use miresidian::lease::{
+    LeaseConfiguration, LeaseError, ResourceKey,
+    shared::{ResourceHandler, SharedResource},
+};
+use std::{
+    sync::{Arc, atomic::{AtomicUsize, Ordering}},
+    time::Duration,
+};
+
+fn open_simulated(
+    opens: Arc<AtomicUsize>,
+) -> Result<impl ResourceHandler, LeaseError> {
+    opens.fetch_add(1, Ordering::SeqCst);
+    let mut transactions = 0;
+    Ok(move |request: &[u8]| {
+        if request != b"query" {
+            return Err(LeaseError::LocalIpc("unknown simulated request".into()));
+        }
+        transactions += 1;
+        Ok(transactions.to_string().into_bytes())
+    })
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let resource = ResourceKey::new(format!("simulated-provider:{}", std::process::id()))?;
+    let configuration = LeaseConfiguration::new(b"counter-config/1".to_vec())?;
+    let opens = Arc::new(AtomicUsize::new(0));
+    let mut first = SharedResource::acquire(
+        resource.clone(), configuration.clone(), "counter-transactions/1",
+        || open_simulated(opens.clone()),
+    )?;
+    let mut second = SharedResource::acquire(
+        resource, configuration, "counter-transactions/1",
+        || open_simulated(opens.clone()),
+    )?;
+    let timeout = Duration::from_secs(1);
+    assert_eq!(first.transact(b"query", timeout)?, b"1");
+    assert_eq!(second.transact(b"query", timeout)?, b"2");
+    first.close()?;
+    assert_eq!(second.transact(b"query", timeout)?, b"3");
+    assert_eq!(opens.load(Ordering::SeqCst), 1);
+    second.close()?;
+    println!("shared provider example passed");
+    Ok(())
+}
+```
+
+真实提供者应在工厂中打开串口等资源，由返回的 ResourceHandler 持有句柄并在析构时关闭；将协议解析、设备超时和完整请求—响应放入 transact。节点业务对象只保存代理及自身状态，不自行获取或复制所有者的物理句柄。
 
 ## 服务与失败边界
 
@@ -60,4 +122,4 @@ python3 tools/verify_shared_resource_dll.py target/debug/examples/libshared_reso
 
 Windows 使用对应架构的 Python 和 `.dll` 路径。验证包括原名/改名 DLL、独立节点类型、不同 Handle、同 Config 对象复用、独立业务状态、一次打开/最后关闭及完整事务不交错。多进程回归另含所有者退出、超时不重放和工厂失败。
 
-这些证据验证代理及生命周期；实际串口打开、仪器响应和目标宿主加载仍需在接入该通信层的节点上验证。截图中的电源项目未在当前工作区，不能据此声称其现有 DLL 已修复。
+这些证据验证代理及生命周期；实际串口打开、仪器响应和目标宿主加载仍需在接入该通信层的节点上验证。现有节点需要让通信层接入代理并重建 DLL；仅升级版本或复制/改名 DLL 不会改写节点已有的直接 open 逻辑。

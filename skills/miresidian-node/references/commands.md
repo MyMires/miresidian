@@ -1,6 +1,6 @@
 # 工具命令
 
-需要初始化、检查、交付或处理环境缺项时读取。[适配基线](../SKILL.md#适配版本) 中 CLI/Pack 为源码版本；常用命令沿用 CLI 0.2.1、Pack 0.12.0，init 需要 CLI 0.3.0 + Pack 0.13.0。先查已安装版本和帮助，不假定源码能力已发布。
+需要初始化、检查、交付或处理环境缺项时读取。命令适配 [主文档](../SKILL.md#适配版本) 中 CLI 0.3.0、Pack 0.13.0 和 Windows TestFlow 0.12.0；执行前核对已安装版本及帮助。
 
 ## 创建与交付
 
@@ -8,9 +8,9 @@
 
 | 操作 | 命令 |
 | --- | --- |
-| 新目录 | `cargo miresidian new demo-node --name "演示节点"` |
-| 已有目录 | `cargo miresidian init --name "演示节点"`（可指定已有目录） |
-| 创建时指定框架 | new 增加 `--miresidian-version X.Y.Z`，等价别名 `--mires-version X.Y.Z` |
+| 新目录 | `cargo miresidian new demo-node --name "演示节点" --miresidian-version 0.20.1` |
+| 已有目录 | `cargo miresidian init --name "演示节点" --miresidian-version 0.20.1`（可指定已有目录） |
+| 创建时指定框架 | new/init 使用 `--miresidian-version X.Y.Z`，等价别名 `--mires-version X.Y.Z` |
 | 编译检查 | `cargo check --locked` |
 | 结构/依赖/说明检查 | `cargo miresidian check` |
 | 构建 x64 DLL | `cargo miresidian build --arch x64` |
@@ -40,7 +40,7 @@ CloseAllDevices()
 
 Delay("100") 单位毫秒，范围 0..2147483647；静态配置关联按原始字符串数组判断。涉及框架附加字段时按 GetInitConfig 组织参数。
 
-生成不构建 DLL；Windows 用匹配架构的 DLL/PowerShell 执行 tools/smoke.bat，自动化设 `MIRESIDIAN_TESTFLOW_NO_PAUSE=1`，核对退出码与输出。BAT 按自身目录定位流程和 ../dist，保持相对结构。不存在 generate 子命令或 --platform 参数；模板 Echo 不能替代真实业务烟测。
+生成不构建 DLL；Windows 用匹配架构的 DLL/PowerShell 执行 tools/smoke.bat，自动化设 `MIRESIDIAN_TESTFLOW_NO_PAUSE=1`，核对退出码与输出。BAT 按自身目录定位流程和 ../dist，保持相对结构。模板 Echo 不能替代真实业务烟测。
 
 ## Feature 检查
 
@@ -55,8 +55,8 @@ cargo check --locked --features miresidian/instances
 
 ## 工具与环境缺项
 
-仅缺工具或任务要求调整版本时安装：`cargo install miresidian_cli`，再执行 `cargo miresidian install --full`。Cargo 管理用户级安装根目录，不建项目内工具目录；原生 cargo install 没有 --full。
+仅缺工具或任务要求调整版本时安装，先确认目标版本已发布：`cargo install miresidian_cli --version 0.3.0 --locked`，再执行 `cargo miresidian install --full --pack-version 0.13.0 --testflow-version 0.12.0`。Cargo 管理用户级安装根目录，不建项目内工具目录；原生 cargo install 没有 --full。
 
-查看版本用 `cargo miresidian list`，后端更新用 `update --full`；固定后端可用 `install --full --pack-version 0.13.0 --testflow-version 0.12.0`，切换可用 `use pack 0.13.0`。这些是 cargo miresidian 子命令，CLI 本体由 cargo install 的 --version 指定。指定版本前确认已发布且满足 CLI 的后端最低要求。同一安装根替换当前版本；批量失败先核对部分结果。
+查看版本用 `cargo miresidian list`；调整版本须在任务范围内，可用 `update --full` 更新后端或 `use pack 0.13.0` 切换指定版本。管理命令属于 cargo miresidian，CLI 本体由 cargo install 的 --version 指定。所选后端须满足 CLI 的最低要求；同一安装根替换当前版本，批量失败先核对部分结果。
 
-Pack 目标为 x86_64-pc-windows-gnu / i686-pc-windows-gnu。复用现有 Rust、目标标准库和 MinGW 链接器，仅补本次目标缺项；rustup target add 不安装系统链接器，MSVC 环境不能替代 GNU 配置。Rust 按框架/业务依赖 MSRV，当前模板基线 1.89；环境受阻时说明具体阶段与缺项。
+Pack 目标为 x86_64-pc-windows-gnu / i686-pc-windows-gnu。复用现有 Rust、目标标准库和 MinGW 链接器，仅补本次目标缺项；rustup target add 不安装系统链接器，MSVC 环境不能替代 GNU 配置。Rust 版本满足框架及业务依赖 MSRV，模板 MSRV 为 1.89；环境受阻时说明具体阶段与缺项。

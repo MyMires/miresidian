@@ -9,17 +9,18 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 ## 适配版本
 
-以下是文档对应的源码基线，不代表这些版本已发布：
+本文及全部参考描述下列源码版本的接口与行为：
 
-| 组件 | 适配基线 |
+| 组件 | 适配版本 |
 | --- | --- |
-| 框架 `miresidian` | 0.20.0 |
+| 框架 `miresidian` | 0.20.1 |
+| 资源共享实现 `miresidian_lease` | 0.15.1 |
 | CLI `miresidian_cli` | 0.3.0 |
 | Pack `miresidian_pack` | 0.13.0 |
 | Windows TestFlow `miresidian_testflow_windows` | 0.12.0 |
-| Rust MSRV / C ABI / 租约协议 | 1.89 / v7 / v2 |
+| Rust MSRV / C ABI / 配置租约 / 资源代理协议 | 1.89 / v7 / v2 / v1 |
 
-节点只依赖 crates.io 已发布的框架精确版本；参考中的依赖示例与本表框架版本一致，使用前须确认已发布；按节点实际版本核对 API、features 和调用布局。工具以已安装版本的帮助为准。能力引入版本及旧工具用法见相应参考，不因文档基线自动升级项目。
+节点只依赖 crates.io 已发布的框架精确版本，安装前确认所需版本已发布。项目或工具版本与本表不一致时，先查对应精确版本的源码、文档和帮助，确认 API、features 及调用布局后实施；升级须在任务范围内。
 
 ## 1. 明确需求与方案
 
@@ -29,18 +30,18 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 ## 2. 设计节点契约
 
-实现前读取 [Node 开发参考](references/node-development.md)，落实操作、参数来源、完整选项、默认值、单位及错误条件；复杂契约可用简表表达。
+实现前读取 [Node 开发参考](references/node-development.md)，落实[固定入口职责](references/node-development.md#固定入口与节点职责)、操作、参数来源、完整选项、默认值、单位及错误条件；复杂契约可用简表表达。
 
 默认采用普通单实例。按需求选择能力，只读取相关参考：
 
 | 需求 | feature 与参考 |
 | --- | --- |
 | 多实例或多通道 | `instances`：[声明与调用](references/instances.md) |
-| 跨 DLL/进程协调资源配置 | `lease`：[租约接入](references/lease.md) |
+| 跨 DLL/进程协调配置或共用物理连接 | `lease`：[配置租约与资源代理](references/lease.md) |
 | 同一对象按多条记录顺序执行 | `batch`：[参数展开](references/batch.md) |
 | 显式输入/输出格式转换 | `format`：[编解码与槽位](references/format.md) |
 
-所选能力须同时落实依赖 features、宏标注和验收行为；需要多种能力时组合启用。
+所选能力须落实依赖 features、适用的宏声明或通信层接入及验收行为；需要多种能力时组合启用。共享独占连接时先明确物理资源身份与通信事务协议，不能将取得兼容租约视为已共享连接。
 
 ## 3. 构建并实现
 

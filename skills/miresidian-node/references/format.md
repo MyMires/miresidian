@@ -1,13 +1,13 @@
 # format：显式格式编解码
 
-选择 format 时读取。框架 0.19.0 起统一使用 `format` feature/宏标签；适配基线见 [主文档](../SKILL.md#适配版本)。基础 codec 解析始终可用，节点无需直接依赖内部 crate。
+选择 `format` 时读取。适配版本见 [主文档](../SKILL.md#适配版本)。基础 codec 解析默认可用，节点无需直接依赖内部 crate。
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.20.0", features = ["format"] }
+miresidian = { version = "=0.20.1", features = ["format"] }
 ```
 
-示例对应当前源码基线，须先核实已发布，不作为升级指令。format 决定编解码，batch 决定重复调用，两者独立启用。
+format 决定编解码，batch 决定重复调用，两者独立启用。
 
 ## 标注与槽位
 
@@ -32,7 +32,7 @@ fn exchange(
 Input 顺序为发送数据、发送数据格式、接收数据格式；Output 只有接收数据。业务方法只接收内部数据，此例每次处理一份数据。
 
 - formats 必填、非空、无重复，允许 ascii/gbk/utf8/utf16le/hex/base64；第一项为默认，选择输入缺失/空白用默认，非法值报错。
-- 单格式如 `format(formats = [hex])` 固定格式，不生成选择输入，不接受 selector；多格式须声明 selector。没有 external/default 或单独的 format 选项。
+- 单格式如 `format(formats = [hex])` 固定格式，不生成选择输入，不接受 selector；多格式须声明 selector。
 - 输入选择器紧随对应数据，输出选择器按输出声明顺序追加到全部方法输入后。平台选项名为 ASCII/GBK/UTF8/Unicode/HEX/Base64，解析沿用框架格式别名。
 - 只支持普通业务 Input/Output，不支持 Config、生命周期或探测。逐项输出标注依次对应元组元素，不能与单标注多名称混用。
 
@@ -47,7 +47,7 @@ Input 顺序为发送数据、发送数据格式、接收数据格式；Output �
 | 整数、f32/f64、bool | 规范 UTF-8 标量文本；复用默认解析，bool 输出小写 true/false |
 | 数值/布尔 Vec<T>（u8 除外） | 单条记录用空白分隔元素，不用竖线、范围或 JSON；空文本为空数组 |
 | Option<T> | 空字节为 None，其余按 T 转换；None 与 Some(空值) 不可区分 |
-| 自定义类型/枚举 | 实现 FormatInput/FormatOutput，声明字节契约；RAW_BYTES 默认 false，原始字节类型设 true；batch 输入另需 Clone |
+| 自定义类型/枚举 | 实现 `miresidian::format::{FormatInput, FormatOutput}`，声明字节契约；RAW_BYTES 默认 false，原始字节类型设 true；batch 输入另需 Clone |
 
 例如 i32 的 HEX `31 32` 表示文本 12，Vec<u8> 得到两个字节；String 的 GBK 输入保留文本，Vec<u8> 得到 GBK 字节。无内置 Vec<String>、嵌套数组或 char 数组实现；缺少 trait 时编译失败。普通标量无需额外 format 标注。
 
@@ -66,5 +66,3 @@ data: Vec<u8>,
 - 按 [batch 规则](batch.md#展开与执行) 对齐、广播、顺序执行并首错停止；普通数值 batch 不需要 format。
 
 验收所选格式的正常转换、默认/非法选择、选择器槽位和相关编码错误；组合 batch 时核对边界、转义、空记录及逐槽输出。输入转换失败不执行业务；输出转换失败可能在副作用后发生，停止后续记录，不回滚或重试。字符编码严格报错，不替换非法字符，同步/async 规则一致。
-
-迁移旧新增 codec feature/标签时，改用 format 及 `miresidian::format::{FormatInput, FormatOutput}`，旧名称无别名；基础 `miresidian_codec` 和 `miresidian::codec` 默认解析 API 保持不变。已有旧版本节点无需自动迁移。
