@@ -3,7 +3,7 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-工具独立版本为 **0.13.1**；本地源码候选尚未发布时，可在框架仓库执行
+本页对应工具源码版本 **0.13.2**，不表示 registry 已发布；本地源码候选尚未发布时，可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -23,11 +23,13 @@ cargo miresidian-pack --version
 新增入口使用长选项，`new`、`check` 等文字仍可作为原有节点名。
 Cargo 必须能找到 `cargo-miresidian-pack` 二进制；也可以直接运行该二进制，省略 `miresidian-pack`。
 
-0.13.1 单独发布后可安装：
+先查 [Pack 发行记录](https://crates.io/crates/miresidian_pack/versions)，普通安装由 Cargo 选择已发布版本：
 
 ```text
-cargo install miresidian_pack --version 0.13.1 --locked
+cargo install miresidian_pack --locked
 ```
+
+如需固定版本，使用 `cargo install miresidian_pack --version X.Y.Z --locked`，将 X.Y.Z 替换为已确认发布的版本。安装后核对 --version 和 --help，沿 [同版本资料定位](../../docs/README.md#按实际版本查阅) 查该版本说明；不要从仓库版本号推断发布状态。
 
 ## 最小模板
 
@@ -45,7 +47,7 @@ init 的常见冲突文件包括 Cargo.toml、Cargo.lock、README.md、AGENTS.md
 生成内容：Cargo.toml、src/lib.rs、src/node.rs、tools/smoke.testflow、README.md、AGENTS.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
 以及 docs/<节点名称>.md。节点只使用宏标注，不手写 ABI 导出或字符串分发；不引入设备通信依赖。
 
-AGENTS.md 填入当前项目名称、包名、初始化选定的框架版本及调用说明路径，包含依赖边界、源码与宏契约、features/租约、生命周期、针对性验证及版本交付规则，并提供完整 Node skill 的来源入口。它随新项目一次性生成，之后由项目维护者补充；不要求相邻框架目录、检查脚本或 Git 钩子，也不会修改已有项目。
+AGENTS.md 填入当前项目名称、包名、初始化选定的框架版本及调用说明路径，包含项目依赖、职责、生命周期、针对性验证与交付要求，并指向完整 Node skill 和实际框架版本的官方资料。模板不固化实例键位置或复制逐版本的框架能力契约。它随新项目一次性生成，之后由项目维护者补充；不要求相邻框架目录、检查脚本或 Git 钩子，也不会修改已有项目。
 
 模板默认通过 Cargo 查询 crates.io 最新未撤回正式版，排除预发布版，不按当前 Rust 版本静默回退。
 --miresidian-version 与 --mires-version 为等价参数，--framework-version 兼容保留；重复指定报错。
@@ -114,7 +116,7 @@ CARGO_NET_OFFLINE=true。它验证生成项目的真实编译、检查不改锁�
     cargo miresidian-pack --help
 
 --node 缺省为全部节点，--arch 为 x64/x86/all，缺省 all。build 只编译，pack 包含构建并整理 dist。
-构建先确认目标标准库可用，使用 --release --locked；链接器由项目配置，失败时明确提示核对。
+构建先确认目标标准库可用，使用 --release --locked；链接器由项目配置，失败时明确提示核对；手动配置步骤见 [Windows GNU 构建环境](../../docs/coding-standards.md#windows-gnu-目标的手动配置)。
 模板的 lib.rs 仅声明模块，node.rs 的注释说明配置、状态、资源清理及宏生成边界。
 生成不代替编译、DLL 加载和硬件验证。--check 只检查项目；独立 TestFlow --check 可检查流程。
 统一命令、整套下载安装和实际调用对照见 [CLI](../miresidian-cli/README.md)。

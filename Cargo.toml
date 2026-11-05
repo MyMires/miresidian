@@ -1,13 +1,17 @@
 [package]
 name = "miresidian"
-version = "0.24.0"
+version = "0.24.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
 license.workspace = true
 repository = "https://github.com/MyMires/miresidian"
+documentation = "https://docs.rs/miresidian"
 readme = "README.md"
 autobins = false
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 crate-type = ["rlib"]
@@ -26,7 +30,7 @@ instances = ["miresidian_instances/runtime"]
 lease = ["miresidian_lease/local-ipc"]
 # 显式参数/输出格式转换；基础类型解析始终可用。
 format = ["dep:miresidian_format"]
-# 由参数级 batch 标记启用数值记录的顺序展开与结果聚合。
+# 由参数级 batch 标记启用按原参数类型解析的顺序展开与结果聚合。
 batch = ["dep:miresidian_batch"]
 
 [workspace.package]

@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-11-06
+
+- Correct stale Config[0] identity guidance in instance documentation and generated Node templates; resolve contracts against each project's actual framework version.
+- Complete lifecycle/discovery signatures, cleanup boundaries and found/not-found/error mappings. Add precise release-source navigation, older component-documentation fallbacks and manual Windows GNU setup.
+- Enable all-feature docs.rs builds for the public format API. Require versioned components to update their own README and framework releases to update relevant core guides; validate docs.rs metadata and version template/toolset changes. Preserve historical policy snapshots and independent skill maintenance.
+- Source versions: runtime 0.24.1, Pack 0.13.2 and CLI/toolset 0.3.2. Other crate versions, runtime APIs, C ABI v7, lease v2 and resource protocol v1 are unchanged. Installation guidance queries registry releases rather than assuming source versions are installable.
+- Validation: 29 version-gate tests, 33 tool tests and two real-registry template integrations passed. Strict all-feature Rustdoc exposes the public format API and discovery contract; CI runs the same documentation check. Local references and Windows configuration syntax passed. Registry publication and online documentation availability remain separate checks.
+
+## Guidance clarification - 2026-11-06
+
 - Documentation clarification (no version impact): use consistent representations for actual values and display labels within each parameter's choices; prefer `/` in generated paths and examples. Review findings against declared usage constraints, actual scenarios and impact. Synchronize the complete installed Node skill; runtime, API, ABI, dependencies and tool behavior are unchanged.
 
 ## [0.24.0] - 2026-11-05

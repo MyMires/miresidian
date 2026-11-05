@@ -168,6 +168,7 @@ def check_member_versions(repo, base, manifest, paths, changed):
     if not base:
         return
     old_root = repo.toml("Cargo.toml", base)
+    guidance_policy = "指导性文档随组件版本更新" in (repo.read("AGENTS.md", optional=True) or "")
     def actual(data, root):
         value = data["package"]["version"]
         return root["workspace"]["package"]["version"] if isinstance(value, dict) else value
@@ -188,6 +189,8 @@ def check_member_versions(repo, base, manifest, paths, changed):
         if old == new:
             relevant = [name for name in relevant if name != "Cargo.toml"]
         impact = any(name.startswith("src/") or name in {"Cargo.toml", "README.md", "build.rs"} for name in relevant)
+        if guidance_policy:
+            impact |= any(name.startswith("templates/") or name == "toolset.toml" for name in relevant)
         if not splitting_unpublished_tool and (version_tuple(new_version) < version_tuple(old_version) or (impact and version_tuple(new_version) <= version_tuple(old_version))):
             raise VersionError(f"{path} 发生相关变更，必须独立提升该 crate 版本")
         if new_version != old_version:
@@ -200,6 +203,32 @@ def check_member_versions(repo, base, manifest, paths, changed):
                     continue
                 if repo.staged or existing.strip() != head or committed != new_version:
                     raise VersionError(f"{tag} 已存在，禁止复用或移动标签；请使用新版本")
+
+
+def check_guidance_updates(repo, base, manifest, paths, changed):
+    # 新门禁只适用于明确启用规则的框架快照，不追溯改变旧发行与独立节点的要求。
+    if manifest["package"]["name"] != "miresidian" or "指导性文档随组件版本更新" not in (repo.read("AGENTS.md", optional=True) or ""):
+        return
+    if manifest.get("package", {}).get("metadata", {}).get("docs", {}).get("rs", {}).get("all-features") is not True:
+        raise VersionError("框架 docs.rs 必须配置 all-features = true，覆盖公开的可选能力 API")
+    if not base:
+        return
+    old_root = repo.toml("Cargo.toml", base)
+    def actual(data, root):
+        value = data["package"]["version"]
+        return root["workspace"]["package"]["version"] if isinstance(value, dict) else value
+    for path in paths:
+        member = repo.toml(path)
+        before = repo.read(path, base, optional=True)
+        if before and actual(tomllib.loads(before), old_root) == actual(member, manifest):
+            continue
+        readme = path.removesuffix("Cargo.toml") + "README.md"
+        if readme not in changed or not (repo.read(readme, optional=True) or "").strip():
+            raise VersionError(f"{member['package']['name']} 升版必须在同一提交更新指导性文档 {readme}")
+        if path == "Cargo.toml":
+            guides = {"docs/宏驱动开发.md", "docs/instances.md", "docs/config-identity.md", "docs/c-abi.md", "docs/shared-resources.md", "docs/architecture.md"}
+            if not any(name in changed and repo.read(name, optional=True) for name in guides):
+                raise VersionError("框架升版必须同步更新相关核心技术手册，不能只改 README 版本号或 CHANGELOG")
 
 
 def abi_signature(header):
@@ -250,6 +279,7 @@ def validate(repo, base):
         members = [repo.toml(path) for path in manifests]
         names = {member["package"]["name"] for member in members}
         check_member_versions(repo, base, manifest, manifests, changed)
+        check_guidance_updates(repo, base, manifest, manifests, changed)
         versions = {}
         for member in members:
             declared = member["package"]["version"]

@@ -317,6 +317,104 @@ version = "{version}"
         file.write_text(file.read_text().replace("(void)", "( void )"), encoding="utf-8")
         self.assertEqual(self.check("--base", "HEAD").returncode, 0)
 
+    def enable_guidance_policy(self):
+        self.write("AGENTS.md", "# 指导性文档随组件版本更新\n")
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text() + '\n[package.metadata.docs.rs]\nall-features = true\n')
+
+    def test_framework_release_requires_readme_and_contract_guide(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.commit()
+        self.independent_framework("0.1.1", "0.1.0")
+        self.enable_guidance_policy()
+        result = self.check("--base", "HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("README.md", result.stderr)
+        self.write("README.md", "# 0.1.1\n")
+        result = self.check("--base", "HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("核心技术手册", result.stderr)
+        self.write("docs/宏驱动开发.md", "# 更新节点契约与失败清理\n")
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_unstaged_guide_cannot_satisfy_staged_release(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.commit()
+        self.independent_framework("0.1.1", "0.1.0")
+        self.enable_guidance_policy()
+        self.write("README.md", "# 0.1.1\n")
+        self.git("add", ".")
+        self.write("docs/宏驱动开发.md", "# 尚未暂存的指导\n")
+        result = self.check("--base", "HEAD", "--staged")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("核心技术手册", result.stderr)
+        self.git("add", "docs/宏驱动开发.md")
+        self.assertEqual(self.check("--base", "HEAD", "--staged").returncode, 0)
+
+    def test_component_release_requires_its_own_readme(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('miresidian_abi = { version = "=0.1.0", path = "abi" }\n', ''))
+        self.enable_guidance_policy()
+        self.commit()
+        self.independent_framework("0.1.0", "0.1.1")
+        manifest.write_text(manifest.read_text().replace('miresidian_abi = { version = "=0.1.1", path = "abi" }\n', ''))
+        self.enable_guidance_policy()
+        result = self.check("--base", "HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("abi/README.md", result.stderr)
+        self.write("docs/versioning.md", "# 维护规范不能代替组件说明\n")
+        self.assertNotEqual(self.check("--base", "HEAD").returncode, 0)
+        self.write("abi/README.md", "# 更新 ABI 库用法\n")
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_docs_rs_must_cover_optional_public_api(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.enable_guidance_policy()
+        self.assertEqual(self.check().returncode, 0)
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('all-features = true', 'all-features = false'))
+        result = self.check()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("docs.rs", result.stderr)
+
+    def test_pure_skill_update_remains_independent(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        self.enable_guidance_policy()
+        self.commit()
+        self.write("skills/miresidian-node/SKILL.md", "# 更新通用开发流程\n")
+        self.assertEqual(self.check("--base", "HEAD").returncode, 0)
+
+    def test_guidance_policy_keeps_older_release_history(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        base = self.commit()
+        self.independent_framework("0.1.1", "0.1.0")
+        self.commit()  # 新规范生效前的提交没有新增 README/手册，不应被追溯阻断。
+        self.independent_framework("0.1.2", "0.1.0")
+        self.enable_guidance_policy()
+        self.write("README.md", "# 当前发行\n")
+        self.write("docs/宏驱动开发.md", "# 当前契约\n")
+        self.commit()
+        self.assertEqual(self.check("--base", base, "--check-commits").returncode, 0)
+
+    def test_template_and_toolset_changes_require_tool_version(self):
+        self.independent_framework("0.1.0", "0.1.0")
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace('members = ["abi"]', 'members = ["abi", "tools/helper"]'))
+        self.write("tools/helper/Cargo.toml", '[package]\nname = "helper"\nversion = "0.1.0"\n')
+        self.write("tools/helper/src/main.rs", 'fn main() {}\n')
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text() + '\n[[package]]\nname = "helper"\nversion = "0.1.0"\n')
+        self.enable_guidance_policy()
+        self.commit()
+        for name in ('templates/AGENTS.md.in', 'toolset.toml'):
+            with self.subTest(path=name):
+                self.write('tools/helper/' + name, 'changed guidance\n')
+                result = self.check("--base", "HEAD")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("必须独立提升", result.stderr)
+                (self.repo / 'tools/helper' / name).unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

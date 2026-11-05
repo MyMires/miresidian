@@ -81,6 +81,18 @@ GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；Ge
 这两个值来自 DLL 的编译期元数据，可用于与发布包 `manifest.json` 交叉核对。
 只有节点定义的业务操作才会在未初始化时返回“设备尚未初始化”。
 
+### 固定查询与发现结果
+
+`GetFunctions`、`GetInitConfig`、版本查询与 `GetPortNO` 均可在初始化前执行。`GetPortNO` 的 Input 对应节点声明的探测参数，不能把 Config 中的已知地址直接当作探测成功。
+
+| 节点探测结果 | 平台响应 |
+| --- | --- |
+| `Ok(Some(address))` | 成功，output 为 `["1", "地址"]`；地址格式由节点声明 |
+| `Ok(None)` 或未实现探测 | 成功，output 为 `["0", ""]`，表示正常执行但未找到设备 |
+| `Err(error)` | 按统一错误响应返回非成功 status/code 和空 output；不得伪装为未找到 |
+
+两个版本查询分别在 output[0] 返回框架和节点版本。初始化、关闭、发现的 Rust 签名及资源职责统一见 [固定入口契约](宏驱动开发.md#固定入口的实现与失败边界)。
+
 ### 状态码
 
 | 值 | 含义 |

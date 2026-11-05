@@ -35,7 +35,7 @@
   4. 相互构成一个完整语义单元的状态与对外方法应保留在同一模块；不得机械拆成 `node.rs` 与 `operations.rs`。验证私有实现细节的单元测试可紧邻实现；仅通过公开接口验证平台契约或跨 crate 行为的测试应放入 crate 根目录的 `tests/`。
   5. 超过 300 行不是自动建目录的理由。先按职责拆分；若仍是单一职责，可保留单文件并以注释说明边界。
 
-  该规则对运行时框架、属性宏 crate 和每个 `constellation` 实例节点完全相同。
+  该规则对运行时框架、属性宏 crate 和各独立 Node 项目完全相同。
 - 涉及运行时、属性宏或实例节点边界的变更，必须先确认职责归属与三个层次的影响范围；不得为
   了快速实现而把框架生成逻辑写入实例节点，或让具体通信依赖反向进入根运行时 crate。
 - 属性宏是节点平台契约的唯一生成入口。实例节点只能通过结构体、方法、参数和方法输出标注
@@ -85,6 +85,7 @@
 - 每次提交前，必须逐项检查本次变更涉及的源码注释、Rustdoc、公开头文件、框架文档、节点发布说明与测试说明；发现缺失、陈旧或语义不清的内容必须在同一提交中完善。
 - 提交前审查不得只确认编译通过。凡是新增、删除或改变了对外行为、参数、返回值、内存约定、默认值、错误规则或调用顺序，都必须确认相应注释和文档与最终产物一致。
 - 每次修改公共行为、参数规则、错误行为、ABI 或调用顺序时，必须同时更新对应文档与测试。
+- 指导性内容须随实际受影响组件的版本在同一提交同步，包括 README、Rustdoc、命令帮助、模板、构建配置说明、调用示例和迁移规则；升版至少更新组件 README，框架还要更新相关核心手册。不能只替换版本号或更新 CHANGELOG，不能以 skill 更新代替技术资料。提交门禁与发布后精确版本页面核对见 [版本规范](versioning.md#指导性文档与版本同步门禁)。
 - 每个发布 DLL 必须在发布目录根部附带与节点同名的说明文档。说明至少包含：DLL 文件与适用位数、完整 C ABI 函数签名、每个参数与返回值的类型/语义/所有权/有效期、状态与错误规则、可复制的调用示例，以及已支持平台的逐项配置方式。
 - DLL 文档必须将 ABI 返回值命名、JSON 字段与节点业务输出区分清楚；不得只列出节点操作清单而遗漏入口函数的配置和调用契约。
 - 公共 Rust API 使用 Rustdoc 注释，至少说明用途、参数、返回值、错误条件以及线程或资源约束。
@@ -173,7 +174,42 @@ cargo +1.89.0 check --workspace --all-targets --all-features --locked
 
 节点应作为独立 Cargo 项目维护，且只能从 crates.io 依赖已发布框架的精确版本；禁止 path/git 和本地覆盖。框架尚未发布时先完成发布，不得伪造锁文件或以本地构建替代 registry 验证。Windows DLL 的交叉编译、`cargo miresidian-pack` 和烟测工具均由节点项目自行配置与维护。
 
-### 待办：完整构建环境配置（未实现）
+### Windows GNU 目标的手动配置
+
+以下说明针对 Pack 支持的 Windows GNU x64/x86 目标。工具安装与系统构建环境是两个步骤；按项目实际依赖确认 Rust MSRV，不因已安装 CLI 就假定 target、链接器或原生库齐备。
+
+先检查 `rustc --version`、`cargo --version`、`rustup target list --installed`，再按本次交付位数安装目标标准库：
+
+```text
+rustup target add x86_64-pc-windows-gnu
+rustup target add i686-pc-windows-gnu
+```
+
+仅交付一种位数时只安装对应项。rustup 不提供系统交叉链接器；Windows 宿主可用 MSYS2 的 MinGW-w64 GCC/binutils，MSVC 工具链不能替代 GNU 目标。按 [MSYS2 环境说明](https://www.msys2.org/docs/environments/) 安装并在其终端执行：
+
+```text
+pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-i686-gcc
+```
+
+确认实际安装根目录，所选 mingw64/bin 或 mingw32/bin 中的 gcc.exe、dlltool.exe 都存在并可执行，将需要的 bin 加入 PATH。下面是节点项目 `.cargo/config.toml` 示例；`C:/msys64` 必须替换为本机实际位置，保留项目原有配置，只加入本次所需目标：
+
+```toml
+[target.x86_64-pc-windows-gnu]
+linker = "C:/msys64/mingw64/bin/gcc.exe"
+rustflags = ["-C", "dlltool=C:/msys64/mingw64/bin/dlltool.exe"]
+
+[target.i686-pc-windows-gnu]
+linker = "C:/msys64/mingw32/bin/gcc.exe"
+rustflags = ["-C", "dlltool=C:/msys64/mingw32/bin/dlltool.exe"]
+```
+
+Linux 宿主使用发行版提供的 MinGW-w64 GCC 与 binutils；确认 `x86_64-w64-mingw32-gcc`、`x86_64-w64-mingw32-dlltool` 或对应的 `i686-w64-mingw32-*` 可执行。沿用同样目标表，将 linker 改为实际交叉 gcc 路径，dlltool 改为同位数工具路径。其他宿主也须提供所选 GNU 目标工具链，不将未验证环境视为已支持。
+
+也可以使用 Cargo 的 `CARGO_TARGET_<大写目标>_LINKER` 与相应 RUSTFLAGS 环境变量。环境变量中的 dlltool 路径不得额外包入字面双引号；TOML 示例的引号是配置语法。环境变量、项目配置与构建启动目录的优先级按 [Cargo 配置说明](https://doc.rust-lang.org/cargo/reference/config.html) 核对，工作区构建从工作区根读取配置。
+
+用项目真实 registry 依赖先执行相应目标的 `cargo check --locked --target ...`，再用 `cargo miresidian build --arch x64` 或 x86 构建；pack 已包含构建，不必先重复 build。缺目标标准库时补 target，找不到 gcc/dlltool 时检查所选路径与位数，其他 native library 错误按业务依赖要求处理。最后在匹配位数的 Windows 宿主加载 DLL 并执行烟测；Linux 交叉编译不能证明 Windows 加载成功。`install --full` 不自动完成这些系统配置。
+
+### 待办：构建环境自动配置（未实现）
 
 - [ ] 检测宿主操作系统/CPU、Rust/Cargo 版本，以及所选 DLL 目标平台和位数。
 - [ ] 检查并按宿主平台处理 Rust target、GNU 链接器和相关系统构建依赖。
@@ -200,7 +236,7 @@ cargo +1.89.0 check --workspace --all-targets --all-features --locked
 - [ ] 明确字段默认值、可选字段、枚举/嵌套类型、缺失或非法字段的错误，以及不支持结构的编译期诊断。
 - [ ] 评估通过 derive/属性宏自动生成自定义类型转换实现，区分单槽位整体转换与多槽位字段映射，不隐式猜测序列化格式。
 - [ ] 明确与 format 格式选择、batch 记录边界及现有手写 trait 的组合和兼容性；保留旧节点依赖及既有默认解析行为。
-- [ ] 配套提供输入构造、输出展开、默认值/错误和兼容性回归，并更新节点开发文档与完整 Node skill。
+- [ ] 配套提供输入构造、输出展开、默认值/错误和兼容性回归，并同步对应版本的节点开发文档、Rustdoc、示例与迁移说明；skill 仅在开发流程或资料查询方式确有变化时另行修订。
 
 此项仅记录后续需求，标注语法与支持范围待设计，暂不实现。
 

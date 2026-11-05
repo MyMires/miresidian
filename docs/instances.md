@@ -89,7 +89,7 @@ Handle 缺失、空白或只有 `Handle:` 前缀时，初始化成功返回空�
 
 描述发布与解析共用 `ConfigLayout`，顺序固定：
 
-1. 业务 Config，主键位于下标 0；
+1. 业务 Config，按声明顺序排列；实例键由实际实例策略和 instance(key/ignore) 选择，不要求位于下标 0；
 2. Handle（仅 handle 关联）；
 3. 资源访问方式（仅 selectable 租约）；
 4. 平台适配（普通入口发布，显式 invoke_with 入口不发布、不接受）；

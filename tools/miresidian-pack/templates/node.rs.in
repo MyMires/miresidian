@@ -10,7 +10,7 @@ impl ExampleNode {
     #[miresidian::operation]
     fn init_device() -> MiresidianResult<Self> {
         // 在此建立连接；失败返回 Err，并释放已取得的临时资源。
-        // 若增加业务 Config，把设备地址/端口等对象主键放在第一个 Config 参数。
+        // 若增加业务 Config，按实际框架版本声明对象身份与资源身份，不从参数下标猜主键。
         // 初始化参数默认来自 Config，可用 config/input 标注显式指定来源与单位。
         Ok(Self {})
     }

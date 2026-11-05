@@ -73,7 +73,16 @@ impl Drop for Fixture {
 #[test]
 fn 独立进程保持参数目录和退出码() {
     let fixture = Fixture::new();
-    fixture.backend("0.13.1");
+    let catalog: toml::Value = toml::from_str(include_str!("../toolset.toml")).unwrap();
+    let pack_version = catalog["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["package"].as_str() == Some("miresidian_pack"))
+        .unwrap()["version"]
+        .as_str()
+        .unwrap();
+    fixture.backend(pack_version);
     for name in ["cargo-miresidian", "cargo-mires"] {
         let output = fixture
             .command(name)

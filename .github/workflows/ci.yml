@@ -32,6 +32,12 @@ jobs:
       - run: cargo test --workspace --all-targets --all-features --locked
       - run: cargo test -p miresidian --all-targets --features instances --locked
       - run: cargo test -p miresidian --all-targets --features lease --locked
+      - name: 全特性公开 API 文档
+        env:
+          RUSTDOCFLAGS: '-D warnings'
+        run: |
+          cargo doc -p miresidian --all-features --no-deps --locked
+          test -f target/doc/miresidian/format/index.html
       - run: cargo build --workspace --release --locked
 
 

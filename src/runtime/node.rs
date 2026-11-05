@@ -108,7 +108,10 @@ pub trait DeviceNode: Send + Sized + 'static {
     ///
     /// 未标注参数默认来自 `input`，也可以通过方法参数标注改从 `config` 读取。
     ///
-    /// 返回 `Ok(None)` 表示旧版 `GetPortNO` 结果 `["0", ""]`。
+    /// 节点宏方法是无 `self` 的关联函数，返回 `MiresidianResult<Option<String>>`。
+    /// `Ok(Some(address))` 产生平台输出 `["1", address]`，`Ok(None)` 产生 `["0", ""]`；
+    /// 后者表示正常完成但未找到设备。探测失败返回 `Err`，不得伪装为未找到。
+    /// 未声明探测方法时默认未找到；临时连接和后台任务均由探测实现释放。
     fn get_port_no(_config: &[String], _input: &[String]) -> MiresidianResult<Option<String>> {
         Ok(None)
     }
