@@ -8,7 +8,9 @@
 
 ```toml
 [dependencies]
-miresidian_codec = "=0.14.2"
+miresidian_codec = "=0.15.0"
 ```
 
 数据格式与编码规则见[数据编解码](../docs/宏驱动开发.md#数据编解码)。
+
+0.15.0 起，数值显式空白为零、完整候选文本不取首项；业务参数缺参报错。GBK 解码禁用 BOM 探测与非法字符替换。低层 decode_value 等函数的显式 default 参数仍可用于框架策略，不从描述自动推导。

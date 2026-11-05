@@ -286,6 +286,14 @@ def validate(repo, base):
         if dependency:
             framework = exact_dependency(dependency)
             expected["miresidian"] = framework
+    if name == "miresidian" and "workspace" in manifest:
+        inventory = repo.read("tools/miresidian-pack/framework-crates.txt", optional=True)
+        if inventory is not None:
+            listed = inventory.splitlines()
+            libraries = {member["package"]["name"] for path, member in zip(manifests, members)
+                         if not path.startswith("tools/")}
+            if len(listed) != len(set(listed)) or set(listed) != libraries or set(listed) != FRAMEWORK_CRATES:
+                raise VersionError("Pack、版本门禁与工作区框架库组件清单不一致")
     check_lock(repo, "Cargo.lock", expected)
     tag = f"{name}-v{version}"
     existing = repo.git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", optional=True)

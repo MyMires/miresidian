@@ -306,15 +306,6 @@ fn validate_batch_parameters(parameters: &[Parameter]) -> Result<()> {
     Ok(())
 }
 
-fn contains_option_pairs(value: &str) -> bool {
-    value.split('/').any(|choice| {
-        let Some((actual, display)) = choice.split_once('-') else {
-            return false;
-        };
-        !actual.trim().is_empty() && !display.trim().is_empty()
-    })
-}
-
 pub(super) fn take_output(
     attributes: &mut Vec<Attribute>,
     return_type: &ReturnType,
@@ -453,15 +444,7 @@ pub(super) fn names(attribute: &Attribute, label: &str) -> Result<Vec<LitStr>> {
 fn split_definition(value: &LitStr) -> (LitStr, Option<LitStr>) {
     let span = value.span();
     let text = value.value();
-    let (name, default) = match text.split_once(':') {
-        Some((name, suffix)) if !contains_option_pairs(suffix) => {
-            (name.trim(), Some(suffix.trim()))
-        }
-        Some((name, _)) => (name.trim(), None),
-        None => (text.trim(), None),
-    };
-    (
-        LitStr::new(name, span),
-        default.map(|default| LitStr::new(default, span)),
-    )
+    // 描述中的冒号后缀仅供平台显示，不推导业务参数的运行时默认值。
+    let name = text.split_once(':').map_or(text.as_str(), |(name, _)| name);
+    (LitStr::new(name.trim(), span), None)
 }

@@ -1,6 +1,6 @@
 # 工具命令
 
-需要初始化、检查、交付或处理环境缺项时读取。命令适配 [主文档](../SKILL.md#适配版本) 中 CLI 0.3.0、Pack 0.13.0 和 Windows TestFlow 0.12.0；执行前核对已安装版本及帮助。
+需要初始化、检查、交付或处理环境缺项时读取。命令适配 [主文档](../SKILL.md#适配版本) 中 CLI 0.3.1、Pack 0.13.1 和 Windows TestFlow 0.12.0；执行前核对已安装版本及帮助。
 
 ## 创建与交付
 
@@ -8,8 +8,8 @@
 
 | 操作 | 命令 |
 | --- | --- |
-| 新目录 | `cargo miresidian new demo-node --name "演示节点" --miresidian-version 0.21.0` |
-| 已有目录 | `cargo miresidian init --name "演示节点" --miresidian-version 0.21.0`（可指定已有目录） |
+| 新目录 | `cargo miresidian new demo-node --name "演示节点" --miresidian-version 0.22.0` |
+| 已有目录 | `cargo miresidian init --name "演示节点" --miresidian-version 0.22.0`（可指定已有目录） |
 | 创建时指定框架 | new/init 使用 `--miresidian-version X.Y.Z`，等价别名 `--mires-version X.Y.Z` |
 | 编译检查 | `cargo check --locked` |
 | 结构/依赖/说明检查 | `cargo miresidian check` |
@@ -55,8 +55,8 @@ cargo check --locked --features miresidian/instances
 
 ## 工具与环境缺项
 
-仅缺工具或任务要求调整版本时安装，先确认目标版本已发布：`cargo install miresidian_cli --version 0.3.0 --locked`，再执行 `cargo miresidian install --full --pack-version 0.13.0 --testflow-version 0.12.0`。Cargo 管理用户级安装根目录，不建项目内工具目录；原生 cargo install 没有 --full。
+仅缺工具或任务要求调整版本时安装，先确认目标版本已发布：`cargo install miresidian_cli --version 0.3.1 --locked`，再执行 `cargo miresidian install --full --pack-version 0.13.1 --testflow-version 0.12.0`。Cargo 管理用户级安装根目录，不建项目内工具目录；原生 cargo install 没有 --full。
 
-查看版本用 `cargo miresidian list`；调整版本须在任务范围内，可用 `update --full` 更新后端或 `use pack 0.13.0` 切换指定版本。管理命令属于 cargo miresidian，CLI 本体由 cargo install 的 --version 指定。所选后端须满足 CLI 的最低要求；同一安装根替换当前版本，批量失败先核对部分结果。
+查看版本用 `cargo miresidian list`；调整版本须在任务范围内，可用 `update --full` 更新后端或 `use pack 0.13.1` 切换指定版本。管理命令属于 cargo miresidian，CLI 本体由 cargo install 的 --version 指定。所选后端须满足 CLI 的最低要求；同一安装根替换当前版本，批量失败先核对部分结果。
 
 Pack 目标为 x86_64-pc-windows-gnu / i686-pc-windows-gnu。复用现有 Rust、目标标准库和 MinGW 链接器，仅补本次目标缺项；rustup target add 不安装系统链接器，MSVC 环境不能替代 GNU 配置。Rust 版本满足框架及业务依赖 MSRV，模板 MSRV 为 1.89；环境受阻时说明具体阶段与缺项。

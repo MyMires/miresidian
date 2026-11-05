@@ -181,6 +181,14 @@ version = "{version}"
         self.write("abi/api/miresidian.h", header)
         self.write("CHANGELOG.md", f"## [Unreleased]\n\n## [{version}] - 2026-10-29\n\n- 更新框架接口。\n")
 
+    def test_pack_component_inventory_cannot_omit_or_duplicate_framework_libraries(self):
+        self.framework_release("0.1.0", 7)
+        for inventory in ["miresidian\n", "miresidian\nmiresidian_abi\nmiresidian_abi\n"]:
+            self.write("tools/miresidian-pack/framework-crates.txt", inventory)
+            result = self.check()
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("组件清单不一致", result.stderr)
+
     def test_c_export_change_requires_consistent_new_abi_version(self):
         self.framework_release("0.1.0", 7)
         self.commit()

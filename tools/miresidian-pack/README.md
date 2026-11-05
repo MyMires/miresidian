@@ -3,7 +3,7 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-工具独立版本为 **0.13.0**；本地源码候选尚未发布时，可在框架仓库执行
+工具独立版本为 **0.13.1**；本地源码候选尚未发布时，可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -23,10 +23,10 @@ cargo miresidian-pack --version
 新增入口使用长选项，`new`、`check` 等文字仍可作为原有节点名。
 Cargo 必须能找到 `cargo-miresidian-pack` 二进制；也可以直接运行该二进制，省略 `miresidian-pack`。
 
-0.13.0 单独发布后可安装：
+0.13.1 单独发布后可安装：
 
 ```text
-cargo install miresidian_pack --version 0.13.0 --locked
+cargo install miresidian_pack --version 0.13.1 --locked
 ```
 
 ## 最小模板
@@ -118,3 +118,5 @@ CARGO_NET_OFFLINE=true。它验证生成项目的真实编译、检查不改锁�
 模板的 lib.rs 仅声明模块，node.rs 的注释说明配置、状态、资源清理及宏生成边界。
 生成不代替编译、DLL 加载和硬件验证。--check 只检查项目；独立 TestFlow --check 可检查流程。
 统一命令、整套下载安装和实际调用对照见 [CLI](../miresidian-cli/README.md)。
+
+Pack 随包携带 framework-crates.txt，覆盖包括 batch、format 在内的全部框架库；声明、解析来源、覆盖配置和锁文件共用此清单。仓库版本门禁核对该清单与框架库集合一致。

@@ -1,6 +1,8 @@
 //! 显式格式转换。字节保持原样；其余内置类型采用 UTF-8 规范文本作为中间表示。
 //! 本模块只在 format feature 下公开，不改变 DeviceInput / DeviceOutput 的默认规则。
-use miresidian_codec::{ByteTextFormat, DeviceInput, MiresidianError, MiresidianResult};
+use miresidian_codec::{
+    ByteTextFormat, DeviceInput, DeviceOutput, MiresidianError, MiresidianResult,
+};
 
 fn invalid(field: &str, message: &str) -> MiresidianError {
     MiresidianError::InvalidArgument {
@@ -54,7 +56,7 @@ macro_rules! text_types {
             }
         }
         impl FormatOutput for $ty {
-            fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> { Ok(self.to_string().into_bytes()) }
+            fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> { Ok(self.into_device_output()?.into_values().join("").into_bytes()) }
         }
     )+};
 }
@@ -73,7 +75,9 @@ macro_rules! sequence_types {
         }
         impl FormatOutput for Vec<$ty> {
             fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> {
-                Ok(self.into_iter().map(|value| value.to_string()).collect::<Vec<_>>().join(" ").into_bytes())
+                Ok(self.into_iter()
+                    .map(|value| value.into_device_output().map(|output| output.into_values().join("")))
+                    .collect::<MiresidianResult<Vec<_>>>()?.join(" ").into_bytes())
             }
         }
     )+};

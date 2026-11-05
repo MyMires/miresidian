@@ -4,19 +4,16 @@ use std::{collections::HashSet, env, fs, path::Path};
 use cargo_metadata::{Metadata, Package, semver::Version};
 use toml::Value;
 
-const FRAMEWORK: &[&str] = &[
-    "miresidian",
-    "miresidian_abi",
-    "miresidian_codec",
-    "miresidian_macro",
-    "miresidian_instances",
-    "miresidian_lease",
-];
+// 随 Pack 发布；版本门禁读取同一清单并核对工作区库集合。
+const FRAMEWORK: &str = include_str!("../../framework-crates.txt");
+fn is_framework(name: &str) -> bool {
+    FRAMEWORK.lines().any(|component| component == name)
+}
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 
 pub(crate) fn validate_resolved_sources(packages: &[&Package]) -> Result<(), String> {
     for package in packages {
-        if FRAMEWORK.contains(&package.name.as_str())
+        if is_framework(package.name.as_str())
             && !package.source.as_ref().is_some_and(|s| s.is_crates_io())
         {
             return Err(format!(
@@ -87,7 +84,7 @@ fn validate_document(value: &Value) -> Result<(), String> {
                         .get("package")
                         .and_then(Value::as_str)
                         .unwrap_or(name);
-                    if FRAMEWORK.contains(&package) {
+                    if is_framework(package) {
                         validate_declaration(package, declaration)?;
                     }
                 }
@@ -135,7 +132,7 @@ fn reject_framework_override(value: &Value) -> Result<(), String> {
                 .get("package")
                 .and_then(Value::as_str)
                 .unwrap_or_else(|| name.split(':').next().unwrap_or(name));
-            if FRAMEWORK.contains(&package) {
+            if is_framework(package) {
                 return Err(format!("禁止 patch/replace 覆盖框架依赖 {package}"));
             }
             reject_framework_override(entry)?;
@@ -151,7 +148,7 @@ fn validate_lock(lock: &Value) -> Result<(), String> {
         .ok_or("Cargo.lock 缺少 package 列表")?;
     for package in packages {
         let name = package.get("name").and_then(Value::as_str).unwrap_or("");
-        if !FRAMEWORK.contains(&name) {
+        if !is_framework(name) {
             continue;
         }
         let checksum = package
@@ -213,5 +210,50 @@ mod tests {
             "a".repeat(64)
         );
         validate_lock(&toml::from_str(&valid).unwrap()).unwrap();
+    }
+    #[test]
+    fn 每个框架组件及别名都必须使用精确_registry_来源() {
+        for name in FRAMEWORK.lines() {
+            let valid: Value =
+                toml::from_str(&format!("[dependencies]\n{name} = \"=0.1.0\"")).unwrap();
+            validate_document(&valid).unwrap();
+            for declaration in [
+                format!("alias = {{ package = '{name}', version = '=0.1.0', path = '../local' }}"),
+                format!("alias = {{ package = '{name}', git = 'https://example.invalid/core' }}"),
+                format!("{name} = '0.1'"),
+                format!("{name} = {{ version = '=0.1.0', registry = 'private' }}"),
+            ] {
+                assert!(
+                    validate_document(
+                        &toml::from_str(&format!("[dependencies]\n{declaration}")).unwrap()
+                    )
+                    .is_err(),
+                    "{declaration}"
+                );
+            }
+            for text in [
+                format!("[patch.crates-io]\nalias = {{ package = '{name}', path = '../local' }}"),
+                format!("[replace]\n'{name}:0.1.0' = {{ path = '../local' }}"),
+            ] {
+                assert!(
+                    validate_document(&toml::from_str(&text).unwrap()).is_err(),
+                    "{text}"
+                );
+            }
+            let bare = format!("[[package]]\nname = '{name}'\nversion = '0.1.0'\n");
+            assert!(validate_lock(&toml::from_str(&bare).unwrap()).is_err());
+            let registry = format!(
+                "{bare}source = '{CRATES_IO}'\nchecksum = '{}'",
+                "a".repeat(64)
+            );
+            validate_lock(&toml::from_str(&registry).unwrap()).unwrap();
+            let mut package: Package = serde_json::from_value(serde_json::json!({
+                "name": name, "version":"0.1.0", "id": format!("path+file:///fixture#{name}@0.1.0"),
+                "dependencies":[], "targets":[], "features":{}, "manifest_path":"/fixture/Cargo.toml"
+            })).unwrap();
+            assert!(validate_resolved_sources(&[&package]).is_err());
+            package.source = Some(serde_json::from_value(serde_json::json!(CRATES_IO)).unwrap());
+            validate_resolved_sources(&[&package]).unwrap();
+        }
     }
 }

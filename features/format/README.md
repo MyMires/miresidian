@@ -3,7 +3,7 @@
 根框架 0.19.0 起提供可选 `format` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
 ```toml
-miresidian = { version = "=0.21.0", features = ["format"] }
+miresidian = { version = "=0.22.0", features = ["format"] }
 ```
 
 以上为源码候选示例；外部节点只采用 crates.io 已发布精确版本。框架更新不自动修改、升级或重新打包已有节点。
@@ -47,21 +47,21 @@ fn convert(
 | --- | --- |
 | Vec<u8> | 原始字节；字符格式在平台文本与指定字符编码字节之间转换，HEX/Base64 在平台文本与原始字节之间转换 |
 | String、char | 规范 UTF-8 文本；字符格式保留文本并严格校验所选编码能否表达它，HEX/Base64 编解码其 UTF-8 字节 |
-| 全部基础整数、f32、f64、bool | 规范 UTF-8 文本；输入复用默认标量解析，输出为规范数值或小写 true/false；HEX/Base64 表达这些文本的字节 |
+| 全部基础整数、f32、f64、bool | 规范 UTF-8 文本；输入复用默认标量解析，输出为有限数值或小写 true/false；HEX/Base64 表达这些文本的字节 |
 | 数值及布尔 Vec<T>（u8 除外） | 单条记录内空白分隔元素；不使用竖线、不展开范围、不引入 JSON；空文本是空数组 |
 | Option<T> | 空字节表示 None，其他值按 T 转换；None 与 Some(空值) 沿用空值表示的不可区分约定 |
 | 自定义类型/枚举 | 显式实现 FormatInput、FormatOutput，声明自己的字节契约；默认 RAW_BYTES=false 表示规范 UTF-8 文本，原始字节类型设为 true；作为 batch 输入时还须实现 Clone |
 
 例如 `i32` 的 HEX 输入 `31 32` 表示文本 `12`，得到整数 12；不表示二进制整数 0x3132。Vec<u8> 的同样输入得到两个字节。String 的 GBK 输入 `中文` 得到同样文本；Vec<u8> 的 GBK 输入得到 GBK 字节。
 
-无内置 Vec<String>、嵌套数组或 char 数组实现，避免臆造元素边界。缺少转换 trait 的类型在编译期失败。普通 bool、数值等无需标注 format，默认规则始终可用。
+无内置 Vec<String>、嵌套数组或 char 数组实现，避免臆造元素边界。缺少转换 trait 的类型在编译期失败。普通 bool、数值等无需标注 format，默认规则始终可用。数值标量空白为零，NaN/正负无穷输入和输出均报错；业务描述不提供运行时默认值，格式选择器仍按允许列表首项显式缺省。
 
 ## 可选组合：format + batch
 
 只有需要批量处理时，才同时开启两个 feature：
 
 ```toml
-miresidian = { version = "=0.21.0", features = ["format", "batch"] }
+miresidian = { version = "=0.22.0", features = ["format", "batch"] }
 ```
 
 并在需要展开的参数上增加 batch 标记，例如：

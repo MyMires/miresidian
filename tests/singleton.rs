@@ -81,28 +81,28 @@ fn default_metadata_never_publishes_handle_or_execution_selector() {
 fn different_config_replaces_the_only_object_after_close_and_drop() {
     let runtime = NodeRuntime::<Singleton>::new();
     runtime
-        .invoke(&request("InitDevice", &["replace-A"], &[]))
+        .invoke(&request("InitDevice", &["replace-A", "1"], &[]))
         .unwrap();
     runtime
-        .invoke(&request("计数", &["replace-A"], &[]))
+        .invoke(&request("计数", &["replace-A", "1"], &[]))
         .unwrap();
     assert_eq!(
         runtime
-            .invoke(&request("InitDevice", &["replace-A"], &[]))
+            .invoke(&request("InitDevice", &["replace-A", "1"], &[]))
             .unwrap()
             .as_slice(),
         [miresidian::CHANNEL_REUSED_MESSAGE]
     );
     runtime
-        .invoke(&request("InitDevice", &["replace-B"], &[]))
+        .invoke(&request("InitDevice", &["replace-B", "1"], &[]))
         .unwrap();
     assert!(matches!(
-        runtime.invoke(&request("计数", &["replace-A"], &[])),
+        runtime.invoke(&request("计数", &["replace-A", "1"], &[])),
         Err(MiresidianError::UnknownChannel(_))
     ));
     assert_eq!(
         runtime
-            .invoke(&request("计数", &["replace-B"], &[]))
+            .invoke(&request("计数", &["replace-B", "1"], &[]))
             .unwrap()
             .as_slice(),
         ["replace-B:1"]
@@ -119,7 +119,7 @@ fn different_config_replaces_the_only_object_after_close_and_drop() {
 fn typed_prevalidation_failure_keeps_the_old_object() {
     let runtime = NodeRuntime::<Singleton>::new();
     runtime
-        .invoke(&request("InitDevice", &["validated-A"], &[]))
+        .invoke(&request("InitDevice", &["validated-A", "1"], &[]))
         .unwrap();
     assert!(
         runtime
@@ -132,7 +132,7 @@ fn typed_prevalidation_failure_keeps_the_old_object() {
     );
     assert_eq!(
         runtime
-            .invoke(&request("计数", &["validated-A"], &[]))
+            .invoke(&request("计数", &["validated-A", "1"], &[]))
             .unwrap()
             .as_slice(),
         ["validated-A:1"]
@@ -149,11 +149,11 @@ fn typed_prevalidation_failure_keeps_the_old_object() {
 fn construction_failure_after_replacement_leaves_no_object() {
     let runtime = NodeRuntime::<Singleton>::new();
     runtime
-        .invoke(&request("InitDevice", &["before-failure"], &[]))
+        .invoke(&request("InitDevice", &["before-failure", "1"], &[]))
         .unwrap();
     assert!(
         runtime
-            .invoke(&request("InitDevice", &["construct-fail"], &[]))
+            .invoke(&request("InitDevice", &["construct-fail", "1"], &[]))
             .is_err()
     );
     assert!(!runtime.is_initialized());
@@ -164,11 +164,11 @@ fn construction_failure_after_replacement_leaves_no_object() {
             .contains(&"drop:before-failure".to_owned())
     );
     runtime
-        .invoke(&request("InitDevice", &["recovered"], &[]))
+        .invoke(&request("InitDevice", &["recovered", "1"], &[]))
         .unwrap();
     assert_eq!(
         runtime
-            .invoke(&request("计数", &["recovered"], &[]))
+            .invoke(&request("计数", &["recovered", "1"], &[]))
             .unwrap()
             .as_slice(),
         ["recovered:1"]
@@ -179,11 +179,11 @@ fn construction_failure_after_replacement_leaves_no_object() {
 fn cleanup_failure_blocks_new_construction_and_clears_old_object() {
     let runtime = NodeRuntime::<Singleton>::new();
     runtime
-        .invoke(&request("InitDevice", &["close-fail"], &[]))
+        .invoke(&request("InitDevice", &["close-fail", "1"], &[]))
         .unwrap();
     assert!(
         runtime
-            .invoke(&request("InitDevice", &["must-not-create"], &[]))
+            .invoke(&request("InitDevice", &["must-not-create", "1"], &[]))
             .is_err()
     );
     assert!(!runtime.is_initialized());
@@ -196,15 +196,15 @@ fn cleanup_failure_blocks_new_construction_and_clears_old_object() {
 fn enabling_feature_alone_does_not_enable_multi_channel_calls() {
     let runtime = NodeRuntime::<Singleton>::new();
     runtime
-        .invoke(&request("InitDevice", &["ordinary"], &[]))
+        .invoke(&request("InitDevice", &["ordinary", "1"], &[]))
         .unwrap();
     assert!(matches!(
-        runtime.invoke(&request("计数", &["ordinary"], &["共享", "", ""])),
+        runtime.invoke(&request("计数", &["ordinary", "1"], &["共享", "", ""])),
         Err(MiresidianError::NotSupported(_))
     ));
     assert_eq!(
         runtime
-            .invoke(&request("计数", &["ordinary"], &[]))
+            .invoke(&request("计数", &["ordinary", "1"], &[]))
             .unwrap()
             .as_slice(),
         ["ordinary:1"]

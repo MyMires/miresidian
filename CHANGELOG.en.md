@@ -2,6 +2,13 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.22.0] - 2026-11-05
+
+- Stop deriving business defaults from descriptions and selecting the first item of complete choice strings. Explicit blank numbers become zero; missing arguments fail. Preserve display-label mapping and explicit framework selector defaults.
+- Decode GBK strictly without BOM detection or replacement. Reject nonfinite formatted float scalars, vectors and optional outputs.
+- Return UNKNOWN_CHANNEL for missing Handles before initialization and after the last object closes. Complete Pack component/source validation and synchronize the toolset, migration guide and Node skill.
+- Root 0.22.0, codec 0.15.0, macro 0.20.0; patch affected adapters and tools independently. C ABI v7, lease v2, resource v1 and MSRV 1.89 remain unchanged. Publication is separate.
+
 ## [0.21.0] - 2026-11-05
 
 - Parse plain batch inputs using the original Rust argument's codec traits. Strings, booleans, characters, aliases, and compatible custom elements no longer require format. Preserve integer single/list/range/mixed syntax and float validation.

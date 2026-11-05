@@ -166,8 +166,8 @@ pub fn decode_value<T: DeviceInput>(
 ///
 /// 该入口与宏生成的参数解码共用默认值、参数名前缀和显示值规则。运行时使用它生成
 /// 稳定通道键，因此语义相同的 Config 文本会定位到同一已初始化通道。
-/// 声明的候选文本（如 `9600/19200`）取首项；其他显式输入保持自身值。
-/// `default` 为 `None` 时不隐式补齐候选首项。
+/// 完整候选文本不取首项；仅将具体选项显示值映射为实际值。
+/// 业务宏始终传入 None；default 仅用于调用方明确指定的低层缺省值，例如框架格式选择器。
 pub fn normalize_value_with_definition(
     values: &[String],
     index: usize,

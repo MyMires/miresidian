@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-11-05
+
+- 精确依赖 codec 0.15.0；租约 v2、资源代理 v1、所有权和事务协议不变。
+- 验证：对应组件与工作区默认/全特性回归、严格 Clippy、Rust 1.89 和 Release 构建通过；完整范围见根 CHANGELOG 0.22.0。
+
 ## [0.15.1] - 2026-11-04
 
 - 完善包级接入说明：区分 LocalLease 与 SharedResource，明确运行时 Lease/Direct 选择器不改变通信实现，以及 Windows/Unix 模块保活。

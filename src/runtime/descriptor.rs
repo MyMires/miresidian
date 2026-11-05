@@ -61,7 +61,7 @@ pub struct ParameterDescriptor {
     pub name: &'static str,
     /// 原样发布给平台的完整参数描述。
     pub definition: &'static str,
-    /// 可选的平台侧默认值。
+    /// 明确指定的框架选择器或手写契约默认值；业务参数宏不从描述推导此值。
     pub default_value: Option<&'static str>,
 }
 

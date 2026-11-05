@@ -81,10 +81,10 @@ fn 等价业务配置定位并复用同一通道() {
     let initialized = runtime
         .invoke(&Invocation::new(
             "InitDevice",
-            vec!["串口".to_owned()],
+            vec!["串口".to_owned(), "127.0.0.1".into(), "GBK".into()],
             Vec::new(),
         ))
-        .expect("显示值与缺省配置应可初始化");
+        .expect("显示值与显式配置应可初始化");
     assert_eq!(initialized.as_slice(), ["GBK"]);
 
     let reused = runtime
@@ -97,13 +97,13 @@ fn 等价业务配置定位并复用同一通道() {
             ],
             Vec::new(),
         ))
-        .expect("参数名前缀、实际值和显式默认值应命中已有通道");
+        .expect("参数名前缀与实际值应命中已有通道");
     assert_eq!(reused.as_slice(), [miresidian::CHANNEL_REUSED_MESSAGE]);
 
     let connection = runtime
         .invoke(&Invocation::new(
             "读取连接",
-            vec!["传输方式:串口".to_owned()],
+            vec!["传输方式:串口".to_owned(), "127.0.0.1".into(), "GBK".into()],
             Vec::new(),
         ))
         .expect("等价 Config 应定位到已初始化通道");
@@ -112,12 +112,12 @@ fn 等价业务配置定位并复用同一通道() {
 
 #[test]
 #[cfg(feature = "instances")]
-fn 共享调用同样使用枚举显示值和默认值定位对象() {
+fn 共享调用同样使用枚举显示值和显式配置定位对象() {
     let runtime = NodeRuntime::<CodecMacroNode>::new();
     runtime
         .invoke(&Invocation::new(
             "InitDevice",
-            vec!["Serial".to_owned()],
+            vec!["Serial".to_owned(), "127.0.0.1".into(), "GBK".into()],
             vec![],
         ))
         .unwrap();
@@ -125,7 +125,7 @@ fn 共享调用同样使用枚举显示值和默认值定位对象() {
         .invoke_command(miresidian::RuntimeInvocation::MultiChannel(
             miresidian::MultiChannelInvocation::new(
                 "读取连接",
-                vec!["传输方式:串口".to_owned()],
+                vec!["传输方式:串口".to_owned(), "127.0.0.1".into(), "GBK".into()],
                 vec![Some(vec![]), Some(vec![])],
             ),
         ))

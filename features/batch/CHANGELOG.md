@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-05
+
+- 精确依赖 codec 0.15.0；数值空记录按原标量类型解析为零，普通 Vec 的空集合语义与转义规则不变。
+- 验证：对应组件与工作区默认/全特性回归、严格 Clippy、Rust 1.89 和 Release 构建通过；完整范围见根 CHANGELOG 0.22.0。
+
 ## [0.2.0] - 2026-11-05
 
 - 新增 decode_batch<T>，复用原类型的 DeviceInput/DeviceCollectionElement；整数保留混合范围，字符串、布尔、字符和类型别名使用对应语法，不依赖 format。

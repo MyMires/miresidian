@@ -1,13 +1,13 @@
 # Miresidian CLI
 
-独立版本 **0.3.0**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
-Pack 为 **0.13.0**，TestFlow 为 **0.12.0**，继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
+独立版本 **0.3.1**。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
+Pack 为 **0.13.1**，TestFlow 为 **0.12.0**，继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
 
 new 创建新目录；init 在已有目录初始化，默认当前目录。两者生成包含项目开发规则的 AGENTS.md，init 拒绝覆盖模板文件和 Cargo.lock。
 
 package 名取目标目录末段并须符合 Rust 包名规则；`--name` 指定节点显示名称，不改变 package 名。省略 `--name` 时节点名称也取目录名，仍会生成带名称的 `#[node(...)]`。例如在 `serial-node` 目录运行 `cargo miresidian init --name "串口节点"`，package 为 `serial-node`，节点名称为 `串口节点`，调用说明为 `docs/串口节点.md`。
 
-init 检查全部模板目标和 Cargo.lock：如 Cargo.toml、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 或 `docs/<节点名称>.md` 已存在，命令拒绝写入；其他文件保留。已有 src、docs、tools 子目录必须是普通目录，不能是符号链接。CLI 0.3.0 与 Pack 0.13.0 是当前源码候选，安装时应确认该版本已发布。
+init 检查全部模板目标和 Cargo.lock：如 Cargo.toml、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 或 `docs/<节点名称>.md` 已存在，命令拒绝写入；其他文件保留。已有 src、docs、tools 子目录必须是普通目录，不能是符号链接。CLI 0.3.1 与 Pack 0.13.1 是当前源码候选，安装时应确认该版本已发布。
 
 ## 完整指令与实际调用
 
@@ -56,8 +56,8 @@ CLI 安装本身只安装 cargo-miresidian 和 cargo-mires；--full 是 CLI 子�
 | 管理指令（也支持 cargo mires） | 实际 Cargo 调用 |
 | --- | --- |
 | install --full | cargo install miresidian_pack miresidian_testflow_windows |
-| install --full --pack-version 0.13.0 --testflow-version 0.12.0 | cargo install miresidian_pack@0.13.0 miresidian_testflow_windows@0.12.0 |
-| install pack --version 0.13.0 | cargo install miresidian_pack@0.13.0 |
+| install --full --pack-version 0.13.1 --testflow-version 0.12.0 | cargo install miresidian_pack@0.13.1 miresidian_testflow_windows@0.12.0 |
+| install pack --version 0.13.1 | cargo install miresidian_pack@0.13.1 |
 | update --full | cargo install miresidian_pack miresidian_testflow_windows |
 | update pack | cargo install miresidian_pack |
 | use pack 0.10.0 | cargo install miresidian_pack@0.10.0 |
@@ -80,7 +80,7 @@ CLI 安装本身只安装 cargo-miresidian 和 cargo-mires；--full 是 CLI 子�
 CLI 本体使用原生 Cargo 命令更新或切换，避免运行中的 CLI 替换自身：
 
     cargo install miresidian_cli
-    cargo install miresidian_cli --version 0.3.0
+    cargo install miresidian_cli --version 0.3.1
 
 公开发行前可在框架根目录从源码安装（同样由 Cargo 管理安装记录）：
 
@@ -96,7 +96,7 @@ Python 仅用于仓库内部构建和测试，不是用户安装前提。可选�
     python3 tools/miresidian-cli/distribution/bundle.py --host linux-x64
     python3 tools/miresidian-cli/distribution/bundle.py --host windows-x64
 
-仅在对应 x64 宿主构建；输出名含套件版本 0.3.0，附 SHA-256。
+仅在对应 x64 宿主构建；输出名含套件版本 0.3.1，附 SHA-256。
 Cargo 安装是正式用户安装方式，归档文件用于分发和开发验证，不改 Cargo 安装记录。
 
 ## 后续工具接入

@@ -29,7 +29,7 @@ fn initialization_only_encodes_and_describes_the_business_tuple() {
     );
     let runtime = NodeRuntime::<OutputNode>::new();
     let output = runtime
-        .invoke(&Invocation::new("InitDevice", vec![], vec![]))
+        .invoke(&Invocation::new("InitDevice", vec!["7".into()], vec![]))
         .unwrap();
     assert_eq!(output.as_slice(), ["ready", "7"]);
     runtime.shutdown().unwrap();

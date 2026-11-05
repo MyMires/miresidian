@@ -124,7 +124,7 @@ fn multiple_impls_publish_source_order_and_preserve_parameter_annotations() {
             .invoke(&Invocation::new(
                 "ZFirst",
                 vec!["registered".into()],
-                vec![]
+                vec!["默认".into()]
             ))
             .unwrap()
             .as_slice(),

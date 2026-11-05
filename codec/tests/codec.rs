@@ -1,7 +1,7 @@
 //! 根框架数据编解码的跨模块回归测试。
 
 use miresidian_codec::{
-    ByteTextFormat, DeviceInput, DeviceOutput, MiresidianError, decode_text_to_bytes, decode_value,
+    ByteTextFormat, DeviceInput, DeviceOutput, decode_text_to_bytes, decode_value,
     decode_value_with_definition, encode_bytes_to_text, transcode_text,
 };
 
@@ -148,59 +148,98 @@ fn 选项显示值会在标量与数组解析前规范化为实际值() {
 }
 
 #[test]
-fn 默认候选文本只在采用该文本时取首项() {
+fn 候选描述不提供默认值或选择首项() {
     let definition = "波特率:9600/19200";
-    for values in [
-        vec![],
-        vec!["".to_owned()],
-        vec!["波特率:".to_owned()],
-        vec!["9600/19200".to_owned()],
-    ] {
+    assert!(decode_value_with_definition::<u32>(&[], 0, "波特率", definition, None).is_err());
+    for value in ["", "  ", "波特率:"] {
         assert_eq!(
-            decode_value_with_definition::<u32>(
-                &values,
-                0,
-                "波特率",
-                definition,
-                Some("9600/19200")
-            )
-            .unwrap(),
-            9600
+            decode_value_with_definition::<u32>(&[value.into()], 0, "波特率", definition, None)
+                .unwrap(),
+            0
         );
     }
-    for value in ["19200", "波特率:19200", "38400"] {
-        assert_eq!(
-            decode_value_with_definition::<u32>(
-                &[value.to_owned()],
-                0,
-                "波特率",
-                definition,
-                Some("9600/19200")
-            )
-            .unwrap(),
-            if value == "38400" { 38400 } else { 19200 }
+    for value in ["9600/19200", "bad", "19200/38400"] {
+        assert!(
+            decode_value_with_definition::<u32>(&[value.into()], 0, "波特率", definition, None)
+                .is_err()
         );
     }
-    for value in ["bad", "19200/38400"] {
-        let error = decode_value_with_definition::<u32>(
-            &[value.to_owned()],
+    assert_eq!(
+        decode_value_with_definition::<u32>(&["19200".into()], 0, "波特率", definition, None)
+            .unwrap(),
+        19200
+    );
+    assert_eq!(
+        decode_value_with_definition::<String>(
+            &["9600/19200".into()],
             0,
             "波特率",
             definition,
-            Some("9600/19200"),
+            None
         )
-        .unwrap_err();
-        assert!(
-            matches!(error, MiresidianError::InvalidArgument { field, .. } if field == "波特率")
+        .unwrap(),
+        "9600/19200"
+    );
+}
+
+#[test]
+fn 所有数值标量空白为零且缺参和非法输入报错() {
+    macro_rules! check {
+        ($($ty:ty),+ $(,)?) => {$(
+            for value in ["", "  ", "\t\n"] {
+                assert_eq!(<$ty>::parse_device_text(value, "数值").unwrap(), 0 as $ty);
+            }
+            for value in ["bad", "0x", "0b", "1/2"] {
+                assert!(<$ty>::parse_device_text(value, "数值").is_err());
+            }
+            assert!(decode_value::<$ty>(&[], 0, "数值", None).is_err());
+        )+};
+    }
+    check!(
+        i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+    );
+    assert!(u8::parse_device_text("256", "数值").is_err());
+    for value in ["NaN", "inf", "-inf"] {
+        assert!(f32::parse_device_text(value, "数值").is_err());
+        assert!(f64::parse_device_text(value, "数值").is_err());
+    }
+    assert_eq!(Option::<u32>::parse_device_text(" ", "数值").unwrap(), None);
+    assert!(
+        Vec::<u32>::parse_device_text("", "数值")
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn gbk_不探测_bom_或替换非法字节() {
+    for value in [
+        &[0xff, 0xfe, 0x41, 0][..],
+        &[0xef, 0xbb, 0xbf],
+        &[0x81],
+        &[0xff],
+    ] {
+        let error = encode_bytes_to_text(value, ByteTextFormat::Gbk).unwrap_err();
+        assert_eq!(error.code(), "INVALID_ARGUMENT");
+    }
+    for text in ["ABC", "中文", ""] {
+        let bytes = decode_text_to_bytes(text, ByteTextFormat::Gbk).unwrap();
+        assert_eq!(
+            encode_bytes_to_text(&bytes, ByteTextFormat::Gbk).unwrap(),
+            text
         );
     }
+    assert!(transcode_text("FF FE 41 00", ByteTextFormat::Hex, ByteTextFormat::Gbk).is_err());
 }
 
 #[test]
 fn 选项实际值与显示值不被默认候选覆盖() {
     let definition = "校验:None-无校验/Odd-奇校验/Even-偶校验";
     for (value, expected) in [
-        ("None-无校验/Odd-奇校验/Even-偶校验", "None"),
+        (
+            "None-无校验/Odd-奇校验/Even-偶校验",
+            "None-无校验/Odd-奇校验/Even-偶校验",
+        ),
         ("Odd", "Odd"),
         ("奇校验", "Odd"),
         ("Even", "Even"),
@@ -229,6 +268,9 @@ fn 选项实际值与显示值不被默认候选覆盖() {
 #[test]
 fn 普通默认文本与显式文本保持原值() {
     for value in [
+        "logs/output.txt",
+        "logs/my-file.txt",
+        r"logs\my-file.txt",
         "https://example.test/a/b",
         "/tmp/device/config",
         "./config/device",
@@ -253,8 +295,7 @@ fn 普通默认文本与显式文本保持原值() {
             value
         );
     }
-    assert_eq!(
-        decode_value_with_definition::<i32>(&[], 0, "偏移", "偏移:-1/0/1", Some("-1/0/1")).unwrap(),
-        -1
+    assert!(
+        decode_value_with_definition::<i32>(&[], 0, "偏移", "偏移:-1/0/1", Some("-1/0/1")).is_err()
     );
 }

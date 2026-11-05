@@ -2,7 +2,7 @@
 
 [文档中心](README.md) · [实例管理](instances.md) · [配置租约](../features/lease/README.md)
 
-框架 0.20.1、lease 0.15.1 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
+框架 0.22.0、lease 0.15.2 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
 
 ## 两种身份和生命周期
 
@@ -46,7 +46,7 @@ SharedResource 是同步接口；原生 async 方法应通过阻塞线程桥执�
 
 ## 最小可运行示例：模拟通信提供者
 
-以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.20.1", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
+以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.22.0", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
 
 ```rust
 use miresidian::lease::{

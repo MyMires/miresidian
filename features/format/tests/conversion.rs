@@ -69,3 +69,31 @@ fn optional_and_empty_batch_records_preserve_positions() {
         vec![vec![], vec![0x41]]
     );
 }
+
+#[test]
+fn nonfinite_float_outputs_fail_for_all_formats_and_wrappers() {
+    for format in [Ascii, Gbk, Utf8, Utf16Le, Hex, Base64] {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                encode_formatted(value, format).unwrap_err().code(),
+                "INVALID_ARGUMENT"
+            );
+            assert!(encode_formatted(vec![1.0, value], format).is_err());
+            assert!(encode_formatted(Some(value), format).is_err());
+            assert!(encode_formatted(Some(vec![value]), format).is_err());
+            assert!(encode_formatted(value as f32, format).is_err());
+            assert!(encode_formatted(vec![value as f32], format).is_err());
+        }
+        let encoded = encode_formatted(1.25_f64, format).unwrap();
+        assert_eq!(
+            decode_formatted::<f64>(&encoded, format, "数值").unwrap(),
+            1.25
+        );
+        assert_eq!(
+            encode_formatted(None::<f64>, format).unwrap(),
+            if format == Base64 { "base64:" } else { "" }
+        );
+    }
+    assert!(encode_formatted(vec![0xff, 0xfe, 0x41, 0_u8], Gbk).is_err());
+    assert_eq!(decode_formatted::<f64>("", Utf8, "数值").unwrap(), 0.0);
+}

@@ -369,3 +369,65 @@ fn both_ffi_entries_extract_handle_from_config_and_skip_blank_initialization() {
         );
     }
 }
+
+#[test]
+fn missing_handle_is_unknown_before_init_and_after_the_last_close_in_all_entries() {
+    let runtime = NodeRuntime::<HandleNode>::new();
+    for _ in 0..2 {
+        assert!(matches!(
+            runtime.invoke(&request("计数", &["device", "9600", "H1"], &["x"])),
+            Err(MiresidianError::UnknownChannel(_))
+        ));
+        runtime
+            .invoke(&request("InitDevice", &["device", "9600", "H1"], &[]))
+            .unwrap();
+        runtime
+            .invoke(&request("CloseDevice", &["device", "9600", "H1"], &[]))
+            .unwrap();
+    }
+    for explicit in [false, true] {
+        let runtime = OnceLock::new();
+        for _ in 0..2 {
+            assert_eq!(
+                ffi_call(
+                    &runtime,
+                    explicit,
+                    "计数",
+                    &["device", "9600", "H1"],
+                    &["x"]
+                )["code"],
+                "UNKNOWN_CHANNEL"
+            );
+            assert_eq!(
+                ffi_call(
+                    &runtime,
+                    explicit,
+                    "InitDevice",
+                    &["device", "9600", "H1"],
+                    &[]
+                )["code"],
+                "OK"
+            );
+            assert_eq!(
+                ffi_call(
+                    &runtime,
+                    explicit,
+                    "CloseDevice",
+                    &["device", "9600", "H1"],
+                    &[]
+                )["code"],
+                "OK"
+            );
+        }
+        assert_eq!(
+            ffi_call(
+                &runtime,
+                explicit,
+                "CloseDevice",
+                &["device", "9600", "H1"],
+                &[]
+            )["code"],
+            "UNKNOWN_CHANNEL"
+        );
+    }
+}

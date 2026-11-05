@@ -42,13 +42,10 @@ pub(super) fn decode_text(value: &[u8], format: ByteTextFormat) -> MiresidianRes
             }
             String::from_utf8(value.to_vec()).map_err(|_| invalid("数据", "字节序列不是有效 ASCII"))
         }
-        ByteTextFormat::Gbk => {
-            let (text, _, had_errors) = GBK.decode(value);
-            if had_errors {
-                return Err(invalid("数据", "字节序列不是有效 GBK"));
-            }
-            Ok(text.into_owned())
-        }
+        ByteTextFormat::Gbk => GBK
+            .decode_without_bom_handling_and_without_replacement(value)
+            .map(|text| text.into_owned())
+            .ok_or_else(|| invalid("数据", "字节序列不是有效 GBK")),
         ByteTextFormat::Utf8 => {
             String::from_utf8(value.to_vec()).map_err(|_| invalid("数据", "字节序列不是有效 UTF-8"))
         }

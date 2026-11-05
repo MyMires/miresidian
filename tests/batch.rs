@@ -116,7 +116,7 @@ fn batch_aligns_multiple_inputs_broadcasts_single_values_and_reuses_plain_inputs
         runtime
             .invoke(&request(&["1|2", "1|3", ""]))
             .expect("按位置配对"),
-        miresidian::InvocationOutput::new(vec!["1|2".to_owned(), "1:1:2|2:3:6".to_owned(),])
+        miresidian::InvocationOutput::new(vec!["1|2".to_owned(), "1:1:0|2:3:0".to_owned(),])
     );
 }
 

@@ -46,7 +46,7 @@ mod tests {
         );
         assert_eq!(decode_batch::<String>("", "值").unwrap(), [""]);
         assert!(decode_batch::<bool>("", "值").is_err());
-        assert!(decode_batch::<i32>("", "值").is_err());
+        assert_eq!(decode_batch::<i32>("", "值").unwrap(), [0]);
         assert!(
             Vec::<String>::parse_device_text("", "值")
                 .unwrap()

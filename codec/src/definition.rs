@@ -29,14 +29,10 @@ pub(super) fn value_at(
     Ok(value.to_owned())
 }
 
-/// 解析匹配声明的默认候选文本，并将“实际值-显示值”映射为稳定的实际值。
+/// 将声明中的具体显示值映射为稳定的实际值；完整候选文本保持原文。
 ///
 /// 标量直接匹配；包含 `|` 的数组文本会逐项映射，随后交给既有集合 codec 继续处理。
 pub(super) fn normalize_option_value(value: String, definition: &str) -> String {
-    // 平台可直接传入整段默认候选文本；只有与声明完全匹配时才取首项。
-    let value = declared_choice_value(&value, definition)
-        .map(str::to_owned)
-        .unwrap_or(value);
     let options = option_pairs(definition);
     if options.is_empty() {
         return value;
@@ -49,35 +45,6 @@ pub(super) fn normalize_option_value(value: String, definition: &str) -> String 
             .join("|");
     }
     normalize_option_item(&value, &options)
-}
-
-/// 识别整段候选文本，不将任意显式输入回退到首项，也不改写普通路径默认值。
-fn declared_choice_value<'a>(value: &str, definition: &'a str) -> Option<&'a str> {
-    let (_, suffix) = definition.split_once(':')?;
-    let suffix = suffix.trim();
-    if value.trim() != suffix {
-        return None;
-    }
-    let mut choices = suffix.split('/').map(str::trim);
-    let first = choices.next()?;
-    if choices.clone().next().is_none()
-        || first.is_empty()
-        || matches!(first, "." | "..")
-        || first.contains(':')
-        || choices.any(str::is_empty)
-    {
-        return None;
-    }
-    // 负数及科学计数法中的连字符属于数值，不是实际值/显示值分隔符。
-    if first.parse::<f64>().is_ok() {
-        return Some(first);
-    }
-    match first.split_once('-') {
-        Some((actual, display)) if !actual.trim().is_empty() && !display.trim().is_empty() => {
-            Some(actual.trim())
-        }
-        _ => Some(first),
-    }
 }
 
 fn normalize_option_item(value: &str, options: &[(&str, &str)]) -> String {

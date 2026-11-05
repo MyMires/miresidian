@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.21.0"
+version = "0.22.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -34,17 +34,17 @@ edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 [dependencies]
-miresidian_format = { version = "=0.3.0", path = "features/format", optional = true }
+miresidian_format = { version = "=0.3.1", path = "features/format", optional = true }
 miresidian_abi = { version = "=0.14.0", path = "abi" }
-miresidian_codec = { version = "=0.14.2", path = "codec" }
-miresidian_macro = { version = "=0.19.0", path = "macro" }
-miresidian_batch = { version = "=0.2.0", path = "features/batch", optional = true }
+miresidian_codec = { version = "=0.15.0", path = "codec" }
+miresidian_macro = { version = "=0.20.0", path = "macro" }
+miresidian_batch = { version = "=0.2.1", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"
-miresidian_lease = { version = "=0.15.1", path = "features/lease" }
+miresidian_lease = { version = "=0.15.2", path = "features/lease" }
 serde = { version = "1.0", features = ["derive"] }
 
-miresidian_instances = { version = "=0.16.2", path = "features/instances" }
+miresidian_instances = { version = "=0.16.3", path = "features/instances" }
 
 tokio = { version = "~1.53.3", features = ["rt-multi-thread", "sync", "time", "net", "io-util", "macros"] }
 futures-util = "=0.3.31"

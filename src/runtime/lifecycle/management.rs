@@ -20,7 +20,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         let parsed = self.parse_config(config, selector, platform)?;
         let key = parsed.key(self.normalize_channel_config(parsed.node)?)?;
         let management = self.management();
-        if management.objects.is_empty() {
+        if management.objects.is_empty() && !matches!(key, super::routing::InstanceKey::Handle(_)) {
             return Err(MiresidianError::NotInitialized);
         }
         management
@@ -149,7 +149,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         management.active_platform = Some(platform);
         Ok(output)
     }
-    /// 生成稳定通道键并补齐有效的默认值。该规则与宏生成参数解析保持一致，
+    /// 提取稳定通道配置文本。业务参数缺参报错；该规则与宏生成参数解析保持一致，
     /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
     fn normalize_channel_config(&self, config: &[String]) -> MiresidianResult<Vec<String>> {
         N::descriptor()

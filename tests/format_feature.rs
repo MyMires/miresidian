@@ -159,13 +159,13 @@ fn descriptors_defaults_and_independent_selectors() {
         invoke(&runtime, "转换", &["AB", "", "", ""])
             .unwrap()
             .as_slice(),
-        ["41 42 21", "2"]
+        ["41 42", "2"]
     );
     assert_eq!(
         invoke(&runtime, "转换", &["AB", "", ""])
             .unwrap()
             .as_slice(),
-        ["41 42 21", "3"]
+        ["41 42", "3"]
     );
     assert!(invoke(&runtime, "转换", &["AB", "UTF8", "!", "Base64"]).is_err());
     assert!(invoke(&runtime, "转换", &["ZZ", "HEX", "!", "HEX"]).is_err());
@@ -324,7 +324,7 @@ fn format_list_errors_are_rejected_before_business_execution() {
 
 #[cfg(feature = "batch")]
 #[test]
-fn multiple_formats_mixed_integer_ranges_and_plain_defaults_keep_input_positions() {
+fn multiple_formats_mixed_integer_ranges_and_blank_literals_keep_input_positions() {
     let runtime = runtime();
     let functions = invoke(&runtime, "GetFunctions", &[]).unwrap();
     assert!(functions.as_slice().iter().any(|s| s == "多列组合(文本,文本类型:UTF8/HEX/Base64,开关,开关类型:UTF8/HEX/Base64,序号,后缀:!,返回类型:UTF8/HEX)(文本,开关,序号)"));
@@ -344,7 +344,7 @@ fn multiple_formats_mixed_integer_ranges_and_plain_defaults_keep_input_positions
         )
         .unwrap()
         .as_slice(),
-        ["A!|42 21|C!", "true|false|true", "1|2|4"]
+        ["A|42|C", "true|false|true", "1|2|4"]
     );
     assert_eq!(invoke(&runtime, "次数", &[]).unwrap().as_slice(), ["3"]);
 }

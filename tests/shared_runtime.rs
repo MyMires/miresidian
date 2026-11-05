@@ -145,11 +145,11 @@ fn shared_unknown_or_closed_config_never_selects_another_object() {
 }
 
 #[test]
-fn shared_config_uses_defaults_prefixes_and_reserved_config_rules() {
+fn shared_config_uses_explicit_values_prefixes_and_reserved_config_rules() {
     let runtime = NodeRuntime::<SharedNode>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     for config in [
-        vec![],
+        vec!["A"],
         vec!["地址:A"],
         vec!["A", TB_LV_TEST_PLATFORM, "Sequential"],
     ] {

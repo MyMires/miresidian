@@ -84,6 +84,9 @@ macro_rules! integer {
     ($($type:ty),+ $(,)?) => {$(
         impl DeviceInput for $type {
             fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+                if value.trim().is_empty() {
+                    return Ok(0);
+                }
                 if let Some(value) = parse_radix(value, field)? {
                     return <$type>::try_from(value).map_err(|_| invalid(field, "数值超出类型范围"));
                 }
@@ -107,6 +110,9 @@ macro_rules! float {
     ($($type:ty),+ $(,)?) => {$(
         impl DeviceInput for $type {
             fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+                if value.trim().is_empty() {
+                    return Ok(0.0);
+                }
                 let value = match parse_radix(value, field)? {
                     Some(value) => value as $type,
                     None => value.trim().parse::<$type>().map_err(|_| invalid(field, "数值格式错误"))?,
