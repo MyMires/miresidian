@@ -1,4 +1,4 @@
 interface:
   display_name: "Miresidian Node"
-  short_description: "指导 AI 构建 Miresidian Node，完成契约、业务、验证与交付"
-  default_prompt: "使用 $miresidian-node 将业务需求实现为独立 Node 项目，按适配版本完成契约、实现、验证及约定交付。"
+  short_description: "按项目实际版本查询官方资料，指导 Node 契约、业务实现、验证与交付"
+  default_prompt: "使用 $miresidian-node 按项目实际框架和工具版本查阅官方资料，完成 Node 契约、业务实现、验证及约定交付。"
