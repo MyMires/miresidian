@@ -2,6 +2,13 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.23.0] - 2026-11-05
+
+- Add type-driven canonical configuration callbacks shared by instance comparison and lease encoding. Numeric blanks and zero are equivalent, while blank identities and nonkey routing retain their boundaries.
+- Map options after recognizing complete escaped collection elements; preserve literal pipe contents.
+- Require empty default fields for paths, open text and continuous numeric declarations in the synchronized Node skill and documentation. Scientific notation is actual input, not a default/candidate description.
+- Root 0.23.0, codec 0.16.0, macro 0.21.0; patch dependent adapters only. Tools, C ABI v7, lease v2, resource v1 and MSRV 1.89 remain unchanged.
+
 ## [0.22.0] - 2026-11-05
 
 - Stop deriving business defaults from descriptions and selecting the first item of complete choice strings. Explicit blank numbers become zero; missing arguments fail. Preserve display-label mapping and explicit framework selector defaults.

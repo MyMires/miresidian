@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.22.0", features = ["batch"] }
+miresidian = { version = "=0.23.0", features = ["batch"] }
 ```
 
 在普通 operation 的 Input 上标记，原方法仍接收单条记录。字符串、布尔无需 format：

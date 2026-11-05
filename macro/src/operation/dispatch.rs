@@ -46,6 +46,24 @@ pub(super) fn close(method: &FixedMethod) -> proc_macro2::TokenStream {
     quote! { #(#arguments)* #call?; Ok(()) }
 }
 
+/// 配置值已由运行时提取名称/显示值；按原 Rust 类型生成配置身份和租约共用回调。
+pub(super) fn normalize_config_value(method: &InitMethod) -> proc_macro2::TokenStream {
+    let arms = method.parameters.iter().filter(|p| p.source == ParameterSource::Config)
+        .enumerate().map(|(index, parameter)| {
+            let ty = &parameter.ty;
+            let name = &parameter.name;
+            quote!(#index => <#ty as ::miresidian::DeviceInput>::normalize_device_text(value, #name),)
+        });
+    quote! {
+        match index {
+            #(#arms)*
+            _ => Err(::miresidian::MiresidianError::InvalidArgument {
+                field: "Config".to_owned(), message: "配置索引超出初始化定义".to_owned(),
+            }),
+        }
+    }
+}
+
 /// 生成所有初始化 Config 的 Rust 名称与规范化值，供结构体级 lease 声明筛选。
 pub(super) fn lease_parameters(method: &InitMethod) -> proc_macro2::TokenStream {
     let mut config_index = 0usize;
@@ -63,12 +81,11 @@ pub(super) fn lease_parameters(method: &InitMethod) -> proc_macro2::TokenStream 
             None => quote!(None),
         };
         Some(quote! {
-            values.push((
-                #rust_name.to_owned(),
-                ::miresidian::codec::decode_value_with_definition::<::std::string::String>(
-                    config, #source_index, #name, #definition, #default,
-                )?,
-            ));
+            let value = ::miresidian::codec::normalize_value_with_definition(
+                config, #source_index, #name, #definition, #default,
+            )?;
+            let value = Self::__miresidian_normalize_config_value(#source_index, &value)?;
+            values.push((#rust_name.to_owned(), value));
         })
     });
     quote! {

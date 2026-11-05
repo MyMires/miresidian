@@ -36,10 +36,7 @@ impl DescriptionNode {
         Ok(value)
     }
     #[miresidian::operation("文本")]
-    fn text(
-        &mut self,
-        #[miresidian::input("文本:logs/my-file.txt")] value: String,
-    ) -> MiresidianResult<String> {
+    fn text(&mut self, #[miresidian::input("文本:")] value: String) -> MiresidianResult<String> {
         Ok(value)
     }
 }

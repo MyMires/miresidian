@@ -42,6 +42,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 let call = dispatch::initialize(&init);
                 let validate = dispatch::validate_init(&init);
                 let lease_parameters = dispatch::lease_parameters(&init);
+                let normalize_config_value = dispatch::normalize_config_value(&init);
                 quote! {
                     const __MIRESIDIAN_INIT_CONFIG: &'static [::miresidian::ParameterDescriptor] = &[#(#configs),*];
                     const __MIRESIDIAN_INIT_INPUTS: &'static [::miresidian::ParameterDescriptor] = &[#(#inputs),*];
@@ -51,6 +52,9 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                     }
                     fn __miresidian_validate_init(config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<()> {
                         #validate
+                    }
+                    fn __miresidian_normalize_config_value(index: usize, value: &str) -> ::miresidian::MiresidianResult<::std::string::String> {
+                        #normalize_config_value
                     }
                     fn __miresidian_lease_parameters(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::std::vec::Vec<(::std::string::String, ::std::string::String)>> {
                         #lease_parameters

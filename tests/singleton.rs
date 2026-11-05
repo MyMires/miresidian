@@ -210,3 +210,28 @@ fn enabling_feature_alone_does_not_enable_multi_channel_calls() {
         ["ordinary:1"]
     );
 }
+
+#[test]
+fn equivalent_typed_config_finds_and_reuses_the_single_object() {
+    let runtime = NodeRuntime::<Singleton>::new();
+    runtime
+        .invoke(&request("InitDevice", &["canonical-single", "1"], &[]))
+        .unwrap();
+    assert_eq!(
+        runtime
+            .invoke(&request("InitDevice", &["canonical-single", "0x1"], &[]))
+            .unwrap()
+            .as_slice(),
+        [miresidian::CHANNEL_REUSED_MESSAGE]
+    );
+    assert_eq!(
+        runtime
+            .invoke(&request("计数", &["canonical-single", "01"], &[]))
+            .unwrap()
+            .as_slice(),
+        ["canonical-single:1"]
+    );
+    runtime
+        .invoke(&request("CloseDevice", &["canonical-single", "0b1"], &[]))
+        .unwrap();
+}

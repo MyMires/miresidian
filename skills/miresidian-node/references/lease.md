@@ -14,7 +14,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.22.0", features = ["lease"] }
+miresidian = { version = "=0.23.0", features = ["lease"] }
 ```
 
 只开 feature 不会自动加运行时租约，也不会自动代理节点中已有的设备 open。SharedResource 已持有自身及所有者的配置租约，通常由通信层统一负责，无需再声明一套运行时租约。选择路径后落实实际连接、收发和关闭，不能以成功获取租约代替通信实现。
@@ -87,7 +87,7 @@ SharedResource 本身已取得配置租约。若同时声明运行时 lease，�
 
 代理是同步接口；在原生 async 业务中通过合适的阻塞线程桥执行并等待实际完成，不能占用异步工作线程或把丢弃等待当作设备动作已取消。通信实现仍负责真实设备 I/O 超时。
 
-可复制的模拟提供者、独占资源动态库示例及完整 API 说明见[对应版本的共享资源文档](https://github.com/MyMires/miresidian/blob/miresidian-v0.22.0/docs/shared-resources.md)。模拟计数器或独占文件证明生命周期，不证明真实串口通信。
+可复制的模拟提供者、独占资源动态库示例及完整 API 说明见[对应版本的共享资源文档](https://github.com/MyMires/miresidian/blob/miresidian-v0.23.0/docs/shared-resources.md)。模拟计数器或独占文件证明生命周期，不证明真实串口通信。
 
 ## 生命周期与部署
 

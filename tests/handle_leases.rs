@@ -135,3 +135,63 @@ fn reused_handle_preserves_state_and_rejects_lease_access_changes() {
         runtime.shutdown().unwrap();
     }
 }
+
+#[test]
+fn blank_and_explicit_numeric_zero_share_one_configuration_and_lease_in_both_ffi_entries() {
+    use std::{
+        ffi::{CStr, CString},
+        sync::OnceLock,
+    };
+    for explicit in [false, true] {
+        let runtime = OnceLock::<NodeRuntime<LeasedHandleNode>>::new();
+        let resource = format!("typed-lease-zero:{}:{explicit}", std::process::id());
+        let call = |op: &str, setting: &str, handle: &str| {
+            let op = CString::new(op).unwrap();
+            let config = CString::new(
+                serde_json::to_string(&[resource.as_str(), setting, handle, "Lease"]).unwrap(),
+            )
+            .unwrap();
+            let input = CString::new("[]").unwrap();
+            // SAFETY: 输入有效且在调用期间存活；响应在下一次调用前立即解析。
+            unsafe {
+                let pointer = if explicit {
+                    miresidian::ffi_runtime::invoke_with(
+                        &runtime,
+                        1,
+                        op.as_ptr(),
+                        config.as_ptr(),
+                        input.as_ptr(),
+                    )
+                } else {
+                    miresidian::ffi_runtime::invoke(
+                        &runtime,
+                        op.as_ptr(),
+                        config.as_ptr(),
+                        input.as_ptr(),
+                    )
+                };
+                serde_json::from_str::<serde_json::Value>(CStr::from_ptr(pointer).to_str().unwrap())
+                    .unwrap()
+            }
+        };
+        assert_eq!(call("InitDevice", "", "H1")["code"], "OK");
+        assert_eq!(
+            call("计数", "0", "H1")["output"],
+            serde_json::json!(["0:1"])
+        );
+        let reused = call("InitDevice", "0x0", "H1");
+        assert_eq!(reused["code"], "OK");
+        assert_eq!(
+            reused["output"],
+            serde_json::json!([miresidian::CHANNEL_REUSED_MESSAGE])
+        );
+        assert_eq!(call("InitDevice", "0", "H2")["code"], "OK");
+        assert_ne!(call("InitDevice", "1", "H3")["code"], "OK");
+        assert_eq!(call("CloseDevice", "unused", "H1")["code"], "OK");
+        assert_eq!(
+            call("计数", "0", "H2")["output"],
+            serde_json::json!(["0:1"])
+        );
+        assert_eq!(call("CloseDevice", "0", "H2")["code"], "OK");
+    }
+}

@@ -5,7 +5,7 @@ use crate::MiresidianResult;
 use super::{DeviceCollectionElement, DeviceInput, DeviceOutput, binary, invalid};
 
 /// 按竖线分隔元素，并识别 `\|` 与 `\\` 转义。
-fn split_items(value: &str, field: &str) -> MiresidianResult<Vec<String>> {
+pub(super) fn split_items(value: &str, field: &str) -> MiresidianResult<Vec<String>> {
     if value.is_empty() {
         return Ok(Vec::new());
     }
@@ -34,7 +34,7 @@ fn split_items(value: &str, field: &str) -> MiresidianResult<Vec<String>> {
     Ok(items)
 }
 
-fn format_items(values: impl IntoIterator<Item = String>) -> String {
+pub(super) fn format_items(values: impl IntoIterator<Item = String>) -> String {
     values
         .into_iter()
         .map(|value| value.replace('\\', "\\\\").replace('|', "\\|"))

@@ -13,8 +13,8 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 | 组件 | 适配版本 |
 | --- | --- |
-| 框架 `miresidian` | 0.22.0 |
-| 资源共享实现 `miresidian_lease` | 0.15.2 |
+| 框架 `miresidian` | 0.23.0 |
+| 资源共享实现 `miresidian_lease` | 0.15.3 |
 | CLI `miresidian_cli` | 0.3.1 |
 | Pack `miresidian_pack` | 0.13.1 |
 | Windows TestFlow `miresidian_testflow_windows` | 0.12.0 |
@@ -30,7 +30,7 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 ## 2. 设计节点契约
 
-实现前读取 [Node 开发参考](references/node-development.md)，落实[固定入口职责](references/node-development.md#固定入口与节点职责)、操作、参数来源、完整选项、默认值、单位及错误条件；复杂契约可用简表表达。
+实现前读取 [Node 开发参考](references/node-development.md)，落实[固定入口职责](references/node-development.md#固定入口与节点职责)、操作、参数来源、完整选项、空白/缺参、单位及错误条件；复杂契约可用简表表达。
 
 默认采用普通单实例。按需求选择能力，只读取相关参考：
 

@@ -2,16 +2,16 @@
 
 [中文](README.md) · [English](README.en.md)
 
-`miresidian_lease` 0.15.1 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v1** protocol.
+`miresidian_lease` 0.15.3 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v1** protocol.
 
 Node projects normally enable the capability through the root crate:
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.20.1", features = ["lease"] }
+miresidian = { version = "=0.23.0", features = ["lease"] }
 ```
 
-Standalone communication providers can depend on `miresidian_lease = { version = "=0.15.1", features = ["local-ipc"] }`.
+Standalone communication providers can depend on `miresidian_lease = { version = "=0.15.3", features = ["local-ipc"] }`.
 
 ## Choose the appropriate mechanism
 

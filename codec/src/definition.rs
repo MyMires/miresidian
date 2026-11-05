@@ -38,11 +38,16 @@ pub(super) fn normalize_option_value(value: String, definition: &str) -> String 
         return value;
     }
     if value.contains('|') {
-        return value
-            .split('|')
-            .map(|item| normalize_option_item(item, &options))
-            .collect::<Vec<_>>()
-            .join("|");
+        // 先识别完整元素，不能把字面竖线后的片段当成另一个显示值。
+        // 非法集合转义留给目标类型报错；普通 String 仍保留原文。
+        return match super::collection::split_items(&value, "选项") {
+            Ok(items) => super::collection::format_items(
+                items
+                    .into_iter()
+                    .map(|item| normalize_option_item(&item, &options)),
+            ),
+            Err(_) => value,
+        };
     }
     normalize_option_item(&value, &options)
 }

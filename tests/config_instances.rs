@@ -2,6 +2,7 @@
 //! Config[0] 是业务主键；其余配置不能使空主键触发构造。
 
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
+type Speed = u32;
 
 #[miresidian::node("Config 主键", instances(mode = multiple, binding = config, execution = sequential))]
 struct ConfigNode {
@@ -14,7 +15,7 @@ impl ConfigNode {
     #[miresidian::operation]
     fn init_device(
         #[miresidian::config("主键:default")] key: String,
-        #[miresidian::config("速度:9600")] speed: u32,
+        #[miresidian::config("速度:9600")] speed: Speed,
     ) -> MiresidianResult<Self> {
         Ok(Self {
             key,
@@ -119,4 +120,32 @@ fn first_config_is_the_identity_and_conflicting_settings_do_not_create_another_o
             .as_slice(),
         ["B:9600:2"]
     );
+}
+
+#[test]
+fn numeric_configuration_equivalence_does_not_change_object_or_nonkey_routing() {
+    let runtime = NodeRuntime::<ConfigNode>::new();
+    runtime
+        .invoke(&request("InitDevice", &["canonical", ""]))
+        .unwrap();
+    for speed in ["0", "00", "0x0", "速度:0"] {
+        assert_eq!(
+            runtime
+                .invoke(&request("InitDevice", &["canonical", speed]))
+                .unwrap()
+                .as_slice(),
+            [miresidian::CHANNEL_REUSED_MESSAGE]
+        );
+    }
+    // 非主键值不参与多实例路由，业务继续读取已保存的规范配置。
+    assert_eq!(
+        runtime
+            .invoke(&request("计数", &["canonical", "not-a-number"]))
+            .unwrap()
+            .as_slice(),
+        ["canonical:0:1"]
+    );
+    runtime
+        .invoke(&request("CloseDevice", &["canonical", "unused"]))
+        .unwrap();
 }

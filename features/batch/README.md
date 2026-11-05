@@ -3,7 +3,7 @@
 设备类型无关的批量记录解析、长度对齐和输出聚合。节点通过根 crate 启用：
 
 ```toml
-miresidian = { version = "=0.22.0", features = ["batch"] }
+miresidian = { version = "=0.23.0", features = ["batch"] }
 ```
 
 示例表示源码适配版本；独立节点须先确认该精确版本已发布，不用本地覆盖。

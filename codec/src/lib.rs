@@ -129,6 +129,12 @@ pub fn transcode_text(
 pub trait DeviceInput: Sized {
     /// 从单个已完成名称与默认值处理的文本值构造目标类型。
     fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self>;
+
+    /// 配置身份及租约编码使用的规范文本，不取得资源或执行设备操作。
+    /// 默认保留原文；内置数值按解析后的值规范化，自定义类型可覆盖自身等价规则。
+    fn normalize_device_text(value: &str, _field: &str) -> MiresidianResult<String> {
+        Ok(value.to_owned())
+    }
 }
 
 /// 可安全返回给测试平台的驱动方法结果类型。
@@ -204,6 +210,10 @@ impl<T: DeviceCollectionElement> DeviceInput for Vec<T> {
     fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
         T::parse_device_collection(value, field)
     }
+
+    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+        T::format_device_collection(&Self::parse_device_text(value, field)?)
+    }
 }
 
 impl<T: DeviceCollectionElement> DeviceOutput for Vec<T> {
@@ -220,6 +230,14 @@ impl<T: DeviceInput> DeviceInput for Option<T> {
             Ok(None)
         } else {
             T::parse_device_text(value, field).map(Some)
+        }
+    }
+
+    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+        if value.trim().is_empty() {
+            Ok(String::new())
+        } else {
+            T::normalize_device_text(value, field)
         }
     }
 }

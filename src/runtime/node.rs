@@ -51,6 +51,12 @@ pub trait DeviceNode: Send + Sized + 'static {
         Ok(())
     }
 
+    /// 已提取名称/选项后的单个业务 Config 值，供实例身份与租约统一编码。
+    /// 宏按原参数类型生成纯归一化回调；手写契约默认保留文本。
+    fn normalize_config_value(_index: usize, value: &str) -> MiresidianResult<String> {
+        Ok(value.to_owned())
+    }
+
     /// 返回由结构体级 `lease(...)` 声明生成的请求；在构造节点前执行。普通节点返回 `None`。
     fn lease_request(_config: &[String]) -> MiresidianResult<Option<LeaseRequest>> {
         Ok(None)

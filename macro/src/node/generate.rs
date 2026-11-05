@@ -114,6 +114,10 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
                 Self::__miresidian_validate_init(config, input)
             }
 
+            fn normalize_config_value(index: usize, value: &str) -> ::miresidian::MiresidianResult<::std::string::String> {
+                Self::__miresidian_normalize_config_value(index, value)
+            }
+
             fn lease_request(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::miresidian::lease::LeaseRequest>> {
                 #lease_request
             }

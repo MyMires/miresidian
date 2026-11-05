@@ -18,7 +18,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform: Option<Platform>,
     ) -> MiresidianResult<Arc<Instance<N>>> {
         let parsed = self.parse_config(config, selector, platform)?;
-        let key = parsed.key(self.normalize_channel_config(parsed.node)?)?;
+        let key = parsed.key(self.normalize_channel_config(parsed.node, true)?)?;
         let management = self.management();
         if management.objects.is_empty() && !matches!(key, super::routing::InstanceKey::Handle(_)) {
             return Err(MiresidianError::NotInitialized);
@@ -70,7 +70,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                 message: format!("配置选择 {platform}，但本次调用使用 {adapter_identifier}"),
             });
         }
-        let channel_config = self.normalize_channel_config(parsed.node)?;
+        let channel_config = self.normalize_channel_config(parsed.node, false)?;
         let key = parsed.key(channel_config.clone())?;
         let existing = {
             self.management()
@@ -151,19 +151,35 @@ impl<N: DeviceNode> NodeRuntime<N> {
     }
     /// 提取稳定通道配置文本。业务参数缺参报错；该规则与宏生成参数解析保持一致，
     /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
-    fn normalize_channel_config(&self, config: &[String]) -> MiresidianResult<Vec<String>> {
+    fn normalize_channel_config(
+        &self,
+        config: &[String],
+        routing: bool,
+    ) -> MiresidianResult<Vec<String>> {
+        let policy = N::descriptor().instances;
+
         N::descriptor()
             .init_config
             .iter()
             .enumerate()
             .map(|(index, parameter)| {
-                normalize_value_with_definition(
+                let value = normalize_value_with_definition(
                     config,
                     index,
                     parameter.name,
                     parameter.definition,
                     parameter.default_value,
-                )
+                )?;
+                let is_identity = policy.mode == InstanceMode::Single
+                    || (policy.binding == crate::InstanceBinding::Config && index == 0);
+                if !routing || is_identity {
+                    catch_node(INIT_DEVICE_OPERATION, || {
+                        N::normalize_config_value(index, &value)
+                    })
+                } else {
+                    // 多实例查找由主键/Handle 决定，非主键值不替换对象保存的业务配置。
+                    Ok(value)
+                }
             })
             .collect()
     }
@@ -198,7 +214,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .unwrap_or_else(|e| e.into_inner());
         crate::CallContext::current().check()?;
         let parsed = self.parse_config(config, selector, platform)?;
-        let key = parsed.key(self.normalize_channel_config(parsed.node)?)?;
+        let key = parsed.key(self.normalize_channel_config(parsed.node, true)?)?;
         let channel = {
             let management = self.management();
             management

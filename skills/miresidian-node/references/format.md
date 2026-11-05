@@ -4,7 +4,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.22.0", features = ["format"] }
+miresidian = { version = "=0.23.0", features = ["format"] }
 ```
 
 format 决定编解码，batch 决定重复调用，两者独立启用。

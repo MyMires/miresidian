@@ -299,3 +299,77 @@ fn 普通默认文本与显式文本保持原值() {
         decode_value_with_definition::<i32>(&[], 0, "偏移", "偏移:-1/0/1", Some("-1/0/1")).is_err()
     );
 }
+
+#[test]
+fn 配置规范文本按原类型保留等价值与可选值边界() {
+    macro_rules! numeric {
+        ($($ty:ty),+ $(,)?) => {$(
+            for value in ["", " ", "0", "00", "0x0", "0b0"] {
+                assert_eq!(<$ty>::normalize_device_text(value, "数值").unwrap(), "0");
+            }
+            assert!(<$ty>::normalize_device_text("bad", "数值").is_err());
+        )+};
+    }
+    numeric!(
+        i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+    );
+    assert_eq!(f64::normalize_device_text("1e-3", "倍率").unwrap(), "0.001");
+    assert_eq!(String::normalize_device_text(" 0 ", "文本").unwrap(), " 0 ");
+    assert_eq!(
+        Option::<u32>::normalize_device_text(" ", "可选").unwrap(),
+        ""
+    );
+    assert_eq!(
+        Option::<u32>::normalize_device_text("0x0", "可选").unwrap(),
+        "0"
+    );
+    assert_eq!(bool::normalize_device_text("是", "布尔").unwrap(), "true");
+    assert_eq!(
+        Vec::<u32>::normalize_device_text("1-3", "数组").unwrap(),
+        "1|2|3"
+    );
+    assert!(
+        Vec::<u32>::normalize_device_text("", "数组")
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn 显示值映射先识别集合转义再匹配完整元素() {
+    let definition = "值:A-甲/B-乙";
+    for (value, expected) in [
+        (r"prefix\|乙", vec!["prefix|乙"]),
+        (r"甲\|suffix", vec!["甲|suffix"]),
+        (r"prefix\|乙|甲|C\\D", vec!["prefix|乙", "A", r"C\D"]),
+        (r"甲\\|乙", vec!["甲\\", "B"]),
+        ("甲|乙", vec!["A", "B"]),
+    ] {
+        let input = vec![value.to_owned()];
+        assert_eq!(
+            decode_value_with_definition::<Vec<String>>(&input, 0, "值", definition, None).unwrap(),
+            expected
+        );
+    }
+    assert!(
+        decode_value_with_definition::<Vec<String>>(
+            &[r"invalid\q|乙".into()],
+            0,
+            "值",
+            definition,
+            None
+        )
+        .is_err()
+    );
+    assert_eq!(
+        decode_value_with_definition::<String>(
+            &[r"invalid\q|乙".into()],
+            0,
+            "值",
+            definition,
+            None
+        )
+        .unwrap(),
+        r"invalid\q|乙"
+    );
+}

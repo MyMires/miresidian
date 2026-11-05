@@ -3,7 +3,7 @@
 根框架 0.19.0 起提供可选 `format` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
 ```toml
-miresidian = { version = "=0.22.0", features = ["format"] }
+miresidian = { version = "=0.23.0", features = ["format"] }
 ```
 
 以上为源码候选示例；外部节点只采用 crates.io 已发布精确版本。框架更新不自动修改、升级或重新打包已有节点。
@@ -61,7 +61,7 @@ fn convert(
 只有需要批量处理时，才同时开启两个 feature：
 
 ```toml
-miresidian = { version = "=0.22.0", features = ["format", "batch"] }
+miresidian = { version = "=0.23.0", features = ["format", "batch"] }
 ```
 
 并在需要展开的参数上增加 batch 标记，例如：

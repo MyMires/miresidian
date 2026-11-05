@@ -30,6 +30,10 @@ impl DeviceInput for bool {
             _ => Err(invalid(field, "必须是布尔值")),
         }
     }
+
+    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+        Ok(Self::parse_device_text(value, field)?.to_string())
+    }
 }
 
 impl DeviceOutput for bool {
@@ -92,6 +96,10 @@ macro_rules! integer {
                 }
                 value.trim().parse::<$type>().map_err(|_| invalid(field, "数值格式错误"))
             }
+
+            fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+                Ok(Self::parse_device_text(value, field)?.to_string())
+            }
         }
 
         impl DeviceOutput for $type {
@@ -122,6 +130,10 @@ macro_rules! float {
                 }
                 Ok(value)
             }
+
+            fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+                Ok(Self::parse_device_text(value, field)?.to_string())
+            }
         }
 
         impl DeviceOutput for $type {
@@ -140,6 +152,10 @@ float!(f32, f64);
 impl DeviceInput for ByteTextFormat {
     fn parse_device_text(value: &str, _field: &str) -> MiresidianResult<Self> {
         value.parse()
+    }
+
+    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+        Ok(Self::parse_device_text(value, field)?.to_string())
     }
 }
 

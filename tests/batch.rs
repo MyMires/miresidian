@@ -75,6 +75,15 @@ impl BatchNode {
         Ok(character)
     }
 
+    #[miresidian::operation("选项文本")]
+    fn choice_text(
+        &mut self,
+        #[miresidian::input("选择:A-甲/B-乙", batch)] value: String,
+    ) -> MiresidianResult<String> {
+        self.calls += 1;
+        Ok(value)
+    }
+
     #[miresidian::operation("调用次数")]
     fn count(&mut self) -> MiresidianResult<usize> {
         Ok(self.calls)
@@ -225,4 +234,27 @@ fn invalid_typed_lists_fail_before_business_execution() {
             ["0"]
         );
     }
+}
+
+#[test]
+fn option_mapping_preserves_escaped_content_in_generated_batch_calls() {
+    let runtime = NodeRuntime::<BatchNode>::new();
+    runtime
+        .invoke(&Invocation::new("InitDevice", vec!["A".into()], vec![]))
+        .unwrap();
+    let output = runtime
+        .invoke(&Invocation::new(
+            "选项文本",
+            vec!["A".into()],
+            vec![r"prefix\|乙|甲|C\\D".into()],
+        ))
+        .unwrap();
+    assert_eq!(output.as_slice(), [r"prefix\|乙|A|C\\D"]);
+    assert_eq!(
+        runtime
+            .invoke(&Invocation::new("调用次数", vec!["A".into()], vec![]))
+            .unwrap()
+            .as_slice(),
+        ["3"]
+    );
 }

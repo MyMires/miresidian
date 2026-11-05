@@ -2,6 +2,10 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.15.3] - 2026-11-05
+
+- Depend exactly on codec 0.16.0. Generated requests share typed canonical text with the runtime; wire protocols and ownership remain unchanged.
+
 ## [0.15.2] - 2026-11-05
 
 - Depend exactly on codec 0.15.0; lease protocol v2, resource protocol v1, ownership and transaction semantics are unchanged.

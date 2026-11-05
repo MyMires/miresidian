@@ -24,3 +24,5 @@ use miresidian::{config, input, node, operation, output};
 宏只组合各功能 API；batch 与 format 两个实现 crate 不互相依赖。输入解析/选择/长度校验先于业务，保持顺序、首错停止、逐槽输出聚合和同步/async 桥接。
 
 0.20.0 起，业务 Config/Input 描述仅原样发布，不生成运行时默认值；缺参报错，数值显式空白为零，具体选项显示值仍映射。format 选择器等框架生成的显式默认值继续生效。
+
+0.21.0 按初始化 Config 的原 Rust 类型生成归一化回调，根运行时和 lease 参数共用；类型别名通过 trait 分派，不按类型名称猜测。
