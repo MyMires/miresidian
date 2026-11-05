@@ -14,7 +14,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.23.0", features = ["lease"] }
+miresidian = { version = "=0.24.0", features = ["lease"] }
 ```
 
 只开 feature 不会自动加运行时租约，也不会自动代理节点中已有的设备 open。SharedResource 已持有自身及所有者的配置租约，通常由通信层统一负责，无需再声明一套运行时租约。选择路径后落实实际连接、收发和关闭，不能以成功获取租约代替通信实现。
@@ -31,22 +31,22 @@ miresidian = { version = "=0.23.0", features = ["lease"] }
 
 selectable 当前将 Direct/直连解析为直连，空值及其他文本走租约；调用方应传合法值。选择器只控制运行时 LocalLease，不会改变通信对象的实现，也不会把 SharedResource 自动切换为直连。若业务需要在共享连接和直连间选择，由业务 Config 明确声明并由通信层分支；固定共享的节点可省略整个 lease 宏声明，避免两个含义不同的选择器。
 
-- resource 引用初始化 Config 的 Rust 参数名，其规范化文本作为资源键；不是显示标签、Input 或固定值。统一物理资源标识、别名和大小写，不能换 Handle、DLL 名或项目名绕过冲突。
-- configuration 至少引用一个 Config 参数名，完整覆盖物理连接兼容性字段。宏编码包含字段名、顺序和规范化文本，跨项目不能只比显示值；Handle 和每次业务 Input 不机械加入。
+- 只在初始化 Config 内使用嵌套 lease(key/ignore)，不使用独立参数属性。lease(key) 至少一个，按声明顺序组成物理资源身份，不含 Handle、项目或 DLL 名；与 instance 角色独立，不能借用实例键或把波特率并入资源身份。
+- 其他 Config 自动参与配置一致性比较，lease(ignore) 完全排除资源身份与配置比较；仅排除确属调用方独立的选项。配置可为空，编码保留 Rust 参数名、顺序和原类型规范文本。
+- 单字段身份保留规范文本，组合身份使用 ResourceKey::from_parts 的长度边界编码；单字段不得占用 miresidian:tuple:v1: 保留前缀。通信提供者与宏共享 LeaseRequest::from_parameter_keys，跨项目保持值及配置编码一致。旧 resource/configuration 列表兼容，但不能与新参数角色混用。
+
 
 配置租约的声明与初始化签名片段，假设业务支持所列选项：
 
 ```rust
 #[miresidian::node("串口节点", lease(
-    activation = selectable,
-    resource = "port_name",
-    configuration = ["baud_rate", "data_bits", "parity", "stop_bits"]
+    activation = selectable
 ))]
 struct SerialNode { /* 持有业务对象 */ }
 
 #[miresidian::operation]
 fn init_device(
-    #[miresidian::config("端口名称")] port_name: String,
+    #[miresidian::config("端口名称", lease(key))] port_name: String,
     #[miresidian::config("波特率:9600/19200")] baud_rate: u32,
     #[miresidian::config("数据位:8/7")] data_bits: u8,
     #[miresidian::config("校验:None-无校验/Odd-奇校验/Even-偶校验")] parity: String,
@@ -83,11 +83,11 @@ CloseDevice()
 
 一次查询的发送、等待、接收必须放在一次 transact 中；拆成两次调用不保留跨调用事务锁。框架不提供内置串口/TCP 命令或通用设备协议；不同项目必须约定请求/响应格式、设备超时、错误与版本兼容规则。不兼容配置或协议应拒绝，不能回退直连重复打开端口。
 
-SharedResource 本身已取得配置租约。若同时声明运行时 lease，双方资源键和配置字节必须完全一致；任意自定义字节不等于宏生成的字段编码。需复用宏编码时，通信提供者可使用同一参数名和顺序的 LeaseRequest::from_parameters 构造请求；避免维护两套不一致的配置定义。
+SharedResource 本身已取得配置租约。若同时声明运行时 lease，双方资源键和配置字节必须完全一致；任意自定义字节不等于宏生成的字段编码。需复用宏编码时，通信提供者可使用同一参数名和顺序的 LeaseRequest::from_parameter_keys 构造请求（旧单字段也可用 from_parameters）；避免维护两套不一致的配置定义。
 
 代理是同步接口；在原生 async 业务中通过合适的阻塞线程桥执行并等待实际完成，不能占用异步工作线程或把丢弃等待当作设备动作已取消。通信实现仍负责真实设备 I/O 超时。
 
-可复制的模拟提供者、独占资源动态库示例及完整 API 说明见[对应版本的共享资源文档](https://github.com/MyMires/miresidian/blob/miresidian-v0.23.0/docs/shared-resources.md)。模拟计数器或独占文件证明生命周期，不证明真实串口通信。
+可复制的模拟提供者、独占资源动态库示例及完整 API 说明见[对应版本的共享资源文档](https://github.com/MyMires/miresidian/blob/miresidian-v0.24.0/docs/shared-resources.md)。模拟计数器或独占文件证明生命周期，不证明真实串口通信。
 
 ## 生命周期与部署
 

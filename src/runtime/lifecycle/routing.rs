@@ -1,11 +1,12 @@
 //! 元数据共用布局下的 Config 解析与对象关联键。
 
-use super::NodeRuntime;
+use super::{NodeRuntime, catch_node};
 use crate::runtime::instances::ConfigLayout;
 use crate::{
     DeviceNode, ExecutionMode, INIT_DEVICE_OPERATION, Invocation, LeaseAccess, MiresidianError,
     MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
 };
+use crate::{InstanceMode, normalize_value_with_definition};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum InstanceKey {
@@ -32,7 +33,7 @@ pub(super) struct ParsedConfig<'a> {
 }
 
 impl ParsedConfig<'_> {
-    pub fn key(&self, normalized: Vec<String>) -> MiresidianResult<InstanceKey> {
+    pub fn key<N: DeviceNode>(&self, normalized: Vec<String>) -> MiresidianResult<InstanceKey> {
         match &self.handle {
             Some(handle) if handle.is_empty() => Err(MiresidianError::InvalidArgument {
                 field: "Handle".to_owned(),
@@ -41,7 +42,9 @@ impl ParsedConfig<'_> {
             Some(handle) => Ok(InstanceKey::Handle(handle.clone())),
             None => Ok(InstanceKey::Config(
                 if self.mode == crate::InstanceMode::Multiple {
-                    normalized.into_iter().take(1).collect()
+                    instance_key_indices::<N>()
+                        .map(|index| normalized[index].clone())
+                        .collect()
                 } else {
                     normalized
                 },
@@ -50,7 +53,67 @@ impl ParsedConfig<'_> {
     }
 }
 
+/// Index selection is independent of lease metadata and excludes framework fields.
+fn instance_key_indices<N: DeviceNode>() -> impl Iterator<Item = usize> {
+    (0..N::descriptor().init_config.len())
+        .filter(|index| N::instance_config_indices().is_none_or(|keys| keys.contains(index)))
+}
+
 impl<N: DeviceNode> NodeRuntime<N> {
+    /// 提取稳定通道配置文本。业务参数缺参报错；该规则与宏生成参数解析保持一致，
+    /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
+    pub(super) fn normalize_channel_config(
+        &self,
+        config: &[String],
+        routing: bool,
+    ) -> MiresidianResult<Vec<String>> {
+        let policy = N::descriptor().instances;
+
+        N::descriptor()
+            .init_config
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                let value = normalize_value_with_definition(
+                    config,
+                    index,
+                    parameter.name,
+                    parameter.definition,
+                    parameter.default_value,
+                )?;
+                let is_identity = policy.mode == InstanceMode::Single
+                    || (policy.binding == crate::InstanceBinding::Config
+                        && instance_key_indices::<N>().any(|key| key == index));
+                if !routing || is_identity {
+                    catch_node(INIT_DEVICE_OPERATION, || {
+                        N::normalize_config_value(index, &value)
+                    })
+                } else {
+                    // 多实例查找由主键/Handle 决定，非主键值不替换对象保存的业务配置。
+                    Ok(value)
+                }
+            })
+            .collect()
+    }
+
+    /// 原始身份判空先于类型归一化；选中组合键任一项为空就跳过初始化。
+    pub(super) fn has_business_key(&self, config: &[String]) -> bool {
+        let mut indices = instance_key_indices::<N>().peekable();
+        indices.peek().is_some()
+            && indices.all(|index| {
+                let parameter = &N::descriptor().init_config[index];
+                config.get(index).is_some_and(|value| {
+                    let value = value.trim();
+                    let prefix = format!("{}:", parameter.name);
+                    !value
+                        .strip_prefix(&prefix)
+                        .unwrap_or(value)
+                        .trim()
+                        .is_empty()
+                })
+            })
+    }
+
     pub(super) fn parse_config<'a>(
         &self,
         config: &'a [String],

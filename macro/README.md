@@ -26,3 +26,5 @@ use miresidian::{config, input, node, operation, output};
 0.20.0 起，业务 Config/Input 描述仅原样发布，不生成运行时默认值；缺参报错，数值显式空白为零，具体选项显示值仍映射。format 选择器等框架生成的显式默认值继续生效。
 
 0.21.0 按初始化 Config 的原 Rust 类型生成归一化回调，根运行时和 lease 参数共用；类型别名通过 trait 分派，不按类型名称猜测。
+
+0.22.0 支持初始化 Config 的 instance(key/ignore)、lease(key/ignore) 嵌套角色；生成独立的实例键索引及租约字段选择，不新增独立参数属性。节点策略仍由 node 子配置声明。参见 [组合身份与迁移](../docs/config-identity.md)。

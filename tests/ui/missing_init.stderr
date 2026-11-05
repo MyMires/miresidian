@@ -1,3 +1,33 @@
+error[E0599]: no associated function or constant named `__MIRESIDIAN_INSTANCE_KEYS` found for struct `MissingInit` in the current scope
+ --> tests/ui/missing_init.rs:2:1
+  |
+2 | #[node("缺少初始化")]
+  | ^^^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `MissingInit`
+3 | struct MissingInit;
+  | ------------------ associated function or constant `__MIRESIDIAN_INSTANCE_KEYS` not found for this struct
+  |
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no associated function or constant named `__MIRESIDIAN_INSTANCE_ROLES` found for struct `MissingInit` in the current scope
+ --> tests/ui/missing_init.rs:2:1
+  |
+2 | #[node("缺少初始化")]
+  | ^^^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `MissingInit`
+3 | struct MissingInit;
+  | ------------------ associated function or constant `__MIRESIDIAN_INSTANCE_ROLES` not found for this struct
+  |
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no associated function or constant named `__MIRESIDIAN_LEASE_ROLES` found for struct `MissingInit` in the current scope
+ --> tests/ui/missing_init.rs:2:1
+  |
+2 | #[node("缺少初始化")]
+  | ^^^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `MissingInit`
+3 | struct MissingInit;
+  | ------------------ associated function or constant `__MIRESIDIAN_LEASE_ROLES` not found for this struct
+  |
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0599]: no associated function or constant named `__MIRESIDIAN_INIT_CONFIG` found for struct `MissingInit` in the current scope
  --> tests/ui/missing_init.rs:2:1
   |

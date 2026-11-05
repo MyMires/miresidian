@@ -157,7 +157,7 @@ classDiagram
 | 节点与操作描述 | `name` 名称；`init_config` 初始化配置；`operations` 操作清单；`inputs` 输入参数；`outputs` 输出参数；`channel_inputs` 共享调用使用的输入参数 |
 | 参数描述 | `definition` 原样发布的描述文本；`default_value` 可选默认值 |
 
-运行时默认只保留一个对象；instances 策略支持按业务 Config[0] 或 Handle 定位多个对象。Config[0] 是新节点的首个业务配置主键，空主键初始化跳过。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
+运行时默认只保留一个对象；instances 策略支持按业务 Config 组合键或 Handle 定位多个对象。默认全部业务 Config 组成实例键，可用 instance(key/ignore) 调整；任一选中原始键为空则跳过初始化。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
 类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / InstanceState](../src/runtime/lifecycle/instance.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../features/lease/src/local_ipc/client.rs)。
 
@@ -215,7 +215,7 @@ sequenceDiagram
     Note over Host,FFI: 宿主立即复制文本；同一线程下一次调用前有效；不得释放
 ```
 
-图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用节点实例。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按节点策略从 Config[0] 或 Handle 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../features/lease/README.md)。
+图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用节点实例。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按节点策略从 Config 组合键或 Handle 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../features/lease/README.md)。
 
 ## 职责与源码位置
 
@@ -340,4 +340,4 @@ C ABI v7 的现有同步接口保持参数、返回方式和文本内存契约�
 
 `lease::shared::SharedResource` 位于租约 crate 的可选本地 IPC 层，通信实现向其提供资源键、规范化连接配置、事务线协议和物理资源工厂。资源所有者持有设备连接并串行执行字节事务；各 DLL 的节点对象持有独立代理。框架运行时不接收串口等具体通信依赖，不跨 DLL 传 Rust 对象或指针。
 
-原有实例容器仍按 Config[0]/Handle 管理对象复用，原 LocalLease 仍校验配置与会话；资源代理额外管理唯一连接及代理引用。完整机制见[共享资源代理](shared-resources.md)。
+原有实例容器仍按 Config 组合键/Handle 管理对象复用，原 LocalLease 仍校验配置与会话；资源代理额外管理唯一连接及代理引用。完整机制见[共享资源代理](shared-resources.md)。

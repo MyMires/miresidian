@@ -15,134 +15,11 @@ pub const MAX_RESOURCE_KEY_BYTES: usize = 512;
 /// 设备专属规范化配置允许的最大字节数。
 pub const MAX_LEASE_CONFIGURATION_BYTES: usize = 64 * 1024;
 
-/// 一个设备无关、稳定的逻辑资源标识，例如 `serial:COM3` 或 `can:adapter-1`。
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct ResourceKey(String);
+mod resource;
+pub use resource::{LeaseConfiguration, ResourceKey};
 
-impl ResourceKey {
-    /// 创建已验证的资源键。
-    pub fn new(value: impl Into<String>) -> Result<Self, LeaseError> {
-        let value = value.into();
-        if value.trim().is_empty() {
-            return Err(LeaseError::EmptyResource);
-        }
-        if value.len() > MAX_RESOURCE_KEY_BYTES {
-            return Err(LeaseError::ResourceTooLong);
-        }
-        Ok(Self(value))
-    }
-}
-
-impl ResourceKey {
-    /// 返回资源键的规范文本。
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// 某项资源所需的设备专属配置的规范化不透明字节。
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LeaseConfiguration(Vec<u8>);
-
-impl LeaseConfiguration {
-    /// 创建配置。调用方应使用稳定的规范化格式或其摘要。
-    pub fn new(bytes: Vec<u8>) -> Result<Self, LeaseError> {
-        if bytes.len() > MAX_LEASE_CONFIGURATION_BYTES {
-            return Err(LeaseError::ConfigurationTooLarge);
-        }
-        Ok(Self(bytes))
-    }
-
-    /// 返回原始规范化配置字节。
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-/// 一个规范化初始化参数；结构体级 lease 标记以 Rust 参数名引用这些值。
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LeaseParameter {
-    name: String,
-    value: String,
-}
-
-impl LeaseParameter {
-    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            value: value.into(),
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn value(&self) -> &str {
-        &self.value
-    }
-}
-
-/// 由结构体级 lease 声明生成、交给通信链路实现的通用租约请求。
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LeaseRequest {
-    resource: ResourceKey,
-    configuration: LeaseConfiguration,
-    parameters: Vec<LeaseParameter>,
-}
-
-impl LeaseRequest {
-    pub fn from_parameters(
-        parameters: Vec<LeaseParameter>,
-        resource_field: &str,
-        configuration_fields: &[&str],
-    ) -> Result<Self, LeaseError> {
-        let value = |field: &str| {
-            parameters
-                .iter()
-                .find(|parameter| parameter.name == field)
-                .map(|parameter| parameter.value.as_str())
-                .ok_or_else(|| LeaseError::UnknownParameter(field.to_owned()))
-        };
-        let resource = ResourceKey::new(value(resource_field)?.to_owned())?;
-        let mut encoded = Vec::new();
-        for field in configuration_fields {
-            let parameter = value(field)?;
-            push_length_prefixed(&mut encoded, field.as_bytes())?;
-            push_length_prefixed(&mut encoded, parameter.as_bytes())?;
-        }
-        Ok(Self {
-            resource,
-            configuration: LeaseConfiguration::new(encoded)?,
-            parameters,
-        })
-    }
-
-    pub fn resource(&self) -> &ResourceKey {
-        &self.resource
-    }
-
-    pub fn configuration(&self) -> &LeaseConfiguration {
-        &self.configuration
-    }
-
-    pub fn value(&self, name: &str) -> Option<&str> {
-        self.parameters
-            .iter()
-            .find(|parameter| parameter.name == name)
-            .map(LeaseParameter::value)
-    }
-}
-
-fn push_length_prefixed(target: &mut Vec<u8>, value: &[u8]) -> Result<(), LeaseError> {
-    let length = u32::try_from(value.len()).map_err(|_| LeaseError::ConfigurationTooLarge)?;
-    target.extend_from_slice(&length.to_le_bytes());
-    target.extend_from_slice(value);
-    if target.len() > MAX_LEASE_CONFIGURATION_BYTES {
-        return Err(LeaseError::ConfigurationTooLarge);
-    }
-    Ok(())
-}
+mod parameters;
+pub use parameters::{LeaseParameter, LeaseRequest};
 
 /// 由操作系统随机源生成的、不透明租约标识。
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -166,6 +43,8 @@ impl LeaseId {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LeaseError {
     EmptyResource,
+    /// 单字段资源身份不能使用组合编码的保留前缀。
+    ReservedResourcePrefix,
     ResourceTooLong,
     ConfigurationTooLarge,
     Randomness,
@@ -181,6 +60,7 @@ impl fmt::Display for LeaseError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::EmptyResource => "资源键不能为空",
+            Self::ReservedResourcePrefix => "单字段资源键不能使用组合资源编码的保留前缀",
             Self::ResourceTooLong => "资源键过长",
             Self::ConfigurationTooLarge => "资源配置过长",
             Self::Randomness => "无法从操作系统随机源生成租约标识",

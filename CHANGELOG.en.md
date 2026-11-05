@@ -2,6 +2,18 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [Unreleased]
+
+- Documentation clarification (no version impact): use consistent representations for actual values and display labels within each parameter's choices; prefer `/` in generated paths and examples. Review findings against declared usage constraints, actual scenarios and impact. Synchronize the complete installed Node skill; runtime, API, ABI, dependencies and tool behavior are unchanged.
+
+## [0.24.0] - 2026-11-05
+
+- Document the contract before implementation and add nested init Config roles instance(key/ignore) and lease(key/ignore), without standalone parameter attributes.
+- Config-bound instances default to all business Config. Explicit keys form an allowlist; ignore-only annotations exclude fields. Sync/async operations, multi-channel requests and close share composite identity, with conflicting reinitialization settings rejected.
+- Leases require explicit resource keys; other Config fields are compatibility settings unless ignored. Preserve legacy declarations and ordinary single-key bytes; add versioned, length-delimited composite identities.
+- Independently version runtime 0.24.0, macros 0.22.0 and lease 0.16.0; instances 0.16.5 only corrects shipped explanations. Other components/tools, C ABI v7, lease v2, resource v1 and Rust 1.89 remain unchanged. Synchronize the complete Node skill; standalone projects retain published dependencies.
+- Validation: default workspace (107), all-feature workspace (219), two supplemental joint-role/FFI regressions, isolated instances (4), isolated lease (2), doctest, strict Clippy/Rustdoc, Rust 1.89 and Release build passed. The complete nine-file skill is synchronized. Linux simulations and in-process C ABI were tested; native Windows loading and real hardware were not tested.
+
 ## [0.23.0] - 2026-11-05
 
 - Add type-driven canonical configuration callbacks shared by instance comparison and lease encoding. Numeric blanks and zero are equivalent, while blank identities and nonkey routing retain their boundaries.

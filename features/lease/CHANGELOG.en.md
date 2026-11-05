@@ -2,6 +2,12 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.16.0] - 2026-11-05
+
+- Add ResourceKey::from_parts and LeaseRequest::from_parameter_keys for ordered composite resource identities and empty compatibility configurations.
+- Preserve ordinary single-field keys and configuration bytes. Reserve the versioned composite prefix, rejecting singleton impersonation; separate value-object modules without changing IPC protocols or ownership.
+- Validation: default workspace (107), all-feature workspace (219), two supplemental joint-role/FFI regressions, isolated instances (4), isolated lease (2), doctest, strict Clippy/Rustdoc, Rust 1.89 and Release build passed. The complete nine-file skill is synchronized. Linux simulations and in-process C ABI were tested; native Windows loading and real hardware were not tested.
+
 ## [0.15.3] - 2026-11-05
 
 - Depend exactly on codec 0.16.0. Generated requests share typed canonical text with the runtime; wire protocols and ownership remain unchanged.

@@ -1,5 +1,5 @@
 #![cfg(feature = "instances")]
-//! Config[0] 是业务主键；其余配置不能使空主键触发构造。
+//! 显式 instance(key) 保留首项业务主键；其余配置不能使空主键触发构造。
 
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
 type Speed = u32;
@@ -14,7 +14,7 @@ struct ConfigNode {
 impl ConfigNode {
     #[miresidian::operation]
     fn init_device(
-        #[miresidian::config("主键:default")] key: String,
+        #[miresidian::config("主键:default", instance(key))] key: String,
         #[miresidian::config("速度:9600")] speed: Speed,
     ) -> MiresidianResult<Self> {
         Ok(Self {
@@ -78,6 +78,10 @@ fn blank_first_config_skips_even_if_other_business_or_framework_fields_are_nonem
 #[test]
 fn first_config_is_the_identity_and_conflicting_settings_do_not_create_another_object() {
     let runtime = NodeRuntime::<ConfigNode>::new();
+    assert!(matches!(
+        runtime.invoke(&request("InitDevice", &["A"])),
+        Err(MiresidianError::InvalidArgument { .. })
+    ));
     runtime
         .invoke(&request("InitDevice", &["A", "9600"]))
         .unwrap();
@@ -89,7 +93,7 @@ fn first_config_is_the_identity_and_conflicting_settings_do_not_create_another_o
         [miresidian::CHANNEL_REUSED_MESSAGE]
     );
     assert!(
-        matches!(runtime.invoke(&request("InitDevice", &["A", "4800"])), Err(MiresidianError::InvalidArgument { field, .. }) if field == "Config[0]")
+        matches!(runtime.invoke(&request("InitDevice", &["A", "4800"])), Err(MiresidianError::InvalidArgument { field, .. }) if field == "Config")
     );
     runtime
         .invoke(&request("InitDevice", &["B", "9600"]))

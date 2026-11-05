@@ -1,5 +1,6 @@
 //! 方法级属性解析；参数名称、来源、默认值及输出标注沿用既有规则。
 
+use super::config::{self, Role};
 use super::format::{self, Format};
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
@@ -17,6 +18,8 @@ pub(super) struct Parameter {
     pub(super) source: ParameterSource,
     pub(super) batch: bool,
     pub(super) format: Option<Format>,
+    pub(super) instance: Role,
+    pub(super) lease: Role,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -211,6 +214,7 @@ fn parse_parameters(
     default_source: ParameterSource,
     batch_allowed: bool,
 ) -> Result<Vec<Parameter>> {
+    let initialization = method.sig.ident == "init_device";
     method
         .sig
         .inputs
@@ -221,6 +225,20 @@ fn parse_parameters(
                 return Err(Error::new_spanned(argument, "只允许一个 self 接收者"));
             };
             let config = take_attribute(&mut argument.attrs, "config");
+            if argument.attrs.iter().any(|attribute| {
+                attribute
+                    .path()
+                    .segments
+                    .last()
+                    .is_some_and(|s| s.ident == "config")
+            }) {
+                return Err(Error::new_spanned(
+                    argument,
+                    "同一参数只能声明一个 config 属性",
+                ));
+            }
+            let mut instance = Role::Default;
+            let mut lease = Role::Default;
             let rust_name = rust_parameter_name(argument)?;
             let input = take_attribute(&mut argument.attrs, "input");
             if config.is_some() && input.is_some() {
@@ -231,7 +249,10 @@ fn parse_parameters(
             }
             let (source, name, definition, default, batch, format) = match (config, input) {
                 (Some(attribute), None) => {
-                    let definition = one_name(&attribute, "config")?;
+                    let annotation = config::annotation(&attribute, initialization)?;
+                    instance = annotation.instance;
+                    lease = annotation.lease;
+                    let definition = annotation.definition;
                     let (name, default) = split_definition(&definition);
                     (
                         ParameterSource::Config,
@@ -288,6 +309,8 @@ fn parse_parameters(
                 source,
                 batch,
                 format,
+                instance,
+                lease,
             })
         })
         .collect()
@@ -420,16 +443,6 @@ fn take_attribute(attributes: &mut Vec<Attribute>, name: &str) -> Option<Attribu
                 .is_some_and(|segment| segment.ident == name)
         })
         .map(|index| attributes.remove(index))
-}
-fn one_name(attribute: &Attribute, label: &str) -> Result<LitStr> {
-    let mut values = names(attribute, label)?;
-    if values.len() != 1 {
-        return Err(Error::new_spanned(
-            attribute,
-            format!("#[{label}] 必须且只能声明一个名称"),
-        ));
-    }
-    Ok(values.remove(0))
 }
 pub(super) fn names(attribute: &Attribute, label: &str) -> Result<Vec<LitStr>> {
     let values = attribute.parse_args_with(Punctuated::<LitStr, Token![,]>::parse_terminated)?;

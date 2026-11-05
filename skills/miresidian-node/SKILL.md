@@ -13,8 +13,8 @@ description: "指导 AI 根据业务需求构建或维护独立的 Miresidian Ru
 
 | 组件 | 适配版本 |
 | --- | --- |
-| 框架 `miresidian` | 0.23.0 |
-| 资源共享实现 `miresidian_lease` | 0.15.3 |
+| 框架 `miresidian` | 0.24.0 |
+| 资源共享实现 `miresidian_lease` | 0.16.0 |
 | CLI `miresidian_cli` | 0.3.1 |
 | Pack `miresidian_pack` | 0.13.1 |
 | Windows TestFlow `miresidian_testflow_windows` | 0.12.0 |

@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: lease 角色要求 node 声明 lease(...)
+ --> tests/ui/config_role_missing_lease.rs:2:1
+  |
+2 | #[node("角色验证")]
+  | ^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

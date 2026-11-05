@@ -1,6 +1,7 @@
 //! 方法级平台契约生成；生命周期直接生成桥接，业务方法提交独立注册项。
 
 mod batch;
+mod config;
 mod definition;
 mod descriptor;
 mod dispatch;
@@ -36,6 +37,17 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                     .filter(|p| p.source == ParameterSource::Input)
                     .cloned()
                     .collect::<Vec<_>>();
+                let instance_indices = config::instance_indices(&init.parameters);
+                let instance_roles = configs.iter().any(|p| p.instance != config::Role::Default);
+                let lease_roles = configs.iter().any(|p| p.lease != config::Role::Default);
+                let lease_keys = configs
+                    .iter()
+                    .filter(|p| p.lease == config::Role::Key)
+                    .map(|p| &p.rust_name);
+                let lease_configuration = configs
+                    .iter()
+                    .filter(|p| p.lease == config::Role::Default)
+                    .map(|p| &p.rust_name);
                 let configs = descriptor::parameters(&configs);
                 let inputs = descriptor::parameters(&inputs);
                 let outputs = descriptor::outputs(&init.outputs);
@@ -44,6 +56,11 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 let lease_parameters = dispatch::lease_parameters(&init);
                 let normalize_config_value = dispatch::normalize_config_value(&init);
                 quote! {
+                    const __MIRESIDIAN_INSTANCE_KEYS: &'static [usize] = &[#(#instance_indices),*];
+                    const __MIRESIDIAN_INSTANCE_ROLES: bool = #instance_roles;
+                    const __MIRESIDIAN_LEASE_ROLES: bool = #lease_roles;
+                    const __MIRESIDIAN_LEASE_KEYS: &'static [&'static str] = &[#(#lease_keys),*];
+                    const __MIRESIDIAN_LEASE_CONFIG: &'static [&'static str] = &[#(#lease_configuration),*];
                     const __MIRESIDIAN_INIT_CONFIG: &'static [::miresidian::ParameterDescriptor] = &[#(#configs),*];
                     const __MIRESIDIAN_INIT_INPUTS: &'static [::miresidian::ParameterDescriptor] = &[#(#inputs),*];
                     const __MIRESIDIAN_INIT_OUTPUTS: &'static [::miresidian::ParameterDescriptor] = &[#(#outputs),*];

@@ -165,7 +165,7 @@ Function + Config[] + Input[] -> Output[]
 完整 feature、宏配置、Config 布局和迁移规则见[实例管理](instances.md)。
 
 - 默认节点只保留一个对象，不接受多通道请求，也不发布执行方式；同配置复用，异配置初始化先预校验，再释放旧对象并构造新对象。关闭或构造失败后不会继续使用已移除对象。
-- 只有启用 `instances` feature 且声明同名宏配置才启用相应能力。multiple/config 以规范化业务 Config[0] 为主键；相同主键配置不一致报错。主键缺失或空白时初始化返回空 output 并跳过，不被默认值或其他参数补成新对象。
+- 只有启用 `instances` feature 且声明同名宏配置才启用相应能力。multiple/config 默认以全部业务 Config 为组合键，instance(key/ignore) 可调整；同键不同配置报错。任一选中键原始值为空则初始化返回空 output 并跳过，不能用其他字段补齐；详细规则和旧节点迁移见 [组合身份声明](config-identity.md)。
 - multiple/handle 在业务 Config 后追加 Handle 项，相同 Handle 定位同一对象，不同 Handle 即使配置相同也不合并。空 Handle 初始化跳过；调用或关闭时为空报 INVALID_ARGUMENT，不存在报 UNKNOWN_CHANNEL。
 - Config 顺序为业务项、可选 Handle、可选租约方式、可选平台、可选执行方式。框架字段统一剥离，不进入节点业务参数。普通入口发布平台选择器，显式入口不发布也不接受它。
 - 固定 execution 不发布执行方式参数；selectable 才发布 TB 兼容的 `共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播`，缺省或空白采用声明默认值，未知文本兼容回退 Sequential。选择保存在每个对象上；相同主键重复初始化必须一致。
@@ -280,7 +280,7 @@ struct MyPlatformAdapter;
 
 `platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择文本 id；需要显式选型时改用 `miresidian_invoke_with(uint32_t platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。
 
-`RuntimeInvocation::MultiChannel` 使用 `MultiChannelInvocation { operation, config, slots }`，构造为 `MultiChannelInvocation::new(operation, config, slots)`。唯一 Config 按节点策略使用 Config[0] 或 Handle 定位一个对象，全部有效输入使用它。`MultiChannelResponse` 与输入保持相同顺序和数量；输入位置不是对象索引。
+`RuntimeInvocation::MultiChannel` 使用 `MultiChannelInvocation { operation, config, slots }`，构造为 `MultiChannelInvocation::new(operation, config, slots)`。唯一 Config 按节点策略使用 Config 组合键或 Handle 定位一个对象，全部有效输入使用它。`MultiChannelResponse` 与输入保持相同顺序和数量；输入位置不是对象索引。
 
 0.14.0 默认单实例；保留旧多对象行为需显式启用 feature 和 multiple/config 策略。旧 Rust 类型名 SharedInvocation/SharedResponse 保留别名，枚举变体改为 MultiChannel。C 入口、JSON 字符串数组编码、响应字段和内存约定不变，C ABI 保持 v7。
 

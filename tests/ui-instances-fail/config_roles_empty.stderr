@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: Config 关联的多实例节点至少需要一个实例键参数
+ --> tests/ui-instances-fail/config_roles_empty.rs:2:1
+  |
+2 | #[node("角色验证", instances(mode = multiple, binding = config, execution = sequential))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

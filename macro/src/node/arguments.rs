@@ -8,8 +8,8 @@ use syn::{
 };
 
 pub(super) struct LeaseDeclaration {
-    pub(super) resource: LitStr,
-    pub(super) configuration: Vec<LitStr>,
+    pub(super) resource: Option<LitStr>,
+    pub(super) configuration: Option<Vec<LitStr>>,
     pub(super) activation: proc_macro2::TokenStream,
 }
 
@@ -128,14 +128,17 @@ fn parse_lease_declaration(values: Punctuated<Meta, Token![,]>) -> Result<LeaseD
             }
         }
     }
+    if resource.is_some() != configuration.is_some() {
+        return Err(Error::new(
+            proc_macro2::Span::call_site(),
+            "旧 lease 的 resource 和 configuration 必须成对声明",
+        ));
+    }
     Ok(LeaseDeclaration {
         activation: activation
             .ok_or_else(|| Error::new(proc_macro2::Span::call_site(), "lease 缺少 activation"))?,
-        resource: resource
-            .ok_or_else(|| Error::new(proc_macro2::Span::call_site(), "lease 缺少 resource"))?,
-        configuration: configuration.ok_or_else(|| {
-            Error::new(proc_macro2::Span::call_site(), "lease 缺少 configuration")
-        })?,
+        resource,
+        configuration,
     })
 }
 

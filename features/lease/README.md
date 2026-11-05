@@ -1,5 +1,7 @@
 # Miresidian Lease
 
+0.24.0 的参数组合键、默认规则及迁移见 [Config 组合身份与租约声明](../../docs/config-identity.md)。
+
 [中文](README.md) · [English](README.en.md)
 
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
@@ -14,23 +16,21 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.23.0", features = ["lease"] }
+miresidian = { version = "=0.24.0", features = ["lease"] }
 ```
 
-在需要租约的节点结构体上声明资源键与配置字段。例如 CAN 节点可声明：
+在结构体上声明租约策略，在初始化 Config 参数上选择资源键；未标记参数自动参与配置比较。例如 CAN 节点可声明：
 
 ```rust
 #[miresidian::node("CAN 通信", lease(
-    activation = selectable,
-    resource = "channel_name",
-    configuration = ["bit_rate", "data_bit_rate"]
+    activation = selectable
 ))]
 struct CanNode;
 
 impl CanNode {
     #[miresidian::operation]
     fn init_device(
-        channel_name: String,
+        #[miresidian::config("通道名称", lease(key))] channel_name: String,
         bit_rate: u32,
         data_bit_rate: u32,
     ) -> miresidian::MiresidianResult<Self> {
@@ -46,7 +46,7 @@ impl CanNode {
 }
 ```
 
-`lease(...)` 是 `node` 的子配置。`resource` 与 `configuration` 引用 `init_device` 的 Rust 参数名；宏规范化参数并生成租约请求，运行时持有租约、回滚失败初始化并在清理时释放。业务节点不接触 `LeaseRequest`、令牌或租约回调。`selectable` 会发布资源访问方式配置，允许初始化时选择租约或直连；完整标注规则见[宏驱动开发](../../docs/宏驱动开发.md)。
+`lease(...)` 是 `node` 的子配置，仅声明 activation。参数 `config("名称", lease(key))` 组成资源键（至少一个），未标记的 Config 自动参与兼容性比较，`lease(ignore)` 排除；多字段按参数顺序生成无歧义组合身份。宏按原 Rust 类型规范化，运行时持有租约、回滚失败初始化并在清理时释放。实例分发独立使用 instance(key/ignore)，不根据租约推导。旧 resource/configuration 字段列表保留兼容，但不能与参数 lease 角色混用。完整规则与迁移见 [组合身份声明](../../docs/config-identity.md)。
 
 根 crate 始终重导出租约通用模型；未启用 `lease` feature 时不启用本地 IPC，未声明租约的节点保持普通调用路径。
 

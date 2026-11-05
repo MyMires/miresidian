@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.23.0", features = ["instances"] }
+miresidian = { version = "=0.24.0", features = ["instances"] }
 ```
 
 仅启用 feature 仍是默认单实例；多实例/多通道还须节点策略标注。例如：
@@ -22,7 +22,7 @@ struct ExampleNode { /* 持有业务对象 */ }
 ```
 
 - mode 必填。`single` 提供单对象多通道，不接受 binding；`multiple` 必须指定 `binding = config` 或 `handle`。
-- config 以 Config[0] 主键关联：空主键跳过初始化，同键同配置复用，同键不同配置报错。handle 在业务 Config 后追加 Handle，业务签名不接收它；空 Handle 初始化跳过，调用/关闭不能以空值选择其他对象。
+- config 默认全部业务 Config 组成键；config("名称", instance(key)) 显式选键，只有 instance(ignore) 时排除 ignore，有 key 时只采用 key；键不能为空。任一选中原始键为空则在类型解析前跳过初始化，同键同配置复用，同键不同配置报错。instance(ignore) 只排除分发，不排除初始化配置比较；single/handle 不接受 instance 角色。handle 在业务 Config 后追加 Handle，业务签名不接收它；空 Handle 初始化跳过，调用/关闭不能以空值选择其他对象。
 - execution 必填，规则如下；只有 selectable 声明 default_execution，并发布执行方式 Config。策略保存在初始化对象上，变更遵循复用、冲突或关闭重建规则。
 
 | execution | 行为与约束 |
@@ -38,8 +38,8 @@ struct ExampleNode { /* 持有业务对象 */ }
 
 | 初始化条件 | 对象结果 |
 | --- | --- |
-| config 关联，同 Config[0] 且规范化业务配置相同 | 复用一个对象，不重复构造或申请运行时租约 |
-| config 关联，同 Config[0] 但其余业务配置不同 | 报冲突，不新建对象 |
+| config 关联，同实例组合键 且规范化业务配置相同 | 复用一个对象，不重复构造或申请运行时租约 |
+| config 关联，同实例组合键 但其余业务配置不同 | 报冲突，不新建对象 |
 | handle 关联，同 Handle、同业务配置 | 复用同一对象 |
 | handle 关联，不同 Handle、业务配置相同 | 独立对象和业务状态 |
 | 不同 DLL 使用相同配置 | 各 DLL 独立管理业务对象 |

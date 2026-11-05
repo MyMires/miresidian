@@ -66,10 +66,17 @@ fn descriptions_are_unchanged_and_do_not_supply_runtime_defaults() {
     );
     let runtime = NodeRuntime::<DescriptionNode>::new();
     for config in [vec!["device".into()], vec!["device".into(), "None".into()]] {
-        assert!(matches!(
-            runtime.invoke(&Invocation::new("InitDevice", config, vec![])),
-            Err(MiresidianError::InvalidArgument { .. })
-        ));
+        let result = runtime.invoke(&Invocation::new("InitDevice", config, vec![]));
+        if cfg!(feature = "instances") {
+            // Default full-config identity is incomplete: skip before parsing, without defaults.
+            assert!(result.unwrap().as_slice().is_empty());
+            assert!(!runtime.is_initialized());
+        } else {
+            assert!(matches!(
+                result,
+                Err(MiresidianError::InvalidArgument { .. })
+            ));
+        }
     }
     runtime.invoke(&request("InitDevice", &[])).unwrap();
     assert_eq!(

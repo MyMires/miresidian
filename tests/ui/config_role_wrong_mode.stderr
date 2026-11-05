@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: instance 角色只适用于 multiple/config
+ --> tests/ui/config_role_wrong_mode.rs:2:1
+  |
+2 | #[node("角色验证")]
+  | ^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

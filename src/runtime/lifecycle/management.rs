@@ -1,7 +1,7 @@
 //! Lifecycle transactions serialize construction/removal, while business on
 //! independent instances proceeds without the management lock.
 use super::{Instance, NodeRuntime, catch_node, instance};
-use crate::{CHANNEL_REUSED_MESSAGE, INIT_DEVICE_OPERATION, normalize_value_with_definition};
+use crate::{CHANNEL_REUSED_MESSAGE, INIT_DEVICE_OPERATION};
 use crate::{
     DeviceNode, InstanceMode, InvocationOutput, MiresidianError, MiresidianResult,
     PLATFORM_ADAPTER_NAME, Platform,
@@ -18,7 +18,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         platform: Option<Platform>,
     ) -> MiresidianResult<Arc<Instance<N>>> {
         let parsed = self.parse_config(config, selector, platform)?;
-        let key = parsed.key(self.normalize_channel_config(parsed.node, true)?)?;
+        let key = parsed.key::<N>(self.normalize_channel_config(parsed.node, true)?)?;
         let management = self.management();
         if management.objects.is_empty() && !matches!(key, super::routing::InstanceKey::Handle(_)) {
             return Err(MiresidianError::NotInitialized);
@@ -71,7 +71,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             });
         }
         let channel_config = self.normalize_channel_config(parsed.node, false)?;
-        let key = parsed.key(channel_config.clone())?;
+        let key = parsed.key::<N>(channel_config.clone())?;
         let existing = {
             self.management()
                 .objects
@@ -85,7 +85,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
                     field: if parsed.handle.is_some() {
                         "Handle"
                     } else {
-                        "Config[0]"
+                        "Config"
                     }
                     .to_owned(),
                     message: "已有主键的业务 Config 不一致，不能重新绑定对象".to_owned(),
@@ -149,57 +149,6 @@ impl<N: DeviceNode> NodeRuntime<N> {
         management.active_platform = Some(platform);
         Ok(output)
     }
-    /// 提取稳定通道配置文本。业务参数缺参报错；该规则与宏生成参数解析保持一致，
-    /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
-    fn normalize_channel_config(
-        &self,
-        config: &[String],
-        routing: bool,
-    ) -> MiresidianResult<Vec<String>> {
-        let policy = N::descriptor().instances;
-
-        N::descriptor()
-            .init_config
-            .iter()
-            .enumerate()
-            .map(|(index, parameter)| {
-                let value = normalize_value_with_definition(
-                    config,
-                    index,
-                    parameter.name,
-                    parameter.definition,
-                    parameter.default_value,
-                )?;
-                let is_identity = policy.mode == InstanceMode::Single
-                    || (policy.binding == crate::InstanceBinding::Config && index == 0);
-                if !routing || is_identity {
-                    catch_node(INIT_DEVICE_OPERATION, || {
-                        N::normalize_config_value(index, &value)
-                    })
-                } else {
-                    // 多实例查找由主键/Handle 决定，非主键值不替换对象保存的业务配置。
-                    Ok(value)
-                }
-            })
-            .collect()
-    }
-
-    /// `Config[0]` 是业务主键；判空先于默认值，其他业务或框架字段均不能替代它。
-    fn has_business_key(&self, config: &[String]) -> bool {
-        N::descriptor()
-            .init_config
-            .first()
-            .zip(config.first())
-            .is_some_and(|(parameter, value)| {
-                let value = value.trim();
-                let prefix = format!("{}:", parameter.name);
-                !value
-                    .strip_prefix(&prefix)
-                    .unwrap_or(value)
-                    .trim()
-                    .is_empty()
-            })
-    }
     pub(super) fn close_device(
         &self,
         config: &[String],
@@ -214,7 +163,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .unwrap_or_else(|e| e.into_inner());
         crate::CallContext::current().check()?;
         let parsed = self.parse_config(config, selector, platform)?;
-        let key = parsed.key(self.normalize_channel_config(parsed.node, true)?)?;
+        let key = parsed.key::<N>(self.normalize_channel_config(parsed.node, true)?)?;
         let channel = {
             let management = self.management();
             management

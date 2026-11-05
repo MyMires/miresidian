@@ -26,13 +26,22 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
         .unwrap_or_else(|| quote!(::miresidian::LeaseActivation::Disabled));
     let lease_request = match &arguments.lease {
         Some(lease) => {
-            let resource = &lease.resource;
-            let configuration = &lease.configuration;
+            let build = if let (Some(resource), Some(configuration)) =
+                (&lease.resource, &lease.configuration)
+            {
+                quote!(::miresidian::lease::LeaseRequest::from_parameters(parameters, #resource, &[#(#configuration),*]))
+            } else {
+                quote!(::miresidian::lease::LeaseRequest::from_parameter_keys(
+                    parameters,
+                    Self::__MIRESIDIAN_LEASE_KEYS,
+                    Self::__MIRESIDIAN_LEASE_CONFIG
+                ))
+            };
             quote! {
                 ::miresidian::__lease_feature_required();
                 let values = Self::__miresidian_lease_parameters(config)?;
                 let parameters = values.into_iter().map(|(name, value)| ::miresidian::lease::LeaseParameter::new(name, value)).collect();
-                let request = ::miresidian::lease::LeaseRequest::from_parameters(parameters, #resource, &[#(#configuration),*])
+                let request = #build
                     .map_err(|error| ::miresidian::MiresidianError::Failure(error.to_string()))?;
                 Ok(Some(request))
             }
@@ -40,6 +49,17 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
         None => quote!(let _ = config; Ok(None)),
     };
 
+    let lease_validation = match &arguments.lease {
+        None => {
+            quote!(assert!(!#identifier::__MIRESIDIAN_LEASE_ROLES, "lease 角色要求 node 声明 lease(...)" );)
+        }
+        Some(lease) if lease.resource.is_some() => {
+            quote!(assert!(!#identifier::__MIRESIDIAN_LEASE_ROLES, "旧 lease 字段声明不能与参数 lease 角色混用");)
+        }
+        Some(_) => {
+            quote!(assert!(#identifier::__MIRESIDIAN_LEASE_KEYS.len() > 0, "参数租约至少需要一个 lease(key)");)
+        }
+    };
     quote! {
         #item
         const _: () = {
@@ -47,9 +67,12 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
             if matches!(policy.mode, ::miresidian::InstanceMode::Multiple)
                 && matches!(policy.binding, ::miresidian::InstanceBinding::Config)
             {
-                assert!(#identifier::__MIRESIDIAN_INIT_CONFIG.len() > 0,
-                    "Config 关联的多实例节点必须在 Config[0] 声明业务主键");
+                assert!(#identifier::__MIRESIDIAN_INSTANCE_KEYS.len() > 0,
+                    "Config 关联的多实例节点至少需要一个实例键参数");
+            } else {
+                assert!(!#identifier::__MIRESIDIAN_INSTANCE_ROLES, "instance 角色只适用于 multiple/config");
             }
+            #lease_validation
         };
         // Node and its platform methods share a module. The alias binds independently
         // expanded method macros without reading source files or sharing compiler state.
@@ -116,6 +139,10 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
 
             fn normalize_config_value(index: usize, value: &str) -> ::miresidian::MiresidianResult<::std::string::String> {
                 Self::__miresidian_normalize_config_value(index, value)
+            }
+
+            fn instance_config_indices() -> ::core::option::Option<&'static [usize]> {
+                Some(Self::__MIRESIDIAN_INSTANCE_KEYS)
             }
 
             fn lease_request(config: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::miresidian::lease::LeaseRequest>> {

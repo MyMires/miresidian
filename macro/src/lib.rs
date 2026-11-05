@@ -29,10 +29,12 @@ pub fn operation(attribute: TokenStream, item: TokenStream) -> TokenStream {
     operation::expand(attribute, item)
 }
 
-/// 标记初始化配置参数；由 `operation` 消费。
+/// 标记方法的 Config 参数；由 `operation` 消费。
 ///
-/// 仅用于 `init_device` 的非 `self` 参数。参数可以是 `"名称"`，也可以是
-/// `"名称:默认值"`；省略标注时使用参数名转换得到的平台名称。
+/// 参数描述为 `"名称"` 或 `"名称:平台描述"`，不推导业务运行时默认值。
+/// 初始化未标注参数默认来自 Config；其他方法可用本属性显式选择 Config 来源。
+/// 仅初始化 Config 支持嵌套 `instance(key/ignore)`、`lease(key/ignore)`。
+/// 两套角色分别控制实例组合身份与资源租约，节点整体策略仍在 `node` 上。
 #[proc_macro_attribute]
 pub fn config(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item

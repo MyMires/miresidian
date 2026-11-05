@@ -1,5 +1,7 @@
 # 实例管理与多通道执行
 
+0.24.0 的参数组合键、默认规则及迁移见 [Config 组合身份与租约声明](config-identity.md)。
+
 [文档中心](README.md) · [宏驱动开发](宏驱动开发.md) · [平台调用契约](c-abi.md)
 
 ## 默认单实例
@@ -16,7 +18,7 @@
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.23.0", features = ["instances"] }
+miresidian = { version = "=0.24.0", features = ["instances"] }
 ```
 
 ```rust,ignore
@@ -28,7 +30,7 @@ miresidian = { version = "=0.23.0", features = ["instances"] }
 ))]
 struct ExampleNode;
 
-// 多实例，以 Config[0] 为主键。
+// 多实例，默认以全部业务 Config 为组合主键。
 #[miresidian::node("示例节点", instances(
     mode = multiple,
     binding = config,
@@ -57,13 +59,15 @@ struct ExampleNode;
 
 声明 `instances(...)` 却未开启依赖的 feature 会编译失败。重复、未知、缺失或无效配置也会编译失败；节点 crate 自身同名 feature 不能代替框架依赖的 feature。
 
-## Config[0] 主键（新节点项目强制规则）
+## Config 组合主键
 
-初始化的第一个业务 Config 参数必须是对象主键，位于 `Config[0]`，例如连接端点、端口名或逻辑资源标识。其他配置如通信参数、超时不参与对象身份。宏拒绝没有业务 Config 的 `multiple + config` 节点；业务上哪个字段是主键由节点作者正确放在第一位，框架不根据名称猜测。
+multiple/config 默认以全部业务 Config 的规范值组成实例键。参数上的 `config("名称", instance(key))` 显式选择键，`instance(ignore)` 排除参数；有任一 key 时只选择 key，否则选择除 ignore 外的全部参数。至少保留一个键。声明顺序决定组合顺序，框架附加字段不参与。
 
-判空先于类型解析：未提供 Config[0]、空字符串、纯空白或只有参数名前缀（如 `地址:`）时，InitDevice 成功返回空输出，跳过创建、参数预解析和租约获取，保持已有对象不变。后面的业务参数或框架字段非空，也不能代替主键；平台描述不能把空通道变成对象。
+初始化时任一选中键的原始文本缺失、空白或仅含名称前缀，则成功返回空输出，不构造对象、不申请租约；判空先于类型解析。未选中的参数即使位于 Config[0]，也不影响空身份判定。
 
-非空主键按名称前缀、具体选项显示值及原 Rust 参数类型规范化。相同主键且完整业务配置一致时复用对象；相同主键却携带不同配置时返回 `INVALID_ARGUMENT`，不创建第二个对象。不同主键分别登记对象。业务调用和关闭只用主键定位，方法中的 config 参数读取对象保存的规范化业务配置。
+相同组合键且全部业务配置一致时复用对象；同键但非键配置不同则报配置冲突。ignore 只排除分发，不允许重新初始化静默修改对象。调用和关闭按同一组合键查找，业务方法读取对象保存的 Config。默认全量键下，改变普通配置也会形成新实例；希望只按地址定位时显式标记 key。
+
+0.23.x 节点要保留原 Config[0] 路由时，只在初始化第一个 Config 上添加 instance(key)。完整示例、与租约的独立关系及错误规则见 [组合身份声明](config-identity.md)。
 
 ## Handle 关联
 
@@ -106,13 +110,13 @@ Handle 缺失、空白或只有 `Handle:` 前缀时，初始化成功返回空�
 
 固定方式不发布、不接受执行方式 Config 项。selectable 缺省或空白使用宏声明的默认值；TB 兼容的未知文本仍回退 Sequential。相同主键重复初始化时必须使用一致的解析结果。
 
-一次多通道请求只携带一份 Config，按 Config[0] 或 Handle 定位一次对象，全部有效输入使用它。输入位置不关联对象创建顺序，输入数量不受对象数量限制。空白和非法参数数目的跳过规则、输出对齐和执行错误契约沿用 TB 兼容协议；并行失败不表示其他输入没有执行。
+一次多通道请求只携带一份 Config，按 Config 组合键或 Handle 定位一次对象，全部有效输入使用它。输入位置不关联对象创建顺序，输入数量不受对象数量限制。空白和非法参数数目的跳过规则、输出对齐和执行错误契约沿用 TB 兼容协议；并行失败不表示其他输入没有执行。
 
 Rust 使用 `RuntimeInvocation::MultiChannel(MultiChannelInvocation { operation, config, slots })` 和 `RuntimeResponse::MultiChannel`。旧类型名 `SharedInvocation`、`SharedResponse` 保留别名；旧 Shared 枚举变体应迁移为 MultiChannel。
 
 ## 0.14.0 迁移
 
-- 需要保留旧版多个 Config 对象同时存在的节点，开启 feature 并显式声明 `multiple + config`，将真实业务主键放在 Config[0]。
+- 需要保留旧版多个 Config 对象同时存在的节点，开启 feature 并显式声明 `multiple + config`，按业务身份选择 Config 参数；保留旧首项身份时显式标记 instance(key)。
 - 需要 TB 多通道输入的单实例节点，声明 `single` 和执行策略。
 - 不再无条件追加执行方式；调用方查询 GetInitConfig，不固定假设参数数量。
 - 串口节点 0.10.0 显式选择 multiple/config/selectable，端口名称为主键；同端口不同设置初始化报冲突，空端口跳过。
@@ -121,7 +125,7 @@ Rust 使用 `RuntimeInvocation::MultiChannel(MultiChannelInvocation { operation,
 ## 0.15.0 并发契约
 
 同一 DLL 的运行时以共享内部状态管理实例，普通调用不再持有覆盖业务执行的全局锁。
-不同 Config[0] 或 Handle 对应的实例可同时执行；同一实例的请求互斥。
+不同 Config 组合键或 Handle 对应的实例可同时执行；同一实例的请求互斥。
 多通道请求整体取得实例执行权，批次内部执行期间其他请求不能插入，执行权持续到全部已开始的输入结束。
 Parallel 仍是同实例输入调度，输出保持输入位置；不提供同实例业务方法重叠。0.16.0 起广播固定调用通道1一次，随后复制输出，不重复业务副作用。
 
@@ -172,7 +176,7 @@ C 导出签名、JSON 编码、返回文本生命周期和 Config 布局不变�
 | 场景 | 对象行为 | 物理资源行为 |
 | --- | --- | --- |
 | 同一 DLL、Config 关联、规范化业务 Config 相同 | 复用同一对象，不重跑构造、不重复申请运行时租约 | 继续使用原对象持有的连接或代理 |
-| 同一 DLL、Config[0] 相同而其他业务配置不同 | 初始化报冲突，不创建新对象 | 不重新打开资源 |
+| 同一 DLL、显式实例键相同而其他业务配置不同 | 初始化报冲突，不创建新对象 | 不重新打开资源 |
 | 同一 DLL、Handle 关联、同 Handle 同配置 | 复用同一对象 | 继续使用原连接或代理 |
 | 不同 Handle 或不同 DLL | 各自保留独立业务对象 | 使用 SharedResource 的通信层可共用物理连接 |
 

@@ -2,11 +2,11 @@
 
 [文档中心](README.md) · [实例管理](instances.md) · [配置租约](../features/lease/README.md)
 
-框架 0.23.0、lease 0.15.3 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
+框架 0.24.0、lease 0.16.0 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
 
 ## 两种身份和生命周期
 
-实例容器按 Config[0] 或 Handle 定位业务对象。同一 DLL 同身份同业务配置复用一个对象；不同 Handle、不同 DLL 和不同节点类型仍保留各自的业务状态。重复初始化不增加对象引用次数，CloseDevice 会关闭所定位的对象。
+实例容器按 Config 组合键或 Handle 定位业务对象。同一 DLL 同身份同业务配置复用一个对象；不同 Handle、不同 DLL 和不同节点类型仍保留各自的业务状态。重复初始化不增加对象引用次数，CloseDevice 会关闭所定位的对象。
 
 资源代理按通信层约定的物理资源键定位一个资源所有者。每个业务对象可持有自己的代理；所有者只打开一次物理连接，并对完整通信事务互斥。释放一个代理不影响其他代理，最后代理退出后才析构连接。
 
@@ -46,7 +46,7 @@ SharedResource 是同步接口；原生 async 方法应通过阻塞线程桥执�
 
 ## 最小可运行示例：模拟通信提供者
 
-以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.23.0", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
+以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.24.0", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
 
 ```rust
 use miresidian::lease::{

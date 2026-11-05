@@ -61,6 +61,8 @@ impl Format {
                 source: ParameterSource::Input,
                 batch: false,
                 format: None,
+                instance: super::config::Role::Default,
+                lease: super::config::Role::Default,
             }
         })
     }

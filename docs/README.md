@@ -66,6 +66,8 @@
 - 契约规则集中在对应手册，API 精确签名由源码 Rustdoc 维护；交付变更同步[修订记录](../CHANGELOG.md)并按[版本管理](versioning.md)判断影响。
 - 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。
 
-- [实例管理与多通道执行](instances.md)：默认单实例、Config[0] 主键、Handle Config 布局与迁移。
+- [实例管理与多通道执行](instances.md)：默认单实例、Config 组合主键、Handle Config 布局与迁移。
 
 统一工具入口与整套下载安装：[Miresidian CLI](../tools/miresidian-cli/README.md)。原工具保持独立。
+
+- [Config 组合身份与租约声明](config-identity.md)：嵌套角色、默认选择、资源配置边界与 0.24.0 迁移。

@@ -2,16 +2,16 @@
 
 [中文](README.md) · [English](README.en.md)
 
-`miresidian_lease` 0.15.3 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v1** protocol.
+`miresidian_lease` 0.16.0 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v1** protocol.
 
 Node projects normally enable the capability through the root crate:
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.23.0", features = ["lease"] }
+miresidian = { version = "=0.24.0", features = ["lease"] }
 ```
 
-Standalone communication providers can depend on `miresidian_lease = { version = "=0.15.3", features = ["local-ipc"] }`.
+Standalone communication providers can depend on `miresidian_lease = { version = "=0.16.0", features = ["local-ipc"] }`.
 
 ## Choose the appropriate mechanism
 
@@ -36,3 +36,9 @@ Configuration IPC requests have a two-second deadline; configuration lock acquis
 Local IPC user scoping is not deployment authentication. Preserve appropriate pipe/socket and directory access controls. Existing node binaries require provider integration and rebuilding.
 
 See the [provider contract and runnable example](../../docs/shared-resources.md), [runtime integration](README.md), and [changelog](CHANGELOG.en.md). Cross-process and native dynamic-library simulations validate ownership and serialization, not real device communication.
+
+## Parameter roles
+
+Declare the lifetime policy with `node("Name", lease(activation = required))`. Inside `init_device`, `config("Address", lease(key))` selects one or more resource identity fields. Other Config parameters form the compatibility configuration automatically; `lease(ignore)` excludes a parameter from both. At least one explicit resource key is required; configuration may be empty. Instance keys are selected independently with instance roles.
+
+Single-field identities retain their existing canonical text. Composite identities use ordered, length-delimited values with a version prefix. `ResourceKey::from_parts` and `LeaseRequest::from_parameter_keys` expose this encoding for communication providers. Agree on value order, normalization, and configuration field names/order across providers. The legacy resource/configuration declaration and single-field API remain supported and cannot be mixed with parameter lease roles. See the [full contract and migration](../../docs/config-identity.md).

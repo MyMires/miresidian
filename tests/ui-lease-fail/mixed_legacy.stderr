@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: 旧 lease 字段声明不能与参数 lease 角色混用
+ --> tests/ui-lease-fail/mixed_legacy.rs:2:1
+  |
+2 | #[node("角色验证", lease(activation = required, resource = "resource", configuration = ["resource"]))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

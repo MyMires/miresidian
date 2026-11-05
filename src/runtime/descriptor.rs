@@ -102,7 +102,7 @@ impl OperationDescriptor {
 pub struct NodeDescriptor {
     /// 用于诊断及后续发现机制的稳定节点名称。
     pub name: &'static str,
-    /// 初始化业务 Config；Config 关联模式以首项为主键，框架保留字段不在此切片中。
+    /// 初始化业务 Config；组合身份由 DeviceNode::instance_config_indices 选择，框架保留字段不在此切片中。
     pub init_config: &'static [ParameterDescriptor],
     /// `InitDevice` 的有序输入值；它们不属于通道身份。
     pub init_inputs: &'static [ParameterDescriptor],

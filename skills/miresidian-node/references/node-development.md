@@ -5,7 +5,7 @@
 ## 项目与依赖
 
 - 独立 crate 声明 `cdylib`，一个 crate 声明一个具体节点；不靠多份条件节点声明切换实现。
-- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.23.0" }`，已有项目保留原精确版本，升级须属于本次任务。
+- 从 crates.io 精确依赖已发布框架，由 Cargo 生成并维护真实 Cargo.lock；禁止框架 path/git 依赖、patch/replace/paths 等本地覆盖或伪造锁文件。基础依赖写法：`miresidian = { version = "=0.24.0" }`，已有项目保留原精确版本，升级须属于本次任务。
 - 实现前核对框架、标准库、已有依赖和成熟实现。通用通信、编解码及校验优先复用；自行实现或额外封装须有实际缺口。新依赖核实真实 API、维护状态、许可证、MSRV 和目标平台。
 
 ## 能力依赖
@@ -120,7 +120,7 @@ impl ExampleNode {
 - `node` 与 `operation` 宏生成 DeviceNode 实现、操作分发和 DLL 导出，节点只声明业务契约并委托实现。
 - Config 描述初始化/对象关联配置，Input 描述本次业务输入，Output 描述结果。初始化默认取 Config，其他操作默认取 Input，可用标注明确覆盖来源；两个通道各按其参数声明顺序独立索引。输入可传裸值或 `名称:值`，须确定类型、单位、默认值、范围和错误。
 - 描述原样发布，不推导业务运行时默认值；完整候选文本如 `9600/19200` 不取首项，数值报错、String 保留原文；具体显示值仍映射为实际值。平台预填并传来的值属于实际输入。
-- 存在业务 Config 时，Config[0] 必须是真实对象主键，如端口或资源地址；无业务配置的最小单实例允许空 Config，不伪造主键。实例关联见 [instances](instances.md)，附加框架字段见 [Config 布局](#config-布局)。
+- 无业务 Config 的最小单实例允许空 Config，不伪造主键。multiple/config 默认全部业务 Config 参与实例分发，可用嵌套 instance(key/ignore) 选择业务身份；租约资源身份独立声明。实例关联见 [instances](instances.md)，附加框架字段见 [Config 布局](#config-布局)。
 
 ### 完整选项与枚举
 

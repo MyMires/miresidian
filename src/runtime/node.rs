@@ -57,6 +57,12 @@ pub trait DeviceNode: Send + Sized + 'static {
         Ok(value.to_owned())
     }
 
+    /// Config 关联多实例的键索引。None 表示全部初始化业务 Config。
+    /// 宏根据 instance(key/ignore) 生成索引；组合顺序始终按 Config 声明，框架附加字段不参与。
+    fn instance_config_indices() -> Option<&'static [usize]> {
+        None
+    }
+
     /// 返回由结构体级 `lease(...)` 声明生成的请求；在构造节点前执行。普通节点返回 `None`。
     fn lease_request(_config: &[String]) -> MiresidianResult<Option<LeaseRequest>> {
         Ok(None)
@@ -122,8 +128,8 @@ pub fn validate_descriptor(descriptor: &NodeDescriptor) -> MiresidianResult<()> 
         && descriptor.init_config.is_empty()
     {
         return Err(crate::MiresidianError::InvalidArgument {
-            field: "Config[0]".to_owned(),
-            message: "Config 关联的多实例节点必须在 Config[0] 声明业务主键".to_owned(),
+            field: "Config".to_owned(),
+            message: "Config 关联的多实例节点至少需要一个实例键参数".to_owned(),
         });
     }
     let mut names = std::collections::HashSet::new();

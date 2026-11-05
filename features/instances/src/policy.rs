@@ -51,7 +51,7 @@ pub enum InstanceMode {
 /// 多实例对象的唯一关联键。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstanceBinding {
-    /// 使用规范化后的业务 `Config[0]`；同主键配置一致时复用对象。
+    /// 使用根运行时选择的规范化业务 Config 组合键；同键同配置复用对象。
     Config,
     /// 使用 Config 中的框架 Handle；不同 Handle 不按业务配置合并。
     Handle,
