@@ -11,7 +11,7 @@
 #define MIRESIDIAN_CALL
 #endif
 
-#define MIRESIDIAN_ABI_VERSION 7
+#define MIRESIDIAN_ABI_VERSION 8
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +31,7 @@ enum {
 
 /**
  * @brief 查询当前节点 DLL 的 C ABI 版本，无需初始化设备。
- * @return ABI 版本号，当前为 7；不是框架或节点项目的语义化版本。
+ * @return ABI 版本号，当前为 8；不是框架或节点项目的语义化版本。
  * @note 框架版本和节点版本分别通过 GetFrameworkVersion、GetProjectVersion
  *       查询，从调用响应的 output[0] 读取。本函数不替换调用入口的响应缓存。
  */
@@ -57,8 +57,9 @@ MIRESIDIAN_API uint32_t MIRESIDIAN_CALL miresidian_abi_version(void);
  * NULL function、非法 UTF-8 或 JSON 通过响应报告参数错误；无效地址或缺少
  * NUL 终止符不属于可校验的输入，调用方必须保证指针和缓冲区有效。
  *
- * 两个调用入口共用同一线程的响应缓存。返回文本只在同一线程下一次调用
- * miresidian_invoke 或 miresidian_invoke_with、线程退出或 DLL 卸载前有效，
+ * 三个调用入口共用同一线程的响应缓存。返回文本只在同一线程下一次调用
+ * miresidian_invoke、miresidian_invoke_with 或 miresidian_invoke_request、
+ * 线程退出或 DLL 卸载前有效，
  * 以最早发生者为准。跨调用保存结果时，必须复制到调用方自己的内存。
  *
  * code 为稳定机器代码，成功时为 OK；失败时例如 NOT_INITIALIZED、INVALID_ARGUMENT。
@@ -95,6 +96,37 @@ MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke_with(
     const char *function,
     const char *config_json,
     const char *input_json);
+
+/**
+ * @brief 从完整 JSON 请求执行操作，与两个既有调用入口共享节点运行时。
+ * @param request_json 非 NULL、NUL 结尾的 UTF-8 C 字符串，内容为单个 JSON 对象。
+ *        function：必填非空字符串，操作名称精确匹配。
+ *        config/input：可省略的字符串数组，默认 []，各按参数声明顺序排列。
+ *        platform：可省略的 uint32 数值，须使用 JSON 整数字面量。
+ *        不接受 null、重复/未知字段或错误类型；数组不可再次编码为字符串。
+ *
+ * 省略 platform 时沿用 miresidian_invoke：由 InitDevice 的保留“平台适配”Config
+ * 选择平台，后续使用运行时已选适配器；省略不等于自动补 1。初始化前查询及平台切换
+ * 限制同默认入口。提供 platform 时沿用 miresidian_invoke_with，InitDevice Config
+ * 不发布也不接受“平台适配”选择器。
+ *
+ * platform 为稳定编号，不是枚举声明顺序：1 为 TB 内置平台，2..65535 当前保留，
+ * 第三方从 65536 开始且必须已注册。禁止字符串（包括 "1"）、布尔、小数、负数和溢出。
+ * 0/无效保留编号返回 INVALID_PLATFORM_ID，合法未注册编号返回 UNKNOWN_PLATFORM_ADAPTER；
+ * 缺失 function、空 function、NULL/非法 UTF-8/JSON、错误字段类型返回 INVALID_ARGUMENT。
+ * 上述错误 status 均为 MIRESIDIAN_STATUS_INVALID_ARGUMENT，output 为 []。
+ *
+ * @return 与 miresidian_invoke 相同的 DLL 持有响应，字段顺序为 status/code/message/output。
+ *         调用方立即复制，不得修改或释放。任一调用入口的下一次同线程调用、线程退出或
+ *         DLL 卸载会使此前响应指针失效，以最早发生者为准。ABI 版本查询不替换响应缓存。
+ * @note 输入内存归调用方，本次同步调用期间必须保持可读。无效地址或缺少 NUL 终止符
+ *       无法校验，调用方必须保证缓冲区有效。可展开 panic 转换为错误响应。
+ * @example {"function":"GetFunctions","config":[],"input":[]}
+ * @example {"platform":1,"function":"GetFunctions"}
+ * @since C ABI v8；v7 的两个调用入口保留签名、参数、返回值和生命周期约定。
+ */
+MIRESIDIAN_API const char *MIRESIDIAN_CALL miresidian_invoke_request(
+    const char *request_json);
 
 #ifdef __cplusplus
 }

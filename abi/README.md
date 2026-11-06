@@ -6,9 +6,16 @@
 
 通常节点项目只需依赖 `miresidian`。只有实现宿主适配层、检查 ABI 兼容性，或需要直接使用公共 FFI 类型时，才直接引入本 crate。
 
+当前源码候选为 `miresidian_abi 0.15.0`，C ABI **v8**，本任务未执行 registry 发布。直接依赖前核实精确版本已发布；候选不可通过本地覆盖用于独立节点。
+
 ```toml
+# 仅在 registry 已确认该精确版本可用后采用。
 [dependencies]
-miresidian_abi = "0.14.0"
+miresidian_abi = "=0.15.0"
 ```
+
+v8 新增 `const char *miresidian_invoke_request(const char *request_json)`，保留 v7 的两个调用入口。请求示例 `{"function":"GetFunctions"}`；`function` 必填非空，`config`/`input` 为可省略的有序字符串数组，默认 `[]`。`platform` 为可选 u32 数值：省略沿用默认入口的 Config 平台选择，提供沿用显式平台入口且初始化 Config 不接受平台选择器。编号 `1` 为 TB，`2..65535` 当前保留，第三方从 `65536` 起且须已注册。拒绝 null、错误类型、未知/重复字段；平台错误与普通参数错误见完整契约。
+
+三个调用入口共用同一线程的响应缓存，响应仍为 `status/code/message/output`。返回指针由 DLL 持有，调用方立即复制且不得释放；同线程任一调用入口的下一次调用、线程退出或卸载使原指针失效。ABI 版本查询不替换缓存。已有调用签名不变，宿主若按 ABI 恰等于 7 拒绝加载，须在评估兼容性后增加 v8 支持。
 
 完整 C ABI 调用约定见[C ABI](../docs/c-abi.md)。

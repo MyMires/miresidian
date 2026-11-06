@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-06
+
+- Add `miresidian_invoke_request` with a complete JSON request: required nonempty function, optional ordered Config/Input string arrays, and optional numeric platform. Omission uses existing Config-based platform selection; presence uses explicit selection.
+- Reject null, malformed types, unknown/duplicate fields, and invalid platform values. Keep existing responses, error categories, panic isolation, thread-local response ownership, and shared node state across all three call entries.
+- Source candidates: framework 0.26.0, macro 0.23.0, ABI crate 0.15.0 / C ABI v8. Preserve both old call signatures; synchronize technical documentation, exact internal dependencies, and the workspace lockfile. Unrelated components/tools/protocols are unchanged.
+- Local source/tag delivery only; no publication or independent-node upgrades. No Windows or hardware validation claim. Evidence is recorded in plans/2026-11-06-unified-abi-request.md.
+
 ## [0.25.2] - 2026-11-06
 
 - Publish Node DLL layout guidance: keep one user-facing Node DLL at the top of each node's architecture directory and place accompanying third-party and helper runtime DLLs under `dependencies/`. Document the entry filename, architecture, and purpose of the dependencies.

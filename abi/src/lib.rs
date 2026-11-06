@@ -6,7 +6,7 @@
 use std::{ffi::c_char, ptr};
 
 /// 当前固定 C ABI 的版本号。新增 C 导出入口或改变既有 C 导出契约时递增。
-pub const MIRESIDIAN_ABI_VERSION: u32 = 7;
+pub const MIRESIDIAN_ABI_VERSION: u32 = 8;
 
 /// C ABI 调用成功。
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
@@ -61,6 +61,7 @@ mod tests {
         assert!(header.contains("miresidian_abi_version(void)"));
         assert!(header.contains("miresidian_invoke("));
         assert!(header.contains("miresidian_invoke_with("));
+        assert!(header.contains("miresidian_invoke_request("));
     }
 
     #[test]

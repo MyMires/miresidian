@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_abi"
-version = "0.14.0"
+version = "0.15.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 的稳定 C ABI 契约、状态码与公共 FFI 类型。"
@@ -9,7 +9,7 @@ repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
 
 [package.metadata.miresidian]
-abi_version = 7
+abi_version = 8
 
 [lib]
 path = "src/lib.rs"

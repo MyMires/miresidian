@@ -5,5 +5,7 @@ int main(void) {
     const char *(MIRESIDIAN_CALL *invoke)(const char *, const char *, const char *) = miresidian_invoke;
     const char *(MIRESIDIAN_CALL *invoke_with)(uint32_t, const char *, const char *, const char *) = miresidian_invoke_with;
 
-    return (abi_version == 0 || invoke == 0 || invoke_with == 0 || MIRESIDIAN_STATUS_OK != 0 || MIRESIDIAN_ABI_VERSION != 7);
+    const char *(MIRESIDIAN_CALL *invoke_request)(const char *) = miresidian_invoke_request;
+
+    return (abi_version == 0 || invoke == 0 || invoke_with == 0 || invoke_request == 0 || MIRESIDIAN_STATUS_OK != 0 || MIRESIDIAN_ABI_VERSION != 8);
 }

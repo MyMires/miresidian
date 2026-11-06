@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-06
+
+- node 自动生成 `miresidian_invoke_request`，委托框架统一解析请求，三个入口共用同一 OnceLock 运行时。
+- 保留旧导出与标注方式；新增导出的 Safety/返回指针说明，README 同步完整请求入口及发布边界。
+- 依赖根框架 0.26.0 提供的请求运行时 API，生成链与共享状态由集成和动态库烟测验证；候选不自动发布。
+
 ## [0.22.0] - 2026-11-05
 
 - 解析初始化 Config 的嵌套 instance(key/ignore)、lease(key/ignore)，分别生成实例键索引与租约字段元数据。

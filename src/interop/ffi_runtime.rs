@@ -23,7 +23,7 @@ const INTERNAL_ERROR_RESPONSE: &str =
 thread_local! {
     /// 当前线程最近一次 ABI 调用的响应文本。
     ///
-    /// 指针仅在同一线程下一次调用 miresidian_invoke 前有效；外部平台应在调用返回后立即
+    /// 指针仅在同一线程下一次调用任一 ABI 调用入口前有效；外部平台应在调用返回后立即
     /// 复制文本，而不需要也不得释放该指针。
     static LAST_RESPONSE: RefCell<CString> = RefCell::new(
         CString::new(INTERNAL_ERROR_RESPONSE).expect("固定 JSON 响应不含 NUL"),
@@ -41,9 +41,9 @@ struct InvocationResponse {
     output: Vec<String>,
 }
 
-/// 调用唯一的 DLL 入口并返回 JSON C 字符串指针。
+/// 使用默认平台选择流程调用 DLL 并返回 JSON C 字符串指针。
 ///
-/// 返回指针由 DLL 持有，在同一线程下一次调用此函数前有效。调用方应立即复制文本，且不得
+/// 返回指针由 DLL 持有，在同一线程下一次调用任一 ABI 调用入口前有效。调用方应立即复制文本，且不得
 /// 释放该指针。JSON 始终包含 status、code、message 与 output。
 /// config_json 与 input_json 为 NULL 时按空数组处理。
 ///
@@ -81,6 +81,37 @@ pub unsafe fn invoke_with<N: DeviceNode>(
     // SAFETY: 字符串指针满足此函数的调用契约；platform 在 dispatch_with 中校验。
     store_response(caught_response(|| unsafe {
         dispatch_with(runtime, platform, function, config_json, input_json)
+    }))
+}
+
+/// 从完整 JSON 请求调用 DLL，返回 DLL 持有的 JSON 响应文本。
+///
+/// `function` 为必填非空字符串，`config`/`input` 为可省略的字符串数组（默认 `[]`）。
+/// 可选的 `platform` 必须为 u32 JSON 整数；提供时沿用 [`invoke_with`] 的显式平台规则，
+/// 省略时沿用 [`invoke`] 的 Config 平台选择流程，不隐式补平台编号。
+/// 拒绝显式 null、未知字段、重复字段及错误类型，参数错误返回统一 INVALID_ARGUMENT 响应。
+///
+/// 所有入口共用线程局部响应缓存；返回文本在同线程下一次调用任一入口、线程退出或
+/// DLL 卸载前有效（以最早发生者为准）。调用方应立即复制，不得修改或释放指针。
+///
+/// # Safety
+/// `request_json` 非空时必须指向本次调用期间可读、NUL 结尾的 C 字符串；内存归调用方。
+/// NULL、非法 UTF-8、非法 JSON 和无效请求通过错误响应报告。
+pub unsafe fn invoke_request<N: DeviceNode>(
+    runtime: &impl crate::runtime::RuntimeSource<N>,
+    request_json: *const c_char,
+) -> *const c_char {
+    store_response(caught_response(|| {
+        // SAFETY: 非空指针的有效期和 NUL 终止由调用方保证，内部检查 NULL/UTF-8。
+        let text = unsafe { copy_required_text(request_json, "request_json") }?;
+        let request = super::request::parse(&text)?;
+        let invocation = Invocation::new(request.function, request.config, request.input);
+        match request.platform {
+            Some(platform) => dispatch_platform(runtime, platform, invocation),
+            None => invoke_runtime(runtime, N::platform_registry, |runtime| {
+                runtime.invoke(&invocation)
+            }),
+        }
     }))
 }
 
@@ -154,6 +185,24 @@ unsafe fn dispatch_with<N: DeviceNode>(
     let config = unsafe { parse_json_array(config_json, "config_json") }?;
     // SAFETY: 同上。
     let input = unsafe { parse_json_array(input_json, "input_json") }?;
+    invoke_platform(runtime, platform, Invocation::new(operation, config, input))
+}
+
+fn dispatch_platform<N: DeviceNode>(
+    runtime: &impl crate::runtime::RuntimeSource<N>,
+    platform: u32,
+    invocation: Invocation,
+) -> crate::MiresidianResult<Vec<String>> {
+    let platform =
+        Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?;
+    invoke_platform(runtime, platform, invocation)
+}
+
+fn invoke_platform<N: DeviceNode>(
+    runtime: &impl crate::runtime::RuntimeSource<N>,
+    platform: Platform,
+    invocation: Invocation,
+) -> crate::MiresidianResult<Vec<String>> {
     let platforms = N::platform_registry();
     let adapter = platforms
         .adapter(platform)
@@ -161,7 +210,7 @@ unsafe fn dispatch_with<N: DeviceNode>(
     invoke_runtime(
         runtime,
         || platforms,
-        |runtime| runtime.invoke_with(adapter.as_ref(), Invocation::new(operation, config, input)),
+        |runtime| runtime.invoke_with(adapter.as_ref(), invocation),
     )
 }
 

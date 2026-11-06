@@ -3,7 +3,7 @@
 use quote::quote;
 use syn::Type;
 
-/// 为每个节点生成唯一的 C ABI 入口；JSON 解析、响应保存与内存边界由运行时统一实现。
+/// 为每个节点生成统一的 C ABI 入口；JSON 解析、响应保存与内存边界由运行时统一实现。
 pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::TokenStream {
     quote! {
         static #runtime: ::std::sync::OnceLock<::miresidian::NodeRuntime<#self_type>> = ::std::sync::OnceLock::new();
@@ -41,6 +41,21 @@ pub(super) fn exports(self_type: &Type, runtime: &syn::Ident) -> proc_macro2::To
                     config_json,
                     input_json,
                 )
+            }
+        }
+
+        /// 接收完整 JSON 请求，省略 platform 时由初始化 Config 选择平台。
+        ///
+        /// # Safety
+        /// 非 NULL request_json 必须指向调用期间有效、NUL 结尾的 UTF-8 C 字符串。
+        /// 返回响应由 DLL 持有，须在同线程下一次调用任一入口前复制，不得释放。
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn miresidian_invoke_request(
+            request_json: *const ::std::ffi::c_char,
+        ) -> *const ::std::ffi::c_char {
+            // SAFETY: 输入指针契约由调用方保证，运行时校验 NULL/UTF-8/JSON。
+            unsafe {
+                ::miresidian::ffi_runtime::invoke_request(&#runtime, request_json)
             }
         }
 

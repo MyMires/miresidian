@@ -8,15 +8,17 @@
 
 ## C ABI
 
-Miresidian 节点 DLL 导出默认入口 `miresidian_invoke` 与显式平台入口 `miresidian_invoke_with`。两个入口均使用 UTF-8 JSON 文本，
+Miresidian 节点 DLL 导出完整请求入口 `miresidian_invoke_request`，并保留默认入口 `miresidian_invoke` 与显式平台入口 `miresidian_invoke_with`。三个入口均使用 UTF-8 文本，
 不要求调用方分配输出缓冲区，不传递 Rust 结构体。
 
-ABI 版本 miresidian_abi_version() 当前返回 7。
+ABI 版本 miresidian_abi_version() 当前返回 8（源码候选框架 0.26.0 / ABI crate 0.15.0）。
 
 ### 入口声明
 
 ~~~c
 uint32_t miresidian_abi_version(void);
+
+const char *miresidian_invoke_request(const char *request_json);
 
 const char *miresidian_invoke(
     const char *function,
@@ -35,8 +37,10 @@ const char *miresidian_invoke_with(
 - config_json、input_json：JSON 字符串数组，例如 ["COM3","9600"]；传 NULL 等同于 []。数组元素不能是数值、布尔值或对象。
 - 返回值 `result_json`：DLL 内部保存的 UTF-8 JSON C 字符串指针。
 
-DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区、无需传容量、也不得释放返回指针；
-应在同一线程下一次调用前将文本复制到自己的内存。
+request_json 为完整请求入口的单个 UTF-8 JSON 对象文本，契约见下一节；其余三个参数仅属于既有入口。
+
+三个调用入口共享运行时及当前线程响应缓存。DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区、无需传容量、也不得释放返回指针；
+应在同一线程下一次调用任一调用入口前将文本复制到自己的内存；线程退出或 DLL 卸载同样使指针失效，以最早发生者为准。ABI 版本查询不替换响应缓存。
 
 默认入口按 `InitDevice` 的保留 `平台适配` Config 选择平台。显式平台入口对应 Rust 的 `NodeRuntime::invoke_with`：平台枚举数值单独传入，`InitDevice` Config 不发布也不接受 `平台适配`。
 
@@ -46,6 +50,46 @@ DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区�
 const char *result_json = miresidian_invoke(
     "GetFunctions", "[]", "[]");
 ~~~
+
+### 完整请求入口（v8）
+
+新入口将一次调用整体序列化，适合宿主统一保存、传递和回放请求：
+
+~~~c
+const char *result_json = miresidian_invoke_request(
+    "{\"function\":\"GetFunctions\",\"config\":[],\"input\":[]}");
+/* 立即复制 result_json；不得修改或释放 DLL 返回指针。 */
+~~~
+
+~~~json
+{
+  "platform": 1,
+  "function": "GetFunctions",
+  "config": [],
+  "input": []
+}
+~~~
+
+| 字段 | 类型与默认 | 规则 |
+| --- | --- | --- |
+| function | 必填字符串 | 非空，操作名精确匹配，不 trim |
+| config | 字符串数组，省略为 [] | 按 Config 声明顺序；不可把数组再次编码为字符串 |
+| input | 字符串数组，省略为 [] | 按 Input 声明顺序 |
+| platform | 可选 u32 JSON 整数 | 省略沿用 miresidian_invoke；提供沿用 miresidian_invoke_with |
+
+字段顺序任意；拒绝未知字段、重复字段、任何字段的显式 null、非对象请求、非法 JSON/UTF-8、空指针及错误类型，返回 `status:1/code:INVALID_ARGUMENT/output:[]`。platform 不接受名称、数字字符串（如 `"1"`）、布尔、负数、小数（包括 `1.0`/`1e0`）或整数溢出。
+
+平台编号是稳定标识，不是 Rust/C 枚举声明顺序：`1` 对应 `MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM`，`2..65535` 当前保留，第三方从 `MIRESIDIAN_PLATFORM_CUSTOM_MIN`（65536）开始且须编译并注册进当前 DLL。`0` 或无效保留编号返回 `INVALID_PLATFORM_ID`；合法未注册编号（包括未注册的 u32 最大值）返回 `UNKNOWN_PLATFORM_ADAPTER`，status 均为 1。升级不能随意重新分配既有编号。
+
+省略 platform 不等于补 1：初始化前查询、`InitDevice` 的“平台适配”保留 Config、选型后的调用及平台切换限制均沿用默认入口。例如先查询 `{"function":"GetInitConfig"}`，按发布顺序传业务 Config 与所选平台文本，再初始化。后续省略 platform 的请求继续使用运行时已选择的平台。显式提供 platform 时初始化元数据和 Config 均不含该选择器，重复传入返回参数错误。
+
+request_json 非 NULL 时必须是调用期间可读、NUL 结尾的 C 字符串；输入内存归调用方。无效地址或缺少 NUL 终止符无法安全校验。可展开 panic 按既有错误隔离规则返回统一响应；新入口不新增线程、设备实例或独立响应缓存。
+
+#### v7 到 v8 迁移
+
+v8 保留两个既有调用入口的签名和行为，响应字段与内存所有权不变。可继续使用旧入口；需要完整请求时先确认 DLL 报告且支持 ABI v8，再解析新导出符号。只有 v7 的旧 DLL 不提供此符号；v8 也不代表以后所有更高 ABI 都自动兼容，宿主应维护经过评估的支持版本集合。原先要求版本恰等于 7 的宿主需要显式增加 v8 支持。
+
+源码候选为框架 0.26.0、macro 0.23.0、abi crate 0.15.0；本任务未发布候选。独立节点须待所需组件 registry 可用后升级精确框架依赖并重建，旧 DLL 不会自动得到新入口。开发工具仍可使用保留入口，无须因本契约升级无关工具或节点。
 
 ### 响应体
 
@@ -108,7 +152,7 @@ GetFrameworkVersion 的 output 为当前 DLL 所用框架的语义化版本；Ge
 
 `CloseDevice` 无论关闭、析构或租约释放是否失败，都移除原通道并报告错误。`CloseAllDevices` 尝试全部通道后汇总清理错误。租约失效返回 `status = 2`，禁止继续访问目标资源，须先关闭再初始化。框架不会在故障对象上自动恢复业务调用。
 
-FFI 和异步请求边界捕获额外运行时异常并执行清理。两个同步入口共用内部并发运行时，不再持有覆盖业务的全局锁；旧 Rust FFI 容器仅在取得共享运行时引用时短暂加锁，污染时先清理再恢复。`panic = "abort"`、内存访问违规与进程级崩溃无法由此机制恢复。
+FFI 和异步请求边界捕获额外运行时异常并执行清理。三个同步入口共用内部并发运行时，不再持有覆盖业务的全局锁；旧 Rust FFI 容器仅在取得共享运行时引用时短暂加锁，污染时先清理再恢复。`panic = "abort"`、内存访问违规与进程级崩溃无法由此机制恢复。
 
 ### 稳定响应代码
 
@@ -130,9 +174,9 @@ FFI 和异步请求边界捕获额外运行时异常并执行清理。两个同�
 | 3 | `NODE_STATE_POISONED` | 节点状态锁已污染。 |
 | 3 | `INTERNAL_ERROR` | 其他框架异常或响应构造失败。 |
 
-默认入口和显式平台入口使用同一响应模型；解析错误、panic 和兜底响应也包含四个字段。成功无输出时 output 为 `[]`，失败时 output 为 `[]`。两个版本查询分别从 output[0] 读取版本字符串。
+三个调用入口使用同一响应模型；解析错误、panic 和兜底响应也包含四个字段。成功无输出时 output 为 `[]`，失败时 output 为 `[]`。两个版本查询分别从 output[0] 读取版本字符串。
 
-增加 code 是兼容字段扩展：既有 status、message、output 的类型、导出函数、内存所有权和生命周期不变，C ABI 保持 v7。旧调用方可忽略新增字段，新调用方消费旧 DLL 时应允许 code 缺失；Windows TestFlow 执行器按此规则兼容并在提供 code 时显示它。
+在历史 v7 中增加 code 是兼容字段扩展：既有 status、message、output 的类型、导出函数、内存所有权和生命周期不变，当时 C ABI 保持 v7。旧调用方可忽略新增字段，新调用方消费旧 DLL 时应允许 code 缺失；Windows TestFlow 执行器按此规则兼容并在提供 code 时显示它。
 
 ## 平台调用契约
 
@@ -146,15 +190,16 @@ FFI 和异步请求边界捕获额外运行时异常并执行清理。两个同�
 Function + Config[] + Input[] -> Output[]
 ```
 
-原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出 ABI 版本查询与两个业务调用入口：
+原始 C DLL 不使用该驼峰表示法作为导出符号。它固定导出 ABI 版本查询与三个业务调用入口：
 
 | C ABI 入口 | 结果形式 |
 | --- | --- |
 | `miresidian_abi_version` | 返回当前 ABI 版本号。 |
+| `miresidian_invoke_request` | 接收完整请求对象，可选数值 platform；省略时由 InitDevice Config 选择平台。 |
 | `miresidian_invoke` | 使用 InitDevice Config 选择平台，返回 DLL 持有的 `result_json`。 |
 | `miresidian_invoke_with` | 显式传入已注册的平台枚举值，语义对应 `NodeRuntime::invoke_with`，返回相同 `result_json`。 |
 
-`miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求；`miresidian_invoke_with` 在其前额外传入 `uint32_t platform`。`config_json`
+`miresidian_invoke_request` 使用上一节的完整 JSON 请求对象。既有 `miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求；`miresidian_invoke_with` 在其前额外传入 `uint32_t platform`。`config_json`
 与 `input_json` 是 UTF-8 JSON 字符串数组；原生入口不会直接传递字符串指针数组。完整的参数
 顺序、返回文本生命周期与状态码见 [C ABI](#c-abi)。
 
@@ -290,7 +335,7 @@ struct ExampleNode;
 struct MyPlatformAdapter;
 ```
 
-`platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择文本 id；需要显式选型时改用 `miresidian_invoke_with(uint32_t platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。
+`platforms(...)` 接受一个或多个实现 `PlatformAdapter + Default` 的 Rust 类型路径；框架始终保留 `TbLvTestPlatformAdapter`，并在任一 C ABI 入口首次调用时用节点生成的注册表创建运行时。外部平台可继续用 `miresidian_invoke` 的 `InitDevice` Config 选择文本 id；需要显式选型时改用 `miresidian_invoke_with(uint32_t platform, function, config_json, input_json)`，它等价于 Rust 的 `invoke_with`，且初始化 Config 不包含平台选择器。完整请求入口按 platform 字段是否提供分别复用这两条路径。
 
 `RuntimeInvocation::MultiChannel` 使用 `MultiChannelInvocation { operation, config, slots }`，构造为 `MultiChannelInvocation::new(operation, config, slots)`。唯一 Config 按节点策略使用 Config 组合键或 Handle 定位一个对象，全部有效输入使用它。`MultiChannelResponse` 与输入保持相同顺序和数量；输入位置不是对象索引。
 
@@ -302,7 +347,7 @@ struct MyPlatformAdapter;
 
 ## 执行器与模块加载引用（0.15.1）
 
-现有 miresidian_invoke / miresidian_invoke_with 保留同步返回方式，跨实例并行由运行时内部完成；C ABI 保持 v7，没有新增任务导出。
+三个调用入口都同步返回，跨实例并行由运行时内部完成；当前 C ABI v8 只新增完整请求入口，没有新增任务导出。
 执行器启动后台线程前取得承载模块的额外加载引用；工作线程退出前该引用不会释放，避免宿主释放自身句柄导致后台代码悬空。
 宿主每次调用及读取返回文本期间仍须持有自己的加载引用，不能在调用过程中释放最后一个宿主引用。
 当前 C 入口没有最终执行器关闭操作，释放宿主句柄后模块可能保留至进程退出；Rust 嵌入可排空任务并关闭实例，再调用 shutdown_executor 等待线程退出和释放框架引用。
@@ -340,3 +385,9 @@ batch 方法的业务参数仍按 GetFunctions 发布的顺序组织 Input 字�
 ### 0.25.0 Lease 引用生命周期
 
 ABI v7 的入口、参数位置和错误代码保持不变。已有 Lease 选择现在取得共享节点引用，同资源同完整初始化参数及节点接口的 DLL 共用所有者对象及状态；InitDevice 只在所有者执行一次，其他引用取得相同初始业务输出。CloseDevice 非最后引用仅释放当前引用，最后引用的 Input 用于实际设备关闭并返回其错误。异常断连以空 Input 清理。不同节点接口或完整初始化参数明确拒绝；Direct 仍本地构造。具体迁移及资源代理 v2 升级顺序见[共享资源](shared-resources.md)。
+
+### 当前完整请求 ABI 的适用范围（0.26.0）
+
+本页后续历史特性段落中的“ABI v7 不变”指各特性引入当时的既有两个入口。当前 DLL 版本为 v8，新增完整请求入口；业务 Config/Input 布局、batch/format、同步调度、错误响应和租约/资源协议均未由本次改变。
+
+当前 Pack 0.13.2 的 `new/init` 模板流程明确只接受 ABI v7，不能用它创建目标 ABI v8 的节点；本任务未升级或验证该模板流程。既有节点在候选发布后手动升级时须按新头文件更新交付说明。TestFlow 保留原同步入口调用方式，不能因此推断其已采用完整请求入口。

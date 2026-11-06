@@ -4,9 +4,9 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.25.2**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.26.0**，C ABI 为 **v8**，租约协议为 **v2**。
 
-**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次发布说明](docs/releases/0.25.2.md)**
+**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次候选与迁移说明](docs/releases/0.26.0.md)**
 
 ## 核心能力与优势
 
@@ -42,14 +42,14 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下示例对应 0.25.2；采用前先核实 crates.io 中该精确版本和所需 features 已可用。
+以下依赖示例对应源码候选 0.26.0，本任务未执行 crates.io 发布；只能在 registry 确认该版本及所需 features 已可用后采用。候选发布前，独立节点继续使用已发布版本，禁止本地覆盖。
 
 ```toml
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.25.2"
+miresidian = "=0.26.0"
 ```
 
 ```rust
@@ -77,7 +77,7 @@ impl EchoNode {
 }
 ```
 
-宏自动生成 `miresidian_invoke`、`miresidian_invoke_with` 与 `miresidian_abi_version`。调用参数使用 UTF-8 JSON 字符串数组；响应固定包含 `status`、`code`、`message`、`output`。DLL 持有返回文本，调用方须立即复制且不得释放指针。完整签名与有效期以 [C ABI](docs/c-abi.md) 为准。
+宏自动生成完整请求入口 `miresidian_invoke_request`、保留的 `miresidian_invoke`/`miresidian_invoke_with` 及版本查询 `miresidian_abi_version`。新入口接收 `{"function":"GetFunctions","config":[],"input":[]}`；可选数值 `platform` 省略时沿用初始化 Config 选平台，提供时显式选平台且 Config 不重复携带选择器。响应固定包含 `status`、`code`、`message`、`output`。DLL 持有返回文本，调用方须立即复制且不得释放指针。完整签名与有效期以 [C ABI](docs/c-abi.md) 为准。
 
 子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
@@ -89,6 +89,6 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本文对应框架 0.25.2；安装可用性以 crates.io 精确版本记录为准。外部项目只使用 crates.io 已发布版本，禁止本地覆盖。配置租约保持 v2，资源代理升为 v2；升级前停止旧资源代理参与者。
+本文对应源码候选框架 0.26.0、宏 0.23.0、ABI crate 0.15.0 / C ABI v8。新增入口与两个既有调用入口共享运行时及线程响应缓存；任一入口的下一次同线程调用均使上一份响应指针失效。旧调用签名和响应模型保持，宿主若要求 ABI 恰等于 7，接入 v8 DLL 前须按[迁移说明](docs/releases/0.26.0.md)更新兼容检查。
 
-0.25.2 正式发行 Node DLL 主入口与依赖目录指导，不改变 Pack 收集或 DLL 加载代码；运行时与 0.25.1 相同，继续使用 lease 0.17.1，宏标签不变，已有 Node 无需为指导更新升级。精确版本入口：[框架 API](https://docs.rs/miresidian/0.25.2/miresidian/)、[共享资源 API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)、[发布源码与手册](https://github.com/MyMires/miresidian/tree/miresidian-v0.25.2)。在线文档生成中时可先查同版本源码，不能用其他版本页面代替。
+本任务未发布候选或核验候选在线文档；API 可在本检出目录运行 `cargo doc -p miresidian --all-features --no-deps --locked` 后查看。源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。

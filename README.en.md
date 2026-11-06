@@ -4,7 +4,7 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.25.2**. Rust MSRV: **1.89**. C ABI: **v7**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. Use the exact dependency example after verifying registry availability and required features; local overrides are prohibited.
+Current source: **0.26.0**. Rust MSRV: **1.89**. C ABI: **v8**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This is a source candidate; this task does not publish it to crates.io or verify candidate docs.rs pages. Use the dependency example only after verifying registry availability and required features; independent nodes must keep using published versions without local overrides.
 
 ## Getting started
 
@@ -13,10 +13,10 @@ Current source: **0.25.2**. Rust MSRV: **1.89**. C ABI: **v7**. Configuration le
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.25.2"
+miresidian = "=0.26.0"
 ```
 
-Declare a node with `#[miresidian::node("Name")]` and mark its initialization, close, and business methods with `#[miresidian::operation]`. Macros generate metadata, dispatch, and DLL exports. See the [minimal node example](README.md#最小节点示例), [node guide](docs/宏驱动开发.md), and [C ABI guide](docs/c-abi.md).
+Declare a node with `#[miresidian::node("Name")]` and mark its initialization, close, and business methods with `#[miresidian::operation]`. Macros generate metadata, dispatch, and DLL exports, including `const char *miresidian_invoke_request(const char *request_json)`. The new entry takes one request object such as `{"function":"GetFunctions"}`. Optional numeric `platform` selects a registered adapter explicitly; omission preserves the existing initialization Config selection flow. Config/Input remain ordered string arrays, defaulting to `[]` only when omitted. All three call entries share runtime state and the thread-local response buffer; copy the response before another call and never free it. See the [minimal node example](README.md#最小节点示例), [node guide](docs/宏驱动开发.md), and [C ABI guide](docs/c-abi.md).
 
 ## Optional capabilities
 
@@ -45,7 +45,7 @@ The shared resource implementation has been tested using exclusive file handles,
 
 The batch/format update is validated with independent feature configurations, typed records, aligned format columns, and native async methods. Unchanged resource-sharing validation remains applicable. Cargo publication verifies normalized packages against registry dependencies. Independent nodes must use published exact framework versions, without path/git dependencies or local overrides.
 
-[Release notes](docs/releases/0.25.2.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
+[Release notes](docs/releases/0.26.0.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
 
 When delivering a Node DLL, keep one user-facing Node DLL at the top of each node's architecture directory and place accompanying third-party and helper runtime DLLs under `dependencies/`. Document the entry filename, architecture, and dependency purpose; no empty directory is needed when there are no such dependencies. See the [delivery layout and loading checks](docs/coding-standards.md#6-注释与文档).
 
@@ -58,4 +58,4 @@ Format remains a single-value encoding conversion. The macro combines the indepe
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-0.25.2 publishes Node DLL entry and dependency layout guidance. Pack collection and DLL loading code are unchanged; runtime behavior matches 0.25.1 and continues to use lease 0.17.1 with unchanged macro syntax. Existing nodes need no upgrade for this guidance update. Exact-version entries: [framework API](https://docs.rs/miresidian/0.25.2/miresidian/), [shared resource API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html), and [release source/manuals](https://github.com/MyMires/miresidian/tree/miresidian-v0.25.2). If documentation is still building, use matching source rather than another version's API pages.
+Source candidates: framework 0.26.0, macro 0.23.0, ABI crate 0.15.0 / C ABI v8. Existing call signatures and responses remain available. Hosts that require ABI exactly 7 must review their compatibility check before accepting v8. See the [request contract and migration](docs/releases/0.26.0.md); use `cargo doc -p miresidian --all-features --no-deps --locked` for local candidate API documentation. Source commits, local tags, registry publication, and docs.rs availability are separate checks.
