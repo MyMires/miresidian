@@ -64,3 +64,22 @@ request_json 必须是非 NULL、以 NUL 结尾的 UTF-8 C 字符串，内容为
 - 工作区 `python3 tools/check_versions.py --base HEAD` 已通过；暂存门禁、提交与三个不可移动标签核对按方案执行，实际提交号/标签由最终报告给出，不在提交前虚构结果。
 
 验证边界：未执行完整无关工具/组件测试或重复资源代理验证；未发布/推送，未升级独立节点，未验证候选 registry/docs.rs、Windows DLL 加载或硬件。Pack v7 模板限制明确保留，未宣称其 new/init 可创建 v8 节点。原有其他方案未提交修改不纳入本次提交。
+
+## 推送与发布阶段（2026-11-06，用户追加授权）
+
+用户明确要求“推送和发布”，覆盖当前分支与本次三个版本标签推送、仅这三个 crate 的正式 crates.io 发布、发布后资料及 provenance 核对。此前“仅本地交付/不发布”描述上一阶段边界，本节取代其作为后续执行依据；不授权独立节点升级、工具发布或真实设备操作。
+
+只读预检：工作区干净，当前 master 为 eb5b01d（前序任务纯方案归档），发行提交和三个不可移动标签均为 f356435f89ff6fd9c16d7273af13c5c933c927e0。远端 master 为 3d7c2da，尚无本次三个标签；2026-11-06 crates.io API 查询 miresidian_abi 0.15.0、miresidian_macro 0.23.0、miresidian 0.26.0 均返回 404。已有实际验证证据可复用，不重复运行整套框架/无关工具测试。
+
+执行顺序与实现：
+
+1. 先保存本阶段方案，版本影响：无，仅补充授权、发布步骤与验收记录，不改变发行源码或指导契约；保持现有产品版本/标签，按纯方案提交规则提交本文件。
+2. 创建 `/tmp/miresidian-publish-0.26.0` 干净 detached worktree，固定 f356435；在该版本快照执行根/宏/ABI 的 require-tag 门禁，不要求纯方案 HEAD 对齐旧标签。`cargo package --list` 检查三个组件实际包文件，根包含请求模块、头文件来源和技术文档，子包包含各自 README/CHANGELOG/源码。
+3. 将当前 master 与本次三个标签显式原子推送到 origin，禁止 force 或推送所有无关标签；核对远端分支及标签解引用修订。历史标签不改写。
+4. 在固定发行提交的干净 worktree 中先正式 `cargo publish -p miresidian_abi --locked`，再 `cargo publish -p miresidian_macro --locked`，最后 `cargo publish -p miresidian --locked --all-features`。保留 Cargo 正式包编译验证，不使用 allow-dirty、no-verify，也不重复等价 dry-run；依赖 registry 可解析后再发布根，失败先核对上传状态后重试，凭据不读取/不输出。
+5. 分别核对 crates.io 精确版本未撤回、官方 checksum、下载包 README/CHANGELOG/规范化依赖/`.cargo_vcs_info.json` 的修订与非 dirty 状态、GitHub 精确标签源码入口，以及 docs.rs 对应版本 README/API 和可选 format 能力。宏额外核对新导出生成源码，ABI 核对头文件与常量 8，根核对请求解析及 Rustdoc 说明。候选 README 描述原实现阶段，实际发布事实由本阶段结果补充，不为更改发布措辞反复补丁升版。
+6. docs.rs 初次排队/404 时记录真实状态并作有限复查，不将上传成功当作在线文档生成成功；结果与遗留限制记入本方案，纯方案归档提交并推送。最终报告三个版本/标签、发行提交、registry 与文档实际可用性。
+
+验收与边界：仅发布 ABI 0.15.0、macro 0.23.0、根 0.26.0；registry 精确包与 Git f356435 一致且保留正式验证；远端标签不可移动。Pack new/init 的 v7 模板限制仍保留，Windows 加载/硬件无新增验证。当前发布阶段不修改技术代码、依赖或产品版本；若发现真实发行缺陷，先修订方案、按实际影响升版而不覆盖旧发行。
+
+执行结果待补充，不将预检记为已推送或已发布。
