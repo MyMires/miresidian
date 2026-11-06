@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## Plan-first workflow policy - 2026-11-06
+
+- Require a written task design and implementation plan before framework/component/tool or Node creation, updates, fixes, refactoring, and policy maintenance. Read-only investigation and plan writing precede implementation, including template initialization and small fixes.
+- Bind implementation to the plan's concrete architecture, interfaces, resource/state/lifecycle boundaries, file scope, version assessment, steps, and acceptance evidence. Revise the plan before deviating and satisfy applicable confirmation requirements; do not backfill plans or weaken acceptance criteria to conceal gaps.
+- Update the complete Node skill, planning reference, review checks, maintenance rules, and UI metadata, then synchronize the installed copy. Record this task's plan before policy edits.
+- Version impact: none; policy, task-plan, and skill changes only. Product code, macro syntax, templates, dependencies, lockfiles, tool commands, versions, and existing release tags are unchanged.
+- Validation: both complete 5-file skill inventories and SHA-256 match; restricted YAML/UI metadata, 35 local links/anchors across 13 Markdown files, version gates, and diff checks pass. Reviewed five task scenarios. The generic validator could not run without PyYAML; no unrelated builds were run.
+
 ## [0.25.0] - 2026-11-06
 
 - Existing lease annotations now acquire one node owner across DLLs/processes: construct once, forward complete operations, close/drop only on the final reference. Macro syntax and macro crate 0.22.0 are unchanged.

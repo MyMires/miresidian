@@ -1,4 +1,4 @@
 interface:
   display_name: "Miresidian Node"
-  short_description: "按项目实际版本查询官方资料，指导 Node 契约、业务实现、验证与交付"
-  default_prompt: "使用 $miresidian-node 按项目实际框架和工具版本查阅官方资料，完成 Node 契约、业务实现、验证及约定交付。"
+  short_description: "Node 新建和更新先落盘方案，按实际版本查资料，严格依据方案实现与验收"
+  default_prompt: "使用 $miresidian-node 先在目标项目建立或更新方案文件，按实际版本核实资料和执行条件，再严格按方案实施并逐项验收。"
