@@ -1,6 +1,6 @@
 # 框架注释与文档一致性修复
 
-日期：2026-11-07。状态：实施与下列验收已完成；提交及不可移动标签结果以 Git 记录与最终报告为准。授权为用户“注释和文档问题一起修复”。
+日期：2026-11-07。状态：注释/文档修复、六组件发行及精确在线资料验收已完成；源码发行提交为 7138801，纯方案归档只推进 master，不移动版本标签。实现授权为用户“注释和文档问题一起修复”，发行授权见后文。
 
 ## 目标与设计
 
@@ -63,7 +63,7 @@
 3. 显式原子推送 master 与本次六个标签；不使用 force，不推送所有无关标签。实读远端分支及标签解引用，确认六标签仍为发行提交。
 4. 查询六个 crates.io 精确版本。未发布时先 ABI 0.15.1、macro 0.23.1、instances 0.16.6，再根 miresidian 0.26.1；工具按 Pack 0.13.3 后 CLI 0.3.3。正式命令为 `cargo publish -p <crate> --locked`，根加 `--all-features`。保留 Cargo 正式打包和 registry 依赖编译，不使用 allow-dirty/no-verify，不重复等价 dry-run。若版本已存在，先核对来源与 checksum，匹配才跳过上传；发布失败先核实上传状态再决定重试，不读取或输出凭据。
 5. 从官方 API 确认六版本未撤回，下载实际 .crate 对比官方 SHA-256，核对 `.cargo_vcs_info.json` 为发行提交且非 dirty；逐包核对 README/CHANGELOG、规范化元数据及必要源码。根精确依赖 ABI/macro/instances 新版本，其他依赖不变；CLI 包内套件及 Pack 要求分别为 0.3.3/0.13.3，TestFlow 保持 0.12.0；Pack/CLI 功能及模板限制保持。
-6. 核对六个 GitHub 精确标签源码入口，六组件精确 docs.rs README/API，根可选 format API、关键中文宏/任务文档及 instances 广播说明。文档初次排队/404 时记录真实状态并有限复查，不把上传成功当作生成成功。发行快照中的候选措辞描述原实现阶段，正式状态以本阶段验收及精确 registry/API 为准；已发布包不覆盖。
+6. 核对六个 GitHub 精确标签源码入口、六组件精确 docs.rs README 及库组件 API，根可选 format API、关键中文宏/任务文档及 instances 广播说明。CLI/Pack 是二进制工具，验证其精确 README、源码与包内入口/清单，不要求不存在的 library API；这是核对实际 crate 目标后的验收细化，不增加源码或版本变化。文档初次排队/404 时记录真实状态并有限复查，不把上传成功当作生成成功。发行快照中的候选措辞描述原实现阶段，正式状态以本阶段验收及精确 registry/API 为准；已发布包不覆盖。
 7. 将真实结果、checksum、在线资料和剩余限制归档本方案，纯方案提交并推送 master。最终报告六版本/标签、发行提交、registry 与 docs.rs 状态。当前任务不额外创建 GitHub Release 或工具压缩包；用户授权的公开发行以 crates.io 和源码/标签为交付。
 
 ### 验收与边界
@@ -72,4 +72,22 @@
 
 ### 发布执行结果
 
-待执行后记录；预检和计划不视为已推送或已发布。
+- 发行提交 71388012c0a3397075a6de081fab5226b760fca5；纯发布方案提交 da5e6ea。master 与本次六标签已显式原子推送，远端实读初始 master 为 da5e6ea，各标签解引用均为 7138801。后续验收归档只推进 master，不改写发行标签。
+- 干净 `/tmp/miresidian-publish-0.26.1` 上六组件 require-tag 均通过；Cargo 包清单与实际包文件逐一比对：ABI 8、macro 21、instances 11、根 200、Pack 31、CLI 19 文件，README/CHANGELOG/必要源码、头文件、模板及套件清单完整。
+- 六个精确版本均已在 crates.io 正式发行且未撤回。ABI → macro → instances → 根 → Pack → CLI 顺序发布；根以 --all-features 使用 registry 新 ABI/macro/instances 依赖编译验证成功。所有组件均保留正式 Packaging/Verifying/Compiling，没有 allow-dirty/no-verify 或等价 dry-run。日志 `/tmp/miresidian-0261-publish-*.log`。
+- Pack 首次上传出现网络低速超时；随后 API 首次读取仍为 404，但重试被 crates.io 索引的“版本已存在”检查阻止。再次读取 API 已为 200、未撤回，说明原上传已完成而状态存在传播延迟；未覆盖版本或继续重复上传。真实发行包 checksum、来源和全部文件核对通过。CLI 此后正常完成上传及可用性等待。失败与恢复均保留在 `/tmp/miresidian-0261-publish-results.json`。
+- 六包下载自 static.crates.io，SHA-256 与官方 API 完全一致；`.cargo_vcs_info.json` 均为发行提交且非 dirty，path_in_vcs 对应各组件目录。README、带日期 CHANGELOG、Cargo.toml.orig 与发行快照逐字节一致；根内部 registry 精确依赖为 ABI =0.15.1、macro =0.23.1、instances =0.16.6，其余依赖不变且无 path/git。CLI 内嵌套件/Pack 版本为 0.3.3/0.13.3，TestFlow 仍为 0.12.0。实际归档及核对结果位于 `/tmp/miresidian-0261-published` 与 `/tmp/miresidian-0261-package-verification.json`。
+
+| crate | 版本 | 实际发行包 SHA-256 |
+| --- | --- | --- |
+| miresidian_abi | 0.15.1 | 4112ae630a5b127659c7337e375a6f854a4291781e9044ff9cb401e74d5e863d |
+| miresidian_macro | 0.23.1 | aebcb193516e8737471672d32b333af08e4393b36375ecc71db69876dbbc7e23 |
+| miresidian_instances | 0.16.6 | ff28e309f133add43bd773a956fa4576c0dc08e6b9b7a8572b09c1c70bb6021c |
+| miresidian | 0.26.1 | 887bc825a8b002d885217725dc5fa9e3b8802ce906593bb4aa10f0ecf19ad307 |
+| miresidian_pack | 0.13.3 | 2a7d47659632b7418fb8926b9e225bfc0c4de910a3771bbd7eba2e5bb7572853 |
+| miresidian_cli | 0.3.3 | 0e26960552aa065eb9f5197698c6ac0158f334333c041ccdbb12fafec9ebe441 |
+
+- 精确在线资料最终 25/25 核对通过：六组件 docs.rs README、四库 API、根 format 可选 API、TaskService/NodeRuntime 中文 Rustdoc、ABI 常量 8、node 宏 API、宏与 instances 中文源码、Pack 模板及 CLI 清单源码，以及六个 GitHub 精确标签 README（与发行快照逐字节一致）。CLI 首次 README/source 为 404，有限复查后均 200，保留初次与最终记录；Rustdoc 断词按 `<wbr>` 的真实显示处理，不把断词误判成 API 缺失。结果 `/tmp/miresidian-0261-online-first.json`、`/tmp/miresidian-0261-online-verification.json`。
+- 精确入口：[根 API](https://docs.rs/miresidian/0.26.1/miresidian/)、[format](https://docs.rs/miresidian/0.26.1/miresidian/format/index.html)、[任务文档](https://docs.rs/miresidian/0.26.1/miresidian/struct.TaskService.html)、[ABI](https://docs.rs/miresidian_abi/0.15.1/miresidian_abi/)、[宏](https://docs.rs/miresidian_macro/0.23.1/miresidian_macro/)、[instances](https://docs.rs/miresidian_instances/0.16.6/miresidian_instances/)、[Pack README](https://docs.rs/crate/miresidian_pack/0.13.3)、[CLI README](https://docs.rs/crate/miresidian_cli/0.3.3)。
+- 发布后发行 worktree 保持干净，六组件 require-tag 再次全部通过；既有不可移动标签保留。源码候选措辞记录原实现阶段，正式发行事实由本节补充，不覆盖已发布包或为修改该措辞重复升版。
+- 本阶段版本影响：无；只补充授权、发布状态及真实验收，不修改产品源码、指导契约、组件版本或锁文件。复用前述 43 项组件/工具测试、1 项根 doctest、严格 Rustdoc、六个示例及 registry new/init 实测；没有独立 Node 升级、Windows 原生加载、真实硬件、GitHub Release 或无关组件发布。
