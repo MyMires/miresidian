@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-11-06
+
+- Publish Node DLL layout guidance: keep one user-facing Node DLL at the top of each node's architecture directory and place accompanying third-party and helper runtime DLLs under `dependencies/`. Document the entry filename, architecture, and purpose of the dependencies.
+- Synchronize bilingual README files, current exact-version examples, and the node development guide. Include the archived layout policy and Node skill in the release; actual artifact rearrangement still requires dependency resolution and target-platform loading checks. Pack does not gain automatic third-party DLL collection in this release.
+- Bump only the framework patch version to 0.25.2. Runtime code, macros, other crates/tools, dependency versions, C ABI v7, configuration lease v2, resource protocol v2, and Rust 1.89 are unchanged. Existing nodes need no upgrade for this guidance update.
+- Follow the written release plan to verify the formal package build, provenance, remote tag, registry entry, and exact-version online documentation. Record actual publication results separately in that plan.
+- Validation: version gates, diffs, 69 local references across six documents, and strict all-feature Rustdoc passed. Root API and format pages show 0.25.2. Manifests and lockfiles change only the root version; runtime, component, and tool code is unchanged.
+
 ## [0.25.1] - 2026-11-06
 
 - Track exact lease 0.17.1 and complete its optional shared-resource API documentation build configuration and exact-version source/API entries; synchronize bilingual guidance and the shared-resource manual.

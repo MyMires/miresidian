@@ -4,9 +4,9 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.25.1**，C ABI 为 **v7**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.25.2**，C ABI 为 **v7**，租约协议为 **v2**。
 
-**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次发布说明](docs/releases/0.25.1.md)**
+**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次发布说明](docs/releases/0.25.2.md)**
 
 ## 核心能力与优势
 
@@ -42,14 +42,14 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下示例对应 0.25.1；采用前先核实 crates.io 中该精确版本和所需 features 已可用。
+以下示例对应 0.25.2；采用前先核实 crates.io 中该精确版本和所需 features 已可用。
 
 ```toml
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.25.1"
+miresidian = "=0.25.2"
 ```
 
 ```rust
@@ -81,12 +81,14 @@ impl EchoNode {
 
 子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
+交付 Node DLL 时，每个节点对应架构目录顶层只放一个供用户调用的主 DLL，随附的第三方及辅助运行时 DLL 放入 `dependencies/`。调用说明标明入口文件名、位数及依赖用途；无依赖时无需空目录。完整布局与实际加载验收要求见[交付规范](docs/coding-standards.md#6-注释与文档)。
+
 ## 参与开发
 
 版本管理是 **P0 提交门禁**。首次检出先检查已有钩子配置，再执行 `git config core.hooksPath .githooks`；存在自定义钩子时须先整合。相关更新必须同步版本、精确依赖、锁文件、带日期的修订与标签，详见[版本管理规范](docs/versioning.md)。
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本文对应框架 0.25.1；安装可用性以 crates.io 精确版本记录为准。外部项目只使用 crates.io 已发布版本，禁止本地覆盖。配置租约保持 v2，资源代理升为 v2；升级前停止旧资源代理参与者。
+本文对应框架 0.25.2；安装可用性以 crates.io 精确版本记录为准。外部项目只使用 crates.io 已发布版本，禁止本地覆盖。配置租约保持 v2，资源代理升为 v2；升级前停止旧资源代理参与者。
 
-0.25.1 同步 lease 0.17.1 的全特性在线文档配置，自动租约和 Direct 行为与 0.25.0 一致，宏标签不变。精确版本入口：[框架 API](https://docs.rs/miresidian/0.25.1/miresidian/)、[共享资源 API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)、[发布源码与手册](https://github.com/MyMires/miresidian/tree/miresidian-v0.25.1)。在线文档生成中时可先查同版本源码，不能用其他版本页面代替。
+0.25.2 正式发行 Node DLL 主入口与依赖目录指导，不改变 Pack 收集或 DLL 加载代码；运行时与 0.25.1 相同，继续使用 lease 0.17.1，宏标签不变，已有 Node 无需为指导更新升级。精确版本入口：[框架 API](https://docs.rs/miresidian/0.25.2/miresidian/)、[共享资源 API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)、[发布源码与手册](https://github.com/MyMires/miresidian/tree/miresidian-v0.25.2)。在线文档生成中时可先查同版本源码，不能用其他版本页面代替。
