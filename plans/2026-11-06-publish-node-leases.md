@@ -1,6 +1,6 @@
 # 推送与发布跨 DLL 节点租约
 
-日期：2026-11-06。状态：方案先行落盘，待按下列步骤实施。
+日期：2026-11-06。初始方案在修改和发行前落盘；当前状态：版本修订、源码推送、正式发布和精确版本文档核对完成。
 
 ## 目标、现状与授权
 
@@ -45,3 +45,27 @@ lease 的 SharedResource/ResourceHandler/local_ipc 公开能力受 local-ipc fea
 - R2/R3：框架 0.25.1、lease 0.17.1 的清单、精确依赖、Cargo 生成锁文件、双语 README/CHANGELOG 和版本/共享资源说明已同步；补齐原本缺失的英文 0.17.0 摘要。旧条目和旧标签不改写。
 - R4：严格全特性 Rustdoc 通过并实际检查根 API、local_ipc、SharedResource、ResourceHandler、close_with 和 transact_with_timeout 页面；格式、版本门禁、差异和本地文档目标校验通过。src、macro、features/lease/src 相对 4671135 无变更，复用已有默认 42 项/全特性 157 项、Clippy、MSRV、Windows 编译与双动态库证据。
 - R5 至 R8：按后续提交记录、远端引用及实际发行结果逐项核对；未执行部分不得记作成功。发布最终结果在本计划补充，不在发布前声称 registry 或 docs.rs 可用。
+
+## 最终发行核对
+
+核对时间：2026-11-06 13:45:17 Asia/Shanghai
+
+- R5：发行提交为 bc918e7632bbe2c37f7607b9e294850abcf4191e；根与 lease 的 require-tag 检查通过，新标签 miresidian-v0.25.1、miresidian_lease-v0.17.1 指向该提交。旧 miresidian-v0.25.0、miresidian_lease-v0.17.0 仍指向 d538b808e2ffb87abbe5d50a6461fd6a19528980。
+- R6：已原子推送 master 和上述四个标签至 origin，远端分支与各标签解引用 SHA 已核对。实现提交 d538b80、规范提交 4671135 和发行提交 bc918e7 均已进入远端；最终核对记录以本计划的后续纯记录提交一并推送，不修改版本标签。
+- R7：cargo publish -p miresidian_lease --locked --all-features 正式包验证及上传成功，registry 可用后再执行 cargo publish -p miresidian --locked --all-features；根包从 registry 下载 lease 0.17.1 后编译验证成功。仅上传这两个最终版本，没有重复发布其他组件或中间候选，没有绕过 verify 或使用 dirty。
+- R8：从 crates.io 下载两个实际发行包，校验官方 checksum，并读取包内 README、规范化 Cargo.toml、.cargo_vcs_info.json；两包源码修订均为 bc918e7632bbe2c37f7607b9e294850abcf4191e，git.dirty 不为 true。根精确依赖 registry lease 0.17.1，lease 精确依赖 registry codec 0.16.0，均无本地 path；文档 all-features 元数据与根包技术手册已核实。GitHub 对应修订的清单公开可访问。
+
+| 正式包 | crates.io 精确版本 | SHA-256 |
+| --- | --- | --- |
+| miresidian | [0.25.1](https://crates.io/crates/miresidian/0.25.1) | `5ec26be0835a3dbb1c6b471aa08cfdf2fb033bb613b566c0c7ac1cc0d9d399ee` |
+| miresidian_lease | [0.17.1](https://crates.io/crates/miresidian_lease/0.17.1) | `ea671010afbec67e40336e9c7b053dad3c4b86aa4a77b67f8d5c725cc9624f02` |
+
+在线文档已实际返回 HTTP 200 并核对 API 内容：
+
+- [框架 0.25.1 API](https://docs.rs/miresidian/0.25.1/miresidian/) 与 [可选 format 文档](https://docs.rs/miresidian/0.25.1/miresidian/format/index.html)。根包刚上传时曾返回 404，待 docs.rs 生成后重新核对通过，未把初次检查记作成功。
+- [SharedResource 0.17.1](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)，页面含 close_with 和 transact_with_timeout 方法。
+- [ResourceHandler 0.17.1](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/trait.ResourceHandler.html)，页面含 transact 和 close；[LocalLease 0.17.1](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/local_ipc/struct.LocalLease.html) 含 acquire 和 validate。两份精确 crate 文档入口可访问。
+
+运行时及宏源码与 d538b80 无差异，Node skill 双副本仍为完整 5 文件一致。本次没有升级独立 Node、替换旧 DLL、执行现场 COM5 通信或宣称 Windows 原生加载已通过。此前运行时验证与本次包编译、资料核对分别记录；未执行无关全量测试或工具发行。
+
+本记录的版本影响：无；仅归档已经完成的推送、发布与验证结果，不改变已发布包内容、版本或不可移动标签。
