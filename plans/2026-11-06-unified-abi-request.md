@@ -83,3 +83,26 @@ request_json 必须是非 NULL、以 NUL 结尾的 UTF-8 C 字符串，内容为
 验收与边界：仅发布 ABI 0.15.0、macro 0.23.0、根 0.26.0；registry 精确包与 Git f356435 一致且保留正式验证；远端标签不可移动。Pack new/init 的 v7 模板限制仍保留，Windows 加载/硬件无新增验证。当前发布阶段不修改技术代码、依赖或产品版本；若发现真实发行缺陷，先修订方案、按实际影响升版而不覆盖旧发行。
 
 执行结果待补充，不将预检记为已推送或已发布。
+
+
+### 发布执行结果
+
+- 方案归档提交 815af8a；master 与三个本次标签已原子推送。远端实读 master 为 815af8a4d13b61b78d60835ca641c1d5e7ee4fc8；三个标签解引用均为发行提交 f356435f89ff6fd9c16d7273af13c5c933c927e0。后续纯结果归档只推进 master，不移动发行标签。
+- `/tmp/miresidian-publish-0.26.0` 固定发行提交的干净检出中，三个组件 require-tag 均通过。cargo package --list 核对 ABI 8 文件、macro 21 文件、根 198 文件，必需 README/CHANGELOG/契约/源码均存在。
+- 正式 cargo publish 依次完成 ABI 0.15.0、macro 0.23.0、根 0.26.0；全部经历 Packaging → Verifying/Compiling → Uploading → Published。根以 --all-features 从 registry 使用新 ABI/macro 编译验证成功，没有跳过 verify、使用 dirty 或执行重复 dry-run。日志为 /tmp/miresidian-request-publish-{abi,macro,root}.log。
+- 从 crates.io API 确认三个精确版本均未撤回，下载 static.crates.io 实际发行包并比对官方 SHA-256；三包 `.cargo_vcs_info.json` 均指向 f356435f89ff6fd9c16d7273af13c5c933c927e0，非 dirty。ABI 包元数据/头文件/常量为 8，宏包包含新导出生成源码；根规范化依赖为 registry ABI =0.15.0、macro =0.23.0，无本地 path/git，docs.rs all-features 配置保留。各包 README、日期 CHANGELOG、根技术手册及请求解析源码均已逐项核对。
+
+| crate | 版本 | registry 实际包 SHA-256 |
+| --- | --- | --- |
+| miresidian_abi | 0.15.0 | 5b7010fe5b0a5aca7a0e614a435032f5f8084195600e547fc32dd45f3c0ff981 |
+| miresidian_macro | 0.23.0 | 85372e116f49d2a89c869c148fbac9fd9bffccafa457ba49b7746b9042bffd0c |
+| miresidian | 0.26.0 | d29e5730904ec03e6c4357a8c447c600959564cc63902d01c3dc4b34d63a8c3f |
+
+在线资料首次核对：ABI 0.15.0 的 README/API、macro 0.23.0 的 README/node API/新入口生成源码均 HTTP 200，含精确版本与预期入口；三个 GitHub 精确标签源码/手册入口 HTTP 200。根 0.26.0 的 docs.rs README、根 API、format 可选能力首次仍为 404，暂不记为生成成功，继续有限复查。初次状态保留于 /tmp/miresidian-request-docs-results.json。
+
+发布不改变既有本地回归证据：默认 32 项、全特性 54 项相关测试、Clippy/Rustdoc/头文件/Linux 动态库烟测已通过；没有新增 Windows DLL/硬件验证或独立节点/工具发布。
+
+
+最终在线资料复查：根 0.26.0 的 [README](https://docs.rs/crate/miresidian/0.26.0)、[API](https://docs.rs/miresidian/0.26.0/miresidian/) 与 [format 可选能力](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html) 均 HTTP 200，精确版本为 0.26.0，README/根 API 含 miresidian_invoke_request。首次 404 属于刚发布后的生成延迟，未记为首次成功；最终结果保留 /tmp/miresidian-request-docs-final-results.json。
+
+[ABI 0.15.0 常量 API](https://docs.rs/miresidian_abi/0.15.0/miresidian_abi/constant.MIRESIDIAN_ABI_VERSION.html)、[ABI README](https://docs.rs/crate/miresidian_abi/0.15.0)、[macro 0.23.0 node API](https://docs.rs/miresidian_macro/0.23.0/miresidian_macro/attr.node.html)、[macro README](https://docs.rs/crate/miresidian_macro/0.23.0) 与 [macro 新入口生成源码](https://docs.rs/crate/miresidian_macro/0.23.0/source/src/node/ffi.rs) 已实际访问并核对。三个版本 registry 可用、真实发行包内容/来源一致、不可移动标签已推送、精确在线资料可用，本次发布验收完成。纯方案结果提交的版本影响为无，保留发行提交和版本标签，不为对齐结果归档 HEAD 移动标签。
