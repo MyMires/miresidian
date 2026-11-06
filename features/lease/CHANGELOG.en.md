@@ -2,6 +2,17 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.17.1] - 2026-11-06
+
+- Enable all features for docs.rs and provide the documentation URL so optional local_ipc/shared APIs, final-close callbacks, and proxy methods receive exact-version online docs.
+- Synchronize bilingual dependency/API/source guidance and complete the previously missing English 0.17.0 summary. Runtime behavior, default dependency features, and protocols are unchanged; verify registry and documentation results independently.
+
+## [0.17.0] - 2026-11-06
+
+- Add ResourceHandler::close and SharedResource::close_with to deliver the final session's close request and response, with disconnect reference cleanup and destruction before lease release even after errors.
+- Add transact_with_timeout(None) without implicit business deadlines; LocalLease request deadlines remain two seconds.
+- Advance resource protocol, endpoints, and owner-lock directories to v2; stop v1 resource participants before upgrading. Configuration lease v2 and C ABI v7 remain unchanged. Framework 0.25.0 integrates automatic node ownership without macro syntax changes.
+
 ## [0.16.0] - 2026-11-05
 
 - Add ResourceKey::from_parts and LeaseRequest::from_parameter_keys for ordered composite resource identities and empty compatibility configurations.

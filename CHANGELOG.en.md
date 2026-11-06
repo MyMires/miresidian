@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-11-06
+
+- Track exact lease 0.17.1 and complete its optional shared-resource API documentation build configuration and exact-version source/API entries; synchronize bilingual guidance and the shared-resource manual.
+- Runtime Lease/Direct behavior, macro syntax/version, other components, C ABI v7, configuration lease v2, resource protocol v2, and MSRV are unchanged. Reuse the 0.25.0 runtime and dynamic-library validation.
+- Follow the written release plan to publish only framework 0.25.1 and lease 0.17.1, retaining previous tags; verify package contents, pushed source, and docs.rs independently. Actual release results are recorded in the plan.
+
 ## Plan-first workflow policy - 2026-11-06
 
 - Require a written task design and implementation plan before framework/component/tool or Node creation, updates, fixes, refactoring, and policy maintenance. Read-only investigation and plan writing precede implementation, including template initialization and small fixes.

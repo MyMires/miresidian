@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-06
+
+- 配置 docs.rs 全特性构建及真实 documentation 地址，使可选 local_ipc/shared API、最后关闭回调与代理方法进入精确版本在线文档。
+- 更新双语 README 的依赖、API 和源码入口，明确仅文档构建启用全部 features，用户默认依赖能力、运行时及协议均不变；保留 0.17.0 标签，发布结果分别核对 registry 与 docs.rs。
+
 ## [0.17.0] - 2026-11-06
 
 - 新增 ResourceHandler::close 与 SharedResource::close_with，最后会话的关闭参数和结果随资源协议 v2 传递；异常断连回收引用，关闭/析构错误仍释放所有者配置锁。

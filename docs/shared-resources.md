@@ -2,7 +2,7 @@
 
 [文档中心](README.md) · [实例管理](instances.md) · [配置租约](../features/lease/README.md)
 
-框架源码候选 0.25.0、lease 0.17.0 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
+本文对应框架 0.25.1、lease 0.17.1 提供 `miresidian::lease::shared::{SharedResource, ResourceHandler}`，启用根 feature `lease` 后可用。独立节点使用前核对所需版本已在 crates.io 发布，再升级精确依赖并重新构建；旧 DLL 不会自动获得共享能力。
 
 ## 现有 lease 标签自动共享节点资源
 
@@ -10,7 +10,7 @@
 
 这是节点资源对象的引用计数，业务状态也共用。共享要求资源键、配置租约字节、节点名称/接口、全部规范化业务 Config 与初始化 Input 文本一致。Handle、DLL 文件名、Rust 类型路径和项目版本不参与身份。不同接口拒绝附着；lease(ignore) 不允许不同初始化状态混入同一节点对象。构造、输出编码失败会回滚；panic 使所有引用停止调用，全部关闭后重建。复用同一本地对象不增加引用。
 
-Direct 模式保持独立构造。只有两端都升级并重建后，旧标签才获得自动共享行为；旧 DLL 不会自动改变。以下源码候选依赖示例需在 registry 版本发布后采用，本次任务不发布、不对独立节点使用本地覆盖。
+Direct 模式保持独立构造。只有两端都升级并重建后，旧标签才获得自动共享行为；旧 DLL 不会自动改变。以下精确依赖示例采用前须核实 registry 可用；独立节点不使用本地覆盖。
 
 最后一次显式关闭的 Input 传给所有者 close_device，返回其完整错误类别；异常断连使用空 Input 尽力关闭。已失效引用仍可释放，最后物理资源的关闭与析构先于配置锁释放。代理故障不回退直连、不重连、不重放。
 
@@ -69,7 +69,7 @@ SharedResource 是同步接口；原生 async 方法应通过阻塞线程桥执�
 
 ## 最小可运行示例：模拟通信提供者
 
-以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.25.0", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
+以下程序只模拟连接和事务计数，不访问串口。放入独立程序的 src/main.rs，依赖使用 `miresidian = { version = "=0.25.1", features = ["lease"] }`，然后运行 cargo run。它验证工厂执行一次、两个代理共用所有者，以及释放一个代理不影响另一个；真实设备仍需实现相应的连接与收发。
 
 ```rust
 use miresidian::lease::{
@@ -148,3 +148,5 @@ Windows 使用对应架构的 Python 和 `.dll` 路径。验证包括原名/改�
 这些证据验证代理及生命周期；实际串口打开、仪器响应和目标宿主加载仍需在接入该通信层的节点上验证。现有带 lease 标注的节点须升级到已发布框架版本并重建 DLL，才能获得自动节点共享；仅复制/改名旧 DLL 不会改变行为。不同业务对象共享连接则仍须接入通信层代理。
 
 资源代理 v2 的关闭帧增加有界请求，最后会话的处理器关闭响应返回给调用方。升级前停止全部 v1 资源代理客户端与所有者，避免两代独立所有者锁并存。配置租约 v2 与 C ABI v7 不变。
+
+0.25.1/lease 0.17.1 仅补齐在线文档构建与精确版本入口，资源行为与 0.25.0/lease 0.17.0 一致。docs.rs 对 lease 启用全部 features，不改变用户的默认依赖能力。精确 API 见 [SharedResource](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html) 和 [ResourceHandler](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/trait.ResourceHandler.html)，文档生成状态须与 registry 可用性分别核实。

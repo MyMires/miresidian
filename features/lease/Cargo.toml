@@ -1,12 +1,16 @@
 [package]
 name = "miresidian_lease"
-version = "0.17.0"
+version = "0.17.1"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 通用跨进程资源租约协议与本地 IPC 基础。"
 license.workspace = true
 repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"
+documentation = "https://docs.rs/miresidian_lease"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 local-ipc = ["dep:interprocess", "dep:sha2", "dep:libc"]

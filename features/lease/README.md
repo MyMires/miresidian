@@ -12,11 +12,11 @@
 
 ## 节点接入
 
-节点通常只直接依赖 `miresidian`，通过 feature 启用本地 IPC 能力。以下为源码候选示例，须待对应版本已在 crates.io 发布后采用：
+节点通常只直接依赖 `miresidian`，通过 feature 启用本地 IPC 能力。以下示例对应 0.25.1，须先核实对应精确版本已在 crates.io 可用：
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.25.0", features = ["lease"] }
+miresidian = { version = "=0.25.1", features = ["lease"] }
 ```
 
 在结构体上声明租约策略，在初始化 Config 参数上选择资源键；未标记参数自动参与配置比较。例如 CAN 节点可声明：
@@ -66,7 +66,7 @@ impl CanNode {
 
 ## 物理资源共享
 
-本 crate 源码候选为 0.17.0，对应根框架 0.25.0。依赖示例须在对应版本已发布后使用；本次源码修改不发布 registry。
+本 crate 为 0.17.1，对应根框架 0.25.1。依赖示例采用前须核实 registry 精确版本可用。
 
 根框架保留现有 lease 标注。Lease 模式由 SharedResource 自动持有唯一节点资源对象：第一个引用初始化，后续引用取得相同初始化输出并转发业务调用，最后引用调用 close_device、析构，再释放所有者租约。Direct 模式仍本地初始化。节点状态随资源对象一起共享，不能用此模式获得独立业务计数。
 
@@ -78,7 +78,7 @@ ResourceHandler::close(request) 只在最后会话退出时调用，随后无论
 
 ## 能力边界与升级
 
-LocalLease 只协调配置兼容性，不共享物理句柄、不提供跨进程设备事务锁。SharedResource 在此基础上提供唯一连接所有者和完整事务互斥；根框架 0.25.0 的 Lease 标注自动将节点对象接入此路径。兼容租约不保证同一物理端口可以重复打开，也不保证请求响应的排他性；这些能力由通信实现和操作系统决定。`LeaseState::First` 仅表示当前服务登记表中的首个租约，不能据此判断跨服务代次的物理所有权。
+LocalLease 只协调配置兼容性，不共享物理句柄、不提供跨进程设备事务锁。SharedResource 在此基础上提供唯一连接所有者和完整事务互斥；根框架 0.25.1 的 Lease 标注自动将节点对象接入此路径。兼容租约不保证同一物理端口可以重复打开，也不保证请求响应的排他性；这些能力由通信实现和操作系统决定。`LeaseState::First` 仅表示当前服务登记表中的首个租约，不能据此判断跨服务代次的物理所有权。
 
 协议版本为 2，端点使用 `miresidian-lease-v2-<用户标识摘要>`。v1 客户端不参与 v2 文件锁协议，因此升级时必须先停止全部 v1 节点进程，再统一启动 v2 节点。C ABI 仍为 v7。
 
@@ -91,3 +91,7 @@ Windows 上使用 GetModuleHandleExW 的 PIN | FROM_ADDRESS，Unix 上保留实�
 `cargo test --workspace --all-targets --all-features --locked` 包含真实多进程回归：终止服务宿主，确认存活客户端仍拒绝不兼容配置、原通道禁止继续调用、关闭释放后可重新初始化。
 
 资源代理协议独立升级为 v2，端点及所有者锁目录使用 miresidian-resource-v2；关闭帧增加请求与响应。升级前须停止全部 v1 资源代理进程，不能混用。配置租约协议仍为 v2，C ABI v7 不变。
+
+## 0.17.1 在线资料
+
+本补丁配置 docs.rs 启用全部 features，确保 local_ipc、SharedResource、ResourceHandler、close_with 和 transact_with_timeout 进入在线文档；它不改变默认启用能力或运行时行为。独立使用仍须显式启用 local-ipc，根框架使用 lease feature。精确入口：[完整 API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/)、[共享资源](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)、[同版本源码与手册](https://github.com/MyMires/miresidian/tree/miresidian_lease-v0.17.1/features/lease)。发布后分别核实 registry 和文档构建状态，文档未生成时先查上述源码。

@@ -4,7 +4,7 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.25.0**. Rust MSRV: **1.89**. C ABI: **v7**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This is a source candidate, not published by this task. Use the exact dependency example only after verifying registry availability; local overrides are prohibited.
+Current source: **0.25.1**. Rust MSRV: **1.89**. C ABI: **v7**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. Use the exact dependency example after verifying registry availability and required features; local overrides are prohibited.
 
 ## Getting started
 
@@ -13,7 +13,7 @@ Current source: **0.25.0**. Rust MSRV: **1.89**. C ABI: **v7**. Configuration le
 crate-type = ["cdylib"]
 
 [dependencies]
-miresidian = "=0.25.0"
+miresidian = "=0.25.1"
 ```
 
 Declare a node with `#[miresidian::node("Name")]` and mark its initialization, close, and business methods with `#[miresidian::operation]`. Macros generate metadata, dispatch, and DLL exports. See the [minimal node example](README.md#最小节点示例), [node guide](docs/宏驱动开发.md), and [C ABI guide](docs/c-abi.md).
@@ -45,7 +45,7 @@ The shared resource implementation has been tested using exclusive file handles,
 
 The batch/format update is validated with independent feature configurations, typed records, aligned format columns, and native async methods. Unchanged resource-sharing validation remains applicable. Cargo publication verifies normalized packages against registry dependencies. Independent nodes must use published exact framework versions, without path/git dependencies or local overrides.
 
-[Release notes](docs/releases/0.25.0.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
+[Release notes](docs/releases/0.25.1.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
 
 
 ## Typed batch and explicit formats
@@ -55,3 +55,5 @@ Batch parsing uses the original Rust argument type, including aliases and qualif
 Format remains a single-value encoding conversion. The macro combines the independent batch and format crates, aligning data and format-selection columns by singleton broadcast or equal length. `A|42|Qw==` with `UTF8|HEX|Base64` produces three String values A, B, and C. Batch output format selectors also accept columns. Fixed single-format annotations create no selector or additional input slot. All input conversion and alignment checks precede business execution; output failures can occur after effects and stop subsequent records without rollback.
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
+
+0.25.1 tracks lease 0.17.1 with all-feature docs.rs builds. Runtime behavior and macro syntax are unchanged from 0.25.0. Exact-version entries: [framework API](https://docs.rs/miresidian/0.25.1/miresidian/), [shared resource API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html), and [release source/manuals](https://github.com/MyMires/miresidian/tree/miresidian-v0.25.1). If documentation is still building, use matching source rather than another version's API pages.

@@ -2,16 +2,16 @@
 
 [中文](README.md) · [English](README.en.md)
 
-`miresidian_lease` 0.17.0 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
+`miresidian_lease` 0.17.1 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
 
 Node projects normally enable the capability through the root crate:
 
 ```toml
 [dependencies]
-miresidian = { version = "=0.25.0", features = ["lease"] }
+miresidian = { version = "=0.25.1", features = ["lease"] }
 ```
 
-Standalone communication providers can depend on `miresidian_lease = { version = "=0.17.0", features = ["local-ipc"] }`.
+Standalone communication providers can depend on `miresidian_lease = { version = "=0.17.1", features = ["local-ipc"] }`.
 
 ## Choose the appropriate mechanism
 
@@ -44,8 +44,12 @@ Declare the lifetime policy with `node("Name", lease(activation = required))`. I
 
 Single-field identities retain their existing canonical text. Composite identities use ordered, length-delimited values with a version prefix. `ResourceKey::from_parts` and `LeaseRequest::from_parameter_keys` expose this encoding for communication providers. Agree on value order, normalization, and configuration field names/order across providers. The legacy resource/configuration declaration and single-field API remain supported and cannot be mixed with parameter lease roles. See the [full contract and migration](../../docs/config-identity.md).
 
-## 0.17.0 source candidate: automatic runtime ownership
+## 0.17.1: automatic runtime ownership and complete API docs
 
-Framework 0.25.0 connects existing lease annotations to SharedResource automatically in Lease mode. One owner constructs the node, all references forward operations to it, and the last closes and drops it before releasing its lease. Node state is shared; full normalized Config, Init Input text, and the named node interface must match. Differing ignored Config values are rejected for automatic node sharing. Independent business objects must instead share a communication-layer provider. Direct mode keeps local construction.
+Framework 0.25.1 connects existing lease annotations to SharedResource automatically in Lease mode. One owner constructs the node, all references forward operations to it, and the last closes and drops it before releasing its lease. Node state is shared; full normalized Config, Init Input text, and the named node interface must match. Differing ignored Config values are rejected for automatic node sharing. Independent business objects must instead share a communication-layer provider. Direct mode keeps local construction.
 
-ResourceHandler::close(request) runs only for the last session; errors and panics still allow destruction and lease release. SharedResource::close_with supplies the final close request and returns its response (empty for non-final references). Disconnect cleanup supplies an empty request. transact_with_timeout(None) waits for completion without an implicit business deadline. Resource protocol v2 adds a close payload/response and uses miresidian-resource-v2 endpoints and lock directories; stop all v1 owners and clients before upgrading. Configuration lease v2 and C ABI v7 are unchanged. This task does not publish the candidate: verify registry availability before using dependency examples.
+ResourceHandler::close(request) runs only for the last session; errors and panics still allow destruction and lease release. SharedResource::close_with supplies the final close request and returns its response (empty for non-final references). Disconnect cleanup supplies an empty request. transact_with_timeout(None) waits for completion without an implicit business deadline. Resource protocol v2 adds a close payload/response and uses miresidian-resource-v2 endpoints and lock directories; stop all v1 owners and clients before upgrading. Configuration lease v2 and C ABI v7 are unchanged. Verify exact registry availability before using dependency examples.
+
+## Exact-version documentation
+
+0.17.1 enables all features for docs.rs only. The default feature set, local-ipc opt-in, runtime behavior, and resource/configuration protocols are unchanged. See the [full API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/), [SharedResource methods](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html), and [matching source/manuals](https://github.com/MyMires/miresidian/tree/miresidian_lease-v0.17.1/features/lease). Verify registry publication and docs.rs completion separately; use matching source while documentation is pending.
