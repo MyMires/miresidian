@@ -126,7 +126,7 @@ impl Drop for LocalLease {
 // Windows 同步命名管道没有接收超时，使用非阻塞读写与统一请求截止时间。
 pub(crate) struct Connection {
     stream: Stream,
-    deadline: Instant,
+    deadline: Option<Instant>,
 }
 
 impl Connection {
@@ -134,20 +134,26 @@ impl Connection {
         stream.set_nonblocking(true).map_err(io_error)?;
         Ok(Self {
             stream,
-            deadline: Instant::now() + REQUEST_TIMEOUT,
+            deadline: Some(Instant::now() + REQUEST_TIMEOUT),
         })
     }
 
     fn reset_deadline(&mut self) {
-        self.deadline = Instant::now() + REQUEST_TIMEOUT;
+        self.deadline = Some(Instant::now() + REQUEST_TIMEOUT);
     }
 
     pub(crate) fn timeout(&mut self, timeout: Duration) -> Result<(), LeaseError> {
-        self.deadline = Instant::now()
-            .checked_add(timeout)
-            .filter(|_| !timeout.is_zero())
-            .ok_or_else(|| LeaseError::LocalIpc("资源请求超时必须为有限正数".into()))?;
+        self.deadline = Some(
+            Instant::now()
+                .checked_add(timeout)
+                .filter(|_| !timeout.is_zero())
+                .ok_or_else(|| LeaseError::LocalIpc("资源请求超时必须为有限正数".into()))?,
+        );
         Ok(())
+    }
+
+    pub(crate) fn wait_without_deadline(&mut self) {
+        self.deadline = None;
     }
 
     fn transfer(
@@ -155,7 +161,10 @@ impl Connection {
         mut action: impl FnMut(&mut Stream) -> io::Result<usize>,
     ) -> io::Result<usize> {
         loop {
-            if Instant::now() >= self.deadline {
+            if self
+                .deadline
+                .is_some_and(|deadline| Instant::now() >= deadline)
+            {
                 return Err(io::Error::new(io::ErrorKind::TimedOut, "本地租约请求超时"));
             }
             match action(&mut self.stream) {

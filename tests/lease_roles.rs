@@ -36,7 +36,15 @@ fn independent_runtimes_share_composite_identity_and_reject_conflicting_configur
         runtime.invoke(&Invocation::new("InitDevice", config, vec![]))
     };
     invoke(&a, config("8000", "9600", "100")).unwrap();
-    invoke(&b, config("0x1f40", "09600", "200")).unwrap();
+    // Same normalized full initialization can attach to the owner.
+    invoke(&b, config("0x1f40", "09600", "100")).unwrap();
+    let different_state = NodeRuntime::<Node>::new();
+    assert!(
+        invoke(&different_state, config("8000", "9600", "200"))
+            .unwrap_err()
+            .to_string()
+            .contains("完整初始化参数")
+    );
     invoke(&other_port, config("9000", "4800", "100")).unwrap();
     let conflicting = NodeRuntime::<Node>::new();
     assert!(invoke(&conflicting, config("8000", "4800", "100")).is_err());

@@ -22,7 +22,7 @@ fn name(resource: &ResourceKey) -> String {
     hash.update(user_scope());
     hash.update([0]);
     hash.update(resource.as_str().as_bytes());
-    format!("miresidian-resource-v1-{:x}", hash.finalize())
+    format!("miresidian-resource-v2-{:x}", hash.finalize())
 }
 
 pub(super) fn connect(resource: &ResourceKey) -> Result<Stream, LeaseError> {
@@ -47,7 +47,7 @@ where
     H: ResourceHandler,
 {
     let directory = std::env::temp_dir()
-        .join("miresidian-resource-v1")
+        .join("miresidian-resource-v2")
         .join(user_scope());
     fs::create_dir_all(&directory).map_err(io_error)?;
     let file = OpenOptions::new()

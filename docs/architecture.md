@@ -341,3 +341,9 @@ C ABI v7 的现有同步接口保持参数、返回方式和文本内存契约�
 `lease::shared::SharedResource` 位于租约 crate 的可选本地 IPC 层，通信实现向其提供资源键、规范化连接配置、事务线协议和物理资源工厂。资源所有者持有设备连接并串行执行字节事务；各 DLL 的节点对象持有独立代理。框架运行时不接收串口等具体通信依赖，不跨 DLL 传 Rust 对象或指针。
 
 原有实例容器仍按 Config 组合键/Handle 管理对象复用，原 LocalLease 仍校验配置与会话；资源代理额外管理唯一连接及代理引用。完整机制见[共享资源代理](shared-resources.md)。
+
+## 0.25.0 Lease 节点所有权
+
+InstanceState 通过 NodeAccess 区分 Direct(N) 与 Shared(SharedNode)。现有宏仍只生成 LeaseRequest，运行时在 Lease 初始化时自动取得唯一节点所有者；所有者保存 N、初始输出、规范化配置和共同接口，代理只保存 IPC 会话。完整操作在所有者中串行执行，异步操作在所有者的执行器中等待实际完成。节点状态共用，完整初始化参数或接口不一致时拒绝，独立业务状态继续使用通信层 SharedResource。
+
+每个已登记代理对应一个服务端会话引用；EOF 回收异常断连引用。最后引用使用其 CloseDevice Input 调用 ResourceHandler::close，关闭/析构 N 后释放所有者配置租约；已有 Direct 路径的生命周期图保持适用。资源代理协议 v2 新增关闭参数/响应，配置租约 v2 与 C ABI v7 不变。

@@ -64,13 +64,13 @@ impl SerialNode {
 
 多个资源键按声明顺序和原类型归一化，采用带版本前缀及长度边界的编码，不直接拼接 ip:port。单个资源键保留原规范文本，保持旧单字段资源身份；前缀 `miresidian:tuple:v1:` 保留给组合编码，单字段不能占用。配置字节继续编码 Rust 参数名、顺序和规范值，可为空。跨节点共享同一资源时，组合键值及顺序、配置字段名及顺序、类型归一化规则必须一致；显示标签不决定资源身份。
 
-相同资源键、不同配置必须在构造前拒绝。租约不提供物理句柄共享或事务串行化；实际共享仍由 SharedResource 通信层负责。超时只有在确实属于调用方独立设置时才能排除，若影响共享连接全局状态则应参与配置比较。
+相同资源键、不同配置必须在构造前拒绝。0.25.0 起 Lease 自动共享整个节点对象并串行执行完整调用；独立业务状态共享连接使用 SharedResource 通信层。超时只有在确实属于调用方独立设置时才能排除，若影响共享连接全局状态则应参与配置比较。
 
 ## TCP 与串口多设备
 
 TCP 可分别在 ip、port 上标记 instance(key)、lease(key)，超时标记 lease(ignore)。实例键与资源键恰好使用同一组值，但没有隐式绑定；同 IP 不同端口形成不同对象与资源。
 
-串口多设备可在 port_name 上标记 instance(key)、lease(key)，在 device_address 上标记 instance(key)、lease(ignore)，波特率不标记，独立超时标记 lease(ignore)。实例身份是串口加设备地址，资源身份只有串口，资源配置是波特率。业务对象、配置租约与共享连接分别管理生命周期。
+0.24.x 的纯配置租约可用 port_name 的 instance(key)、lease(key) 和 device_address 的 instance(key)、lease(ignore) 分离两种身份。0.25.0 自动共享的是整个节点对象，因此不同站号初始化不能直接附着；需要保留不同站号/超时的业务对象时，在通信提供者中统一资源键和配置编码并使用 SharedResource，业务节点只声明实例键。
 
 ## 兼容与迁移
 
@@ -87,3 +87,7 @@ TCP 可分别在 ip、port 上标记 instance(key)、lease(key)，超时标记 l
 ## 设计参考
 
 组合主键与声明位置参考 [SeaORM 的多字段 primary_key](https://www.sea-ql.org/SeaORM/docs/1.1.x/generate-entity/entity-structure/#composite-key) 和 [Diesel 的 primary_key(a, b)](https://docs.rs/diesel/latest/diesel/prelude/derive.Identifiable.html)。局部排除的属性风格参考 [Serde field attributes](https://serde.rs/field-attrs.html)。本框架将字段标记适配到现有初始化参数契约；默认全量实例键、空身份跳过及同资源配置冲突规则属于 Miresidian 明确约定，不宣称为这些库的统一行为。
+
+## 0.25.0 自动资源租约补充
+
+lease(key/ignore) 的资源键与配置字节编码不变，宏标签不变。Lease 模式现在自动共享整个节点资源对象，因此除资源配置相容外，完整规范化业务 Config、初始化 Input 和节点接口也必须一致；lease(ignore) 仍排除配置租约比较，但不会使不同初始化状态安全地共用同一业务对象。不同站号/超时需要独立初始化状态时，使用通信层 SharedResource 保留各节点对象。详见[共享资源](shared-resources.md)。

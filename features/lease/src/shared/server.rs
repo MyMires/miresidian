@@ -95,32 +95,57 @@ impl OwnerState {
         }
     }
 
-    fn cleanup(&mut self) {
+    fn cleanup(&mut self, request: &[u8]) -> Result<Vec<u8>, LeaseError> {
         self.accepting = false;
-        if let Some(handler) = self.handler.take() {
-            let _ = catch_unwind(AssertUnwindSafe(|| drop(handler)));
+        let closed = match self.handler.take() {
+            Some(mut handler) => {
+                let closed = catch_unwind(AssertUnwindSafe(|| handler.close(request)))
+                    .unwrap_or_else(|_| Err(LeaseError::LocalIpc("资源关闭发生 panic".into())));
+                let dropped = catch_unwind(AssertUnwindSafe(|| drop(handler)))
+                    .map_err(|_| LeaseError::LocalIpc("资源析构发生 panic".into()));
+                closed.and_then(|response| dropped.map(|_| response))
+            }
+            None => Ok(Vec::new()),
+        };
+        // 物理连接的关闭和析构必须早于所有者的配置租约释放。
+        let released = self
+            .lease
+            .take()
+            .map(|mut lease| lease.release())
+            .transpose();
+        let response = closed?;
+        released?;
+        if response.len() > MAX_TRANSACTION_BYTES {
+            return Err(LeaseError::ConfigurationTooLarge);
         }
-        // 物理连接的析构必须早于所有者的配置租约释放。
-        if let Some(mut lease) = self.lease.take() {
-            let _ = lease.release();
-        }
+        Ok(response)
     }
 }
 
 impl Drop for OwnerState {
     fn drop(&mut self) {
-        self.cleanup();
+        let _ = self.cleanup(&[]);
     }
 }
 
-struct Session(Arc<Mutex<OwnerState>>);
-impl Drop for Session {
-    fn drop(&mut self) {
-        let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
+struct Session(Option<Arc<Mutex<OwnerState>>>);
+impl Session {
+    fn release(&mut self, request: &[u8]) -> Result<Vec<u8>, LeaseError> {
+        let Some(state) = self.0.take() else {
+            return Ok(Vec::new());
+        };
+        let mut state = state.lock().unwrap_or_else(|e| e.into_inner());
         state.users -= 1;
         if state.users == 0 {
-            state.cleanup();
+            state.cleanup(request)
+        } else {
+            Ok(Vec::new())
         }
+    }
+}
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = self.release(&[]);
     }
 }
 
@@ -134,7 +159,7 @@ pub(super) fn serve(listener: Listener, state: OwnerState) {
                 break;
             }
             if state.users == 0 && Instant::now() >= initial_deadline {
-                state.cleanup();
+                let _ = state.cleanup(&[]);
                 break;
             }
         }
@@ -181,7 +206,7 @@ fn serve_client(mut stream: Stream, state: Arc<Mutex<OwnerState>>) {
         let _ = write_result(&mut stream, Err(&error));
         return;
     }
-    let session = Session(state.clone());
+    let mut session = Session(Some(state.clone()));
     if write_result(&mut stream, Ok(&[])).is_err() {
         return;
     }
@@ -200,8 +225,11 @@ fn serve_client(mut stream: Stream, state: Arc<Mutex<OwnerState>>) {
                 }
             }
             CLOSE => {
-                drop(session);
-                let _ = write_result(&mut stream, Ok(&[]));
+                let Ok(request) = read_bytes(&mut stream, MAX_TRANSACTION_BYTES) else {
+                    return;
+                };
+                let result = session.release(&request);
+                let _ = write_result(&mut stream, result.as_deref());
                 return;
             }
             _ => return,

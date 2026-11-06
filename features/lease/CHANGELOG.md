@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-06
+
+- 新增 ResourceHandler::close 与 SharedResource::close_with，最后会话的关闭参数和结果随资源协议 v2 传递；异常断连回收引用，关闭/析构错误仍释放所有者配置锁。
+- 新增 transact_with_timeout，None 等待实际完成，不新增业务超时；LocalLease 自身的两秒请求截止时间保持不变。
+- 资源端点与所有者锁目录升为 miresidian-resource-v2；升级须停止全部 v1 资源代理参与者，配置租约 v2 与 C ABI v7 不变。根框架 0.25.0 接入自动节点所有者，宏标签不变。
+
+- 验证：框架/租约默认 42 项、全特性 157 项通过（1 个子进程辅助入口忽略）；两种真实动态库共享路径、严格 Clippy/Rustdoc、Rust 1.89、Windows x64/x86 编译及版本门禁通过。设备 COM5 与 Windows 原生加载未实测。
+
 ## [0.16.0] - 2026-11-05
 
 - 新增 ResourceKey::from_parts 与 LeaseRequest::from_parameter_keys，按有序规范值编码组合资源身份，支持空兼容配置。

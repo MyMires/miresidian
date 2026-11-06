@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.24.1"
+version = "0.25.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -45,7 +45,7 @@ miresidian_macro = { version = "=0.22.0", path = "macro" }
 miresidian_batch = { version = "=0.2.2", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"
-miresidian_lease = { version = "=0.16.0", path = "features/lease" }
+miresidian_lease = { version = "=0.17.0", path = "features/lease" }
 serde = { version = "1.0", features = ["derive"] }
 
 miresidian_instances = { version = "=0.16.5", path = "features/instances" }
@@ -85,4 +85,18 @@ name = "other_resource_dll"
 path = "examples/other_resource_dll.rs"
 crate-type = ["cdylib"]
 required-features = ["lease"]
+test = false
+
+[[example]]
+name = "leased_resource_dll"
+path = "examples/leased_resource_dll.rs"
+crate-type = ["cdylib"]
+required-features = ["lease", "instances"]
+test = false
+
+[[example]]
+name = "leased_other_dll"
+path = "examples/leased_other_dll.rs"
+crate-type = ["cdylib"]
+required-features = ["lease", "instances"]
 test = false

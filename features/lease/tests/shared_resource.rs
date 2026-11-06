@@ -413,3 +413,48 @@ fn owner_process_death_invalidates_existing_clients_without_reopening_or_replay(
     assert_eq!(opened.load(Ordering::SeqCst), 1);
     coordinator.release().unwrap();
 }
+
+#[test]
+fn final_close_receives_request_and_returns_response_after_dropping_the_resource() {
+    use std::sync::{Arc, Mutex};
+    struct Closing(Arc<Mutex<Vec<String>>>);
+    impl miresidian_lease::shared::ResourceHandler for Closing {
+        fn transact(&mut self, _: &[u8]) -> Result<Vec<u8>, miresidian_lease::LeaseError> {
+            Ok(Vec::new())
+        }
+        fn close(&mut self, request: &[u8]) -> Result<Vec<u8>, miresidian_lease::LeaseError> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(String::from_utf8(request.to_vec()).unwrap());
+            Ok(b"closed".to_vec())
+        }
+    }
+    impl Drop for Closing {
+        fn drop(&mut self) {
+            self.0.lock().unwrap().push("drop".into());
+        }
+    }
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let resource =
+        miresidian_lease::ResourceKey::new(format!("final-close:{}", std::process::id())).unwrap();
+    let config = miresidian_lease::LeaseConfiguration::new(vec![1]).unwrap();
+    let mut first = miresidian_lease::shared::SharedResource::acquire(
+        resource.clone(),
+        config.clone(),
+        "final-close/1",
+        || Ok(Closing(events.clone())),
+    )
+    .unwrap();
+    let mut second = miresidian_lease::shared::SharedResource::acquire(
+        resource,
+        config,
+        "final-close/1",
+        || Ok(Closing(events.clone())),
+    )
+    .unwrap();
+    assert!(first.close_with(b"first", None).unwrap().is_empty());
+    assert!(events.lock().unwrap().is_empty());
+    assert_eq!(second.close_with(b"last", None).unwrap(), b"closed");
+    assert_eq!(*events.lock().unwrap(), ["last", "drop"]);
+}

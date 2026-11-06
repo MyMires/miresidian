@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-06
+
+- Existing lease annotations now acquire one node owner across DLLs/processes: construct once, forward complete operations, close/drop only on the final reference. Macro syntax and macro crate 0.22.0 are unchanged.
+- Node state and initialization output are shared. Full normalized Config, Init Input text, and the named interface must match. Direct construction remains local; independent business state uses a communication-layer provider.
+- Lease 0.17.0 adds final-close payloads/responses and optional transaction deadlines. Resource protocol v2 requires stopping v1 participants before upgrading; configuration lease v2 and C ABI v7 remain unchanged.
+- Added direct-open DLL fixtures and native loading verification. See release notes for validation; no physical COM5 test, registry publishing, or independent-node dependency changes in this task.
+
 ## [0.24.1] - 2026-11-06
 
 - Correct stale Config[0] identity guidance in instance documentation and generated Node templates; resolve contracts against each project's actual framework version.

@@ -28,6 +28,7 @@ impl LeaseActivation {
 }
 
 /// 单次初始化实际采用的资源访问路径。
+/// Lease 自动共用唯一节点资源对象和业务状态；Direct 本地构造。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LeaseAccess {
     Lease,

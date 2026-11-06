@@ -1,5 +1,5 @@
 #![cfg(all(feature = "lease", feature = "instances"))]
-//! Business addresses share one resource identity without sharing node state.
+//! 资源键仍独立于实例键；自动节点共享拒绝不同初始化状态。
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 #[miresidian::node("独立角色", instances(mode = multiple, binding = config, execution = sequential), lease(activation = required))]
 struct Node {
@@ -34,7 +34,11 @@ fn instance_selection_never_changes_resource_identity_or_compatibility_fields() 
         Invocation::new(op, vec![port.clone(), address.into(), baud.into()], vec![])
     };
     runtime.invoke(&request("InitDevice", "1", "9600")).unwrap();
-    runtime.invoke(&request("InitDevice", "2", "9600")).unwrap();
+    let incompatible_state = runtime
+        .invoke(&request("InitDevice", "2", "9600"))
+        .unwrap_err();
+    assert!(incompatible_state.to_string().contains("完整初始化参数"));
+    // The same physical key still rejects incompatible resource configuration first.
     let error = runtime
         .invoke(&request("InitDevice", "3", "4800"))
         .unwrap_err();
@@ -45,23 +49,6 @@ fn instance_selection_never_changes_resource_identity_or_compatibility_fields() 
             .unwrap()
             .as_slice(),
         ["1", "1"]
-    );
-    assert_eq!(
-        runtime
-            .invoke(&request("Read", "2", "unused"))
-            .unwrap()
-            .as_slice(),
-        ["2", "1"]
-    );
-    runtime
-        .invoke(&request("CloseDevice", "1", "unused"))
-        .unwrap();
-    assert_eq!(
-        runtime
-            .invoke(&request("Read", "2", "unused"))
-            .unwrap()
-            .as_slice(),
-        ["2", "2"]
     );
     runtime.shutdown().unwrap();
 }

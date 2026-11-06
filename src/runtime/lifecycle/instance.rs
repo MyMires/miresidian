@@ -13,7 +13,7 @@ use std::{
 };
 
 #[cfg(feature = "lease")]
-use crate::lease::local_ipc::LocalLease;
+use super::shared::SharedNode;
 use crate::{
     CLOSE_DEVICE_OPERATION, DeviceNode, INIT_DEVICE_OPERATION, InvocationOutput, LeaseAccess,
     MiresidianError, MiresidianResult,
@@ -30,11 +30,25 @@ pub(in crate::runtime) struct Instance<N> {
     closing: AtomicBool,
 }
 
-struct InstanceState<N> {
-    node: N,
-    fault: Option<MiresidianError>,
+enum NodeAccess<N> {
+    Direct(N),
     #[cfg(feature = "lease")]
-    lease: Option<LocalLease>,
+    Shared(SharedNode),
+}
+
+impl<N> NodeAccess<N> {
+    fn direct_mut(&mut self) -> &mut N {
+        match self {
+            Self::Direct(node) => node,
+            #[cfg(feature = "lease")]
+            Self::Shared(_) => unreachable!("shared nodes execute on the owner"),
+        }
+    }
+}
+
+struct InstanceState<N> {
+    node: NodeAccess<N>,
+    fault: Option<MiresidianError>,
 }
 
 impl<N: DeviceNode> Instance<N> {
@@ -47,65 +61,60 @@ impl<N: DeviceNode> Instance<N> {
         execution: crate::ExecutionMode,
         pending_limit: usize,
     ) -> MiresidianResult<(Self, InvocationOutput)> {
-        let mut node = None;
         #[cfg(feature = "lease")]
-        let mut lease = None;
-        #[cfg(not(feature = "lease"))]
-        let _ = access;
-        let initialized = (|| {
-            #[cfg(feature = "lease")]
-            if matches!(access, LeaseAccess::Lease) {
-                lease = catch_node(INIT_DEVICE_OPERATION, || N::lease_request(node_config))?
-                    .map(|request| {
-                        LocalLease::acquire(
-                            request.resource().clone(),
-                            request.configuration().clone(),
-                        )
-                        .map_err(|error| MiresidianError::Failure(error.to_string()))
-                    })
-                    .transpose()?;
-            }
-            let (created, output) =
-                catch_node(INIT_DEVICE_OPERATION, || N::init_device(node_config, input))?;
-            node = Some(created);
-            #[cfg(feature = "lease")]
-            if let Some(lease) = &lease {
-                lease
-                    .validate()
-                    .map_err(|error| MiresidianError::Failure(error.to_string()))?;
-            }
-            Ok(output)
-        })();
-        match initialized {
-            Ok(output) => Ok((
-                Self {
+        if matches!(access, LeaseAccess::Lease) {
+            let request = catch_node(INIT_DEVICE_OPERATION, || N::lease_request(node_config))?
+                .ok_or_else(|| {
+                    MiresidianError::NotSupported("Lease 模式必须提供资源租约请求".into())
+                })?;
+            let (shared, output) = SharedNode::acquire::<N>(request, &config, node_config, input)?;
+            return Ok((
+                Self::new(
                     key,
                     config,
-                    execution,
                     access,
-                    request: tokio::sync::Mutex::new(()),
-                    pending: Arc::new(tokio::sync::Semaphore::new(pending_limit)),
-                    closing: AtomicBool::new(false),
-                    state: Arc::new(tokio::sync::Mutex::new(Some(InstanceState {
-                        node: node.expect("successful initialization returns a node"),
-                        fault: None,
-                        #[cfg(feature = "lease")]
-                        lease,
-                    }))),
-                },
+                    execution,
+                    pending_limit,
+                    NodeAccess::Shared(shared),
+                ),
                 output,
-            )),
-            Err(error) => {
-                // 节点先清理并析构，之后才释放租约所持有的配置锁。
-                if let Some(node) = node {
-                    let _ = cleanup_node(node, node_config, &[]);
-                }
-                #[cfg(feature = "lease")]
-                if let Some(mut lease) = lease {
-                    let _ = lease.release();
-                }
-                Err(error)
-            }
+            ));
+        }
+        let (node, output) =
+            catch_node(INIT_DEVICE_OPERATION, || N::init_device(node_config, input))?;
+        Ok((
+            Self::new(
+                key,
+                config,
+                access,
+                execution,
+                pending_limit,
+                NodeAccess::Direct(node),
+            ),
+            output,
+        ))
+    }
+
+    fn new(
+        key: InstanceKey,
+        config: Vec<String>,
+        access: LeaseAccess,
+        execution: crate::ExecutionMode,
+        pending_limit: usize,
+        node: NodeAccess<N>,
+    ) -> Self {
+        Self {
+            key,
+            config,
+            access,
+            execution,
+            request: tokio::sync::Mutex::new(()),
+            pending: Arc::new(tokio::sync::Semaphore::new(pending_limit)),
+            closing: AtomicBool::new(false),
+            state: Arc::new(tokio::sync::Mutex::new(Some(InstanceState {
+                node,
+                fault: None,
+            }))),
         }
     }
 
@@ -146,7 +155,10 @@ impl<N: DeviceNode> Instance<N> {
         let native_operation = operation.clone();
         let native_input = input.clone();
         // Lease IPC and synchronous user code never block an async worker.
-        let native = N::is_async_operation(&operation);
+        let native = N::is_async_operation(&operation)
+            && state
+                .as_ref()
+                .is_some_and(|inner| matches!(inner.node, NodeAccess::Direct(_)));
         let (mut state, result) = tokio::task::spawn_blocking(move || {
             let mut state = state;
             let result = call_context.blocking(|| {
@@ -156,8 +168,10 @@ impl<N: DeviceNode> Instance<N> {
                 if native {
                     return Ok(None);
                 }
-                catch_node(&operation, || {
-                    inner.node.invoke(&operation, &config, &input)
+                catch_node(&operation, || match &mut inner.node {
+                    NodeAccess::Direct(node) => node.invoke(&operation, &config, &input),
+                    #[cfg(feature = "lease")]
+                    NodeAccess::Shared(shared) => shared.invoke(&operation, &input),
                 })
                 .map(Some)
             });
@@ -175,9 +189,10 @@ impl<N: DeviceNode> Instance<N> {
             None => {
                 context.check()?;
                 let inner = state.as_mut().ok_or(MiresidianError::NotInitialized)?;
+                let node = inner.node.direct_mut();
                 let result = context
                     .scope(
-                        AssertUnwindSafe(inner.node.invoke_async(
+                        AssertUnwindSafe(node.invoke_async(
                             &native_operation,
                             &self.config,
                             &native_input,
@@ -204,17 +219,11 @@ impl<N: DeviceNode> Instance<N> {
         let Some(state) = self.state.blocking_lock().take() else {
             return Ok(());
         };
-        let result = cleanup_node(state.node, &self.config, input);
-        #[cfg(feature = "lease")]
-        let release = state
-            .lease
-            .map(|mut lease| lease.release())
-            .transpose()
-            .map_err(|error| MiresidianError::Failure(format!("租约释放失败: {error}")));
-        #[cfg(not(feature = "lease"))]
-        let release: MiresidianResult<()> = Ok(());
-        result?;
-        release.map(|_| ())
+        match state.node {
+            NodeAccess::Direct(node) => cleanup_node(node, &self.config, input),
+            #[cfg(feature = "lease")]
+            NodeAccess::Shared(mut shared) => shared.close(input),
+        }
     }
 }
 
@@ -224,12 +233,9 @@ impl<N> InstanceState<N> {
             return Err(error.clone());
         }
         #[cfg(feature = "lease")]
-        if let Some(lease) = &self.lease
-            && let Err(error) = lease.validate()
-        {
-            let error = MiresidianError::LeaseInvalidated(error.to_string());
-            self.fault = Some(error.clone());
-            return Err(error);
+        if let NodeAccess::Shared(shared) = &self.node {
+            // 远端故障/会话失效由所有者和代理保存；本次排队取消不能污染引用。
+            shared.validate()?;
         }
         Ok(())
     }

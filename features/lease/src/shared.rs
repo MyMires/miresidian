@@ -10,7 +10,7 @@ mod server;
 pub use client::SharedResource;
 
 /// 共享资源代理的独立线协议版本，不改变配置租约 v2。
-pub const RESOURCE_PROTOCOL_VERSION: u16 = 1;
+pub const RESOURCE_PROTOCOL_VERSION: u16 = 2;
 /// 单次资源请求或响应的最大字节数。
 pub const MAX_TRANSACTION_BYTES: usize = 16 * 1024 * 1024;
 
@@ -18,6 +18,13 @@ pub const MAX_TRANSACTION_BYTES: usize = 16 * 1024 * 1024;
 pub trait ResourceHandler: Send + 'static {
     /// 在资源级互斥范围内执行完整事务；错误不会自动重试或回滚已完成的 I/O。
     fn transact(&mut self, request: &[u8]) -> Result<Vec<u8>, crate::LeaseError>;
+
+    /// 最后一个会话释放时执行，并在返回后析构资源、释放所有者租约。
+    /// `request` 来自最后一次显式关闭；异常断连时为空。返回值传给该关闭者。
+    /// 即使返回错误或 panic，所有者仍会析构资源并释放租约。
+    fn close(&mut self, _request: &[u8]) -> Result<Vec<u8>, crate::LeaseError> {
+        Ok(Vec::new())
+    }
 }
 
 impl<F> ResourceHandler for F

@@ -84,18 +84,34 @@ impl SharedResource {
     /// 已发送的事务可能仍在执行，禁止以超时为由重放有副作用的请求。
     /// 设备操作仍须有自身超时；代理不会强行中断资源所有者中的设备 I/O。
     pub fn transact(&self, request: &[u8], timeout: Duration) -> Result<Vec<u8>, LeaseError> {
+        self.transact_with_timeout(request, Some(timeout))
+    }
+
+    /// 执行完整事务；None 等待实际完成，不增加隐式业务截止时间。
+    /// 有截止时间时沿用 transact 的失效、不重放和设备超时规则。
+    pub fn transact_with_timeout(
+        &self,
+        request: &[u8],
+        timeout: Option<Duration>,
+    ) -> Result<Vec<u8>, LeaseError> {
         if request.len() > MAX_TRANSACTION_BYTES {
             return Err(LeaseError::ConfigurationTooLarge);
         }
-        let deadline = Instant::now()
-            .checked_add(timeout)
-            .filter(|_| !timeout.is_zero())
-            .ok_or_else(|| LeaseError::LocalIpc("资源请求超时必须为有限正数".into()))?;
+        let deadline = timeout
+            .map(|timeout| {
+                Instant::now()
+                    .checked_add(timeout)
+                    .filter(|_| !timeout.is_zero())
+                    .ok_or_else(|| LeaseError::LocalIpc("资源请求超时必须为有限正数".into()))
+            })
+            .transpose()?;
         let mut state = loop {
             match self.connection.try_lock() {
                 Ok(state) => break state,
                 Err(std::sync::TryLockError::Poisoned(_)) => return Err(LeaseError::Invalidated),
-                Err(std::sync::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                Err(std::sync::TryLockError::WouldBlock)
+                    if deadline.is_none_or(|deadline| Instant::now() < deadline) =>
+                {
                     thread::sleep(Duration::from_millis(2))
                 }
                 Err(_) => return Err(LeaseError::LocalIpc("等待资源代理会话超时".into())),
@@ -109,7 +125,12 @@ impl SharedResource {
             return Err(error);
         }
         let connection = state.as_mut().ok_or(LeaseError::Invalidated)?;
-        connection.timeout(deadline.saturating_duration_since(Instant::now()))?;
+        match deadline {
+            Some(deadline) => {
+                connection.timeout(deadline.saturating_duration_since(Instant::now()))?
+            }
+            None => connection.wait_without_deadline(),
+        }
         let result = (|| {
             write_u8(connection, CALL)?;
             write_bytes(connection, request)?;
@@ -130,6 +151,25 @@ impl SharedResource {
 
     /// 释放本调用者。最后一个代理释放时，所有者先析构物理连接，再释放其配置锁。
     pub fn close(&mut self) -> Result<(), LeaseError> {
+        self.close_with(&[], Some(CLOSE_TIMEOUT)).map(|_| ())
+    }
+
+    /// 释放当前引用，将有界关闭请求传给最后一个引用触发的 ResourceHandler::close。
+    /// 非最后引用返回空字节。None 等待实际关闭；请求过大或零超时不会释放引用。
+    /// IPC 失败仍释放本地会话与配置租约，所有者负责在途事务和断连清理。
+    pub fn close_with(
+        &mut self,
+        request: &[u8],
+        timeout: Option<Duration>,
+    ) -> Result<Vec<u8>, LeaseError> {
+        if request.len() > MAX_TRANSACTION_BYTES {
+            return Err(LeaseError::ConfigurationTooLarge);
+        }
+        if timeout.is_some_and(|timeout| {
+            timeout.is_zero() || Instant::now().checked_add(timeout).is_none()
+        }) {
+            return Err(LeaseError::LocalIpc("资源请求超时必须为有限正数".into()));
+        }
         let connection = self
             .connection
             .get_mut()
@@ -137,14 +177,21 @@ impl SharedResource {
             .take();
         let closed = match connection {
             Some(mut connection) => (|| {
-                connection.timeout(CLOSE_TIMEOUT)?;
+                match timeout {
+                    Some(timeout) => connection.timeout(timeout)?,
+                    None => connection.wait_without_deadline(),
+                }
                 write_u8(&mut connection, CLOSE)?;
-                read_result(&mut connection)?.map(|_| ())
+                write_bytes(&mut connection, request)?;
+                read_result(&mut connection)?
             })(),
-            None => Ok(()),
+            None => Ok(Vec::new()),
         };
         let released = self.lease.release();
-        closed.and(released)
+        match (closed, released) {
+            (Err(error), _) | (_, Err(error)) => Err(error),
+            (Ok(response), Ok(())) => Ok(response),
+        }
     }
 }
 
