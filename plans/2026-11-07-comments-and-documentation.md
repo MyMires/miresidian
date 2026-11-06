@@ -49,3 +49,27 @@
 - 通过本次构建的 CLI 0.3.3、Pack 0.13.3，在 `/tmp/miresidian-docfix-online-d8zf78oj` 实测 `new ... --miresidian-version 0.25.2` 与已有目录的 `init ... --miresidian-version 0.25.2`，均成功。两项目均为精确 =0.25.2、真实 registry 来源及 checksum；共享临时 target 编译通过，CLI check 的项目和 TestFlow 静态检查通过，init 保留原 retained.txt。首次离线尝试因未缓存 0.25.2 下载失败，保留残留目录未冒充成功；按工具规则在新目录联网正常下载后完成。日志 `/tmp/miresidian-docfix-template-smoke.log`。这些是临时验收项目，未引入框架本地覆盖或修改现有独立节点。
 - 最终 23 份受影响 Markdown 的围栏及 251 处本地路径/章节锚点全部通过，索引与本记录均纳入检查。最终 30 个 Rust 文件非注释源码再次核对一致，格式、差异及版本门禁通过。
 - 复用同会话此前 codec/format 及默认参数/format 宏组合的 34 项通过证据；对应代码与实际依赖未改，未重复整套运行时、Clippy/MSRV/Windows/硬件检查。本次没有 Node skill 修改、工具 v8 模板功能、Windows 原生加载、真实硬件、推送或 registry 发布。
+
+## 推送与发布阶段（2026-11-07，用户追加授权）
+
+用户明确要求“推送和发布”，覆盖当前 master、本次六个不可移动版本标签及六个升版 crate 的 crates.io 正式发布，发布后核对实际包、来源与精确在线文档。此前“不推送、不发布”“未发布”记录原实现阶段的事实，本节取代其作为后续操作依据；不授权升级独立 Node、发布无关组件、增加 v8 模板功能或执行硬件操作。
+
+发行源码固定为 71388012c0a3397075a6de081fab5226b760fca5，六个标签均已指向该提交，工作区干净；远端 master 预检为 1ead60220c35204de09fdde170291a34af111de5，尚无本次六个标签。现有验证可复用，发行阶段不重复整套无关测试，也不为记录“已发布”改写历史标签或反复提升产品版本。
+
+### 执行设计与步骤
+
+1. 先归档本阶段方案，纯方案提交，版本影响为无：仅增加已授权的发布步骤与验收，不修改发行源码、交付指导、版本或锁文件。后续结果也只补入本方案。
+2. 在 `/tmp/miresidian-publish-0.26.1` 创建固定 7138801 的干净 detached worktree，逐一核对根及五个组件的 require-tag，检查六个正式 Cargo 包文件清单。发布用该发行快照，不要求后续纯方案 HEAD 对齐原标签。
+3. 显式原子推送 master 与本次六个标签；不使用 force，不推送所有无关标签。实读远端分支及标签解引用，确认六标签仍为发行提交。
+4. 查询六个 crates.io 精确版本。未发布时先 ABI 0.15.1、macro 0.23.1、instances 0.16.6，再根 miresidian 0.26.1；工具按 Pack 0.13.3 后 CLI 0.3.3。正式命令为 `cargo publish -p <crate> --locked`，根加 `--all-features`。保留 Cargo 正式打包和 registry 依赖编译，不使用 allow-dirty/no-verify，不重复等价 dry-run。若版本已存在，先核对来源与 checksum，匹配才跳过上传；发布失败先核实上传状态再决定重试，不读取或输出凭据。
+5. 从官方 API 确认六版本未撤回，下载实际 .crate 对比官方 SHA-256，核对 `.cargo_vcs_info.json` 为发行提交且非 dirty；逐包核对 README/CHANGELOG、规范化元数据及必要源码。根精确依赖 ABI/macro/instances 新版本，其他依赖不变；CLI 包内套件及 Pack 要求分别为 0.3.3/0.13.3，TestFlow 保持 0.12.0；Pack/CLI 功能及模板限制保持。
+6. 核对六个 GitHub 精确标签源码入口，六组件精确 docs.rs README/API，根可选 format API、关键中文宏/任务文档及 instances 广播说明。文档初次排队/404 时记录真实状态并有限复查，不把上传成功当作生成成功。发行快照中的候选措辞描述原实现阶段，正式状态以本阶段验收及精确 registry/API 为准；已发布包不覆盖。
+7. 将真实结果、checksum、在线资料和剩余限制归档本方案，纯方案提交并推送 master。最终报告六版本/标签、发行提交、registry 与 docs.rs 状态。当前任务不额外创建 GitHub Release 或工具压缩包；用户授权的公开发行以 crates.io 和源码/标签为交付。
+
+### 验收与边界
+
+六个精确发布包与 7138801 来源一致，正式 Cargo 验证通过；远端六标签不可移动，纯方案结果提交只推进 master。保留此前 43 项组件/工具测试、1 项 doctest、严格 Rustdoc、六示例和 registry new/init 证据；Windows 加载、真实硬件和独立 Node 升级不在本阶段。任何真实发行缺陷须先修订方案，按实际影响另行升版，不能覆盖原发行或移动标签。
+
+### 发布执行结果
+
+待执行后记录；预检和计划不视为已推送或已发布。
