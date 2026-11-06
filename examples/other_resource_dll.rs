@@ -1,4 +1,6 @@
 //! 不同业务节点独立编译，使用相同通信层事务协议共用物理资源。
+//! 每个 NodeB 保留自己的 calls；SharedResource 仅共享底层连接及完整事务互斥。
+//! 与 shared_resource_dll 配套验证；独占文件模拟设备，不代表真实串口通信已验证。
 #[path = "support/shared_resource.rs"]
 mod transport;
 

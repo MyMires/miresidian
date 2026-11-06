@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-07
+
+- Clarify Chinese source documentation for macro expansion, conditional compilation, task ownership, cancellation, initialization cleanup, and module loader references; correct the private fixture ABI note.
+- Correct release status, the 0.22.0 parameter migration boundary, Direct/Shared ownership diagrams, workspace inventory, component examples, and new/init directory rules. Explain the existing ABI v7 template restriction with an explicit published framework version.
+- Track macro 0.23.1, ABI crate 0.15.1, and instances 0.16.6. Pack 0.13.3 and CLI/toolset 0.3.3 update guidance and the embedded version catalog only. Executable code, Rust/C signatures, C ABI v8, configuration/resource protocols v2, and MSRV 1.89 remain unchanged.
+- Erratum: framework 0.26.0, macro 0.23.0, and ABI 0.15.0 were published in the subsequently authorized release phase; exact-version docs are available. Preserve original entries/tags. This patch set is local and unpublished; see plans/2026-11-07-comments-and-documentation.md for evidence.
+- Validation: executable source in 30 Rust files is unchanged after excluding comments. Passed 43 component/tool tests, one root doctest, strict all-feature documentation, six example checks, and real registry-backed CLI new/init smoke checks. Version, formatting, and local document reference checks passed; no new Windows loading or hardware validation.
+
 ## [0.26.0] - 2026-11-06
 
 - Add `miresidian_invoke_request` with a complete JSON request: required nonempty function, optional ordered Config/Input string arrays, and optional numeric platform. Omission uses existing Config-based platform selection; presence uses explicit selection.

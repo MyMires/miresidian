@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "futures-util",
  "inventory",
@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.15.0"
+version = "0.15.1"
 
 [[package]]
 name = "miresidian_batch"
@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "semver",
  "toml",
@@ -317,7 +317,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_instances"
-version = "0.16.5"
+version = "0.16.6"
 dependencies = [
  "miresidian_codec",
 ]
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_pack"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "cargo_metadata",
  "serde_json",

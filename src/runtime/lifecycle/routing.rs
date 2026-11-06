@@ -53,7 +53,7 @@ impl ParsedConfig<'_> {
     }
 }
 
-/// Index selection is independent of lease metadata and excludes framework fields.
+/// 只从业务 Config 选择实例键索引，与租约字段选择独立；框架附加字段不参与。
 fn instance_key_indices<N: DeviceNode>() -> impl Iterator<Item = usize> {
     (0..N::descriptor().init_config.len())
         .filter(|index| N::instance_config_indices().is_none_or(|keys| keys.contains(index)))

@@ -1,0 +1,51 @@
+# 框架注释与文档一致性修复
+
+日期：2026-11-07。状态：实施与下列验收已完成；提交及不可移动标签结果以 Git 记录与最终报告为准。授权为用户“注释和文档问题一起修复”。
+
+## 目标与设计
+
+将根框架、过程宏及工作区示例中的英文说明统一为中文，并补全宏生成、条件编译、执行器、取消、模块加载引用、初始化回滚及任务生命周期的关键约束。保留 Rustdoc 的标准 `# Safety` 标题、`SAFETY:` 标记、API 名称和协议标识，不用逐行复述代码扩充篇幅。
+
+修复已确认的七类资料问题：发行状态仍停留在候选阶段；CLI/Pack 新建流程未就近说明 ABI v7 限制；架构图遗漏 Direct/Shared 分支；业务默认值变更误记为 0.23.0；new/init 目录要求混写；工作区数量/依赖图过期；instances 示例版本落后。历史 CHANGELOG 与不可移动标签保留，通过新版本勘误及当前手册补充，不改写已发布历史。
+
+实现只改变注释、Rustdoc、指导文档及其必要版本元数据，不改变 Rust/C 签名、业务行为、模板实现、ABI/协议或外部节点。Pack 的 v7 限制如实说明，给出已发布 v7 框架的显式命令示例；本任务不将其扩展为 v8 模板开发。
+
+## 实现方式与影响文件
+
+- 根 `src/**/*.rs`、`macro/src/**/*.rs`、`examples/**/*.rs`：核对英文注释、过简的关键边界及陈旧 ABI 信息；注释按实现补齐，模块加载器的 unsafe 前提逐项说明。
+- `README.md`、`README.en.md`、`docs/README.md`、`docs/architecture.md`、`docs/宏驱动开发.md`、`docs/c-abi.md`、`docs/releases/0.26.0.md` 和新 `docs/releases/0.26.1.md`：区分 0.26.0 的已核实发行与本次未发布源码，修复迁移版本、图及导航。`docs/versioning.md` 同步组件表并补记本次评估；`docs/coding-standards.md` 明确中文说明与内容审查要求。
+- `abi/README.md`、`macro/README.md`、`features/instances/README.md`、`tools/miresidian-pack/README.md`、`tools/miresidian-cli/README.md`：同步实际版本、组件职责与工具边界；依赖/安装示例明确采用已发布版本，不将本次候选写成已可安装。
+- 上述六个组件的 `Cargo.toml`、`CHANGELOG.md`、根双语 CHANGELOG、`Cargo.lock`、`tools/miresidian-cli/toolset.toml`：同步独立补丁版本及内部精确依赖。其他锁文件仅在其实际依赖受影响时由 Cargo 更新，独立节点 registry 依赖不变。
+- 不修改 Node skill 的任一副本；本次没有 Node 开发流程或 skill 内容变更。
+
+实施范围补充（修改前记录）：全库英文说明扫描发现 `features/instances/src/dispatch.rs` 仍有广播源规则的英文注释；将其纳入中文说明修复并核对源通道无效时整批跳过的边界。instances 已因 README 升至 0.16.6，无新增组件或版本联动；继续保持非注释代码不变并运行该组件现有测试。
+
+## 版本评估
+
+交付指导及 Rustdoc 修复按仓库门禁分别补丁升级：根 0.26.0 → 0.26.1；macro 0.23.0 → 0.23.1；ABI crate 0.15.0 → 0.15.1；instances 0.16.5 → 0.16.6；Pack 0.13.2 → 0.13.3；CLI/套件 0.3.2 → 0.3.3。ABI crate 仅修 README，C ABI 仍为 v8，头文件及元数据协议号不变。CLI 内嵌清单同步 Pack 0.13.3。codec、format、batch、lease、TestFlow 无实际修改，不跟升；ABI/租约/资源协议和 MSRV 不变。原有外部节点及烟测夹具保持已发布依赖与锁文件。
+
+当前可安装示例采用先前正式发行的根 0.26.0、ABI 0.15.0、instances 0.16.5；Pack 新建示例采用已发布且为 ABI v7 的根 0.25.2。实施中先通过官方 registry 与精确文档/源码复核这些示例。新增源码候选与已发布版本分别说明，本任务不推送、不发布。
+
+## 步骤与验收
+
+1. 确认现有 .githooks 已启用，落盘方案；核对实际版本、关键源码和官方版本入口。
+2. 先修当前手册、组件说明与宏/执行器/示例注释，版本与归档同次更新；实施若需改变范围，先修改本方案并说明原因。
+3. 用 Cargo 离线更新工作区锁文件，核对仅六个第一方版本变化；运行 `python3 tools/check_versions.py --base HEAD`。
+4. 检查 Markdown 围栏、本地链接和锚点；检查根/宏/示例剩余英文说明（排除代码、专名和标准 Safety 标记）；对 Rust 源码去除注释后与 HEAD 比对，证明除版本元数据外可执行代码不变。
+5. 运行格式检查、六组件严格全特性 Rustdoc、根 doctest、相关示例编译；运行宏/ABI/实例及工具现有定向检查，复用前轮默认解析/format 回归，无业务改动不扩展成硬件或完整平台验证。CLI 内嵌版本清单已变，须运行其真实路由/清单测试。验证结果记录本方案与本次修订。
+   验收补充（执行前记录）：为直接验证新文档中的精确命令，通过本次 CLI/Pack 在 `/tmp` 临时目录各执行一次显式框架 0.25.2 的 new/init，检查生成的精确 registry 依赖、锁文件及保留原文件，再用 Cargo 编译。仅作为框架资料的临时验收，不创建交付 Node、不引入本地依赖或修改现有节点；实现未变，不重复另跑默认忽略的 0.14.0 registry 集成夹具。
+6. 核对差异、暂存并通过钩子提交，根由钩子创建新标签；逐一创建另五个组件不可移动标签，再用 `--require-tag` 核对全部六组件。最终报告版本、提交、标签、验收与未发布边界。
+
+完成条件：七类问题都有明确修正，关键中文注释能解释职责及约束，验证通过且仅注释/文档/版本变化；不得将工具 v8 模板、Windows 加载、硬件或本次 registry 发布写成已完成。
+
+## 验收记录
+
+- 七类问题逐项修正，根/宏/实例及示例的中文说明补全；模块加载器逐 unsafe 说明前提，保留 `# Safety` 和 `SAFETY:`。普通业务默认值迁移明确为 0.22.0，图中 Direct/Shared、共享所有者和引用侧租约与当前字段核对。文档索引补齐八库及配置身份专题。
+- 2026-11-07 官方 crates.io API 复核 miresidian 0.26.0、0.25.2、miresidian_abi 0.15.0、miresidian_instances 0.16.5，均返回 200 且 yanked=false。先前同日已核对 0.26.0 根 API/format 页面 200；当前指导使用明确已发行示例，新六组件版本均未发布。
+- Cargo 正常刷新工作区 Cargo.lock。逐包比较与 HEAD 的锁记录，只有根、宏、ABI、instances、Pack、CLI 的版本字段变化，第三方依赖、其他组件及独立 Node/烟测锁文件不变。`python3 tools/check_versions.py --base HEAD` 通过，暂存钩子及提交后六组件标签检查按步骤执行。
+- 30 个修改过的 Rust 文件逐一与 HEAD 比较：去除整行注释及空行后，非注释源码逐字符一致。根/宏/codec/ABI/features 源码与 examples 的说明注释扫描无整句英文残留，排除 Rustdoc 代码围栏、Safety 标题和专名。`cargo fmt --all -- --check` 与 `git diff --check` 通过。
+- `cargo test --offline --locked -p miresidian_macro -p miresidian_abi -p miresidian_instances -p miresidian_pack -p miresidian_cli --all-features`：43 项通过，包括 ABI 2、宏 3、instances 5、Pack 23、CLI 双入口单元 6 及真实进程 4。默认忽略的两项 0.14.0 registry 模板夹具未运行，改用下述文档实际命令验证。日志 `/tmp/miresidian-docfix-component-tests.log`。
+- 六组件 `RUSTDOCFLAGS='-D warnings' cargo doc --offline --locked ... --all-features --no-deps` 通过；根全特性 doctest 1 项通过，`cargo check --offline --locked -p miresidian --examples --all-features` 六个工作区示例通过。日志 `/tmp/miresidian-docfix-docs-examples.log`。根公开 API 新增说明后已重新构建；未对可执行代码改动进行隐瞒或减少必要验证。
+- 通过本次构建的 CLI 0.3.3、Pack 0.13.3，在 `/tmp/miresidian-docfix-online-d8zf78oj` 实测 `new ... --miresidian-version 0.25.2` 与已有目录的 `init ... --miresidian-version 0.25.2`，均成功。两项目均为精确 =0.25.2、真实 registry 来源及 checksum；共享临时 target 编译通过，CLI check 的项目和 TestFlow 静态检查通过，init 保留原 retained.txt。首次离线尝试因未缓存 0.25.2 下载失败，保留残留目录未冒充成功；按工具规则在新目录联网正常下载后完成。日志 `/tmp/miresidian-docfix-template-smoke.log`。这些是临时验收项目，未引入框架本地覆盖或修改现有独立节点。
+- 最终 23 份受影响 Markdown 的围栏及 251 处本地路径/章节锚点全部通过，索引与本记录均纳入检查。最终 30 个 Rust 文件非注释源码再次核对一致，格式、差异及版本门禁通过。
+- 复用同会话此前 codec/format 及默认参数/format 宏组合的 34 项通过证据；对应代码与实际依赖未改，未重复整套运行时、Clippy/MSRV/Windows/硬件检查。本次没有 Node skill 修改、工具 v8 模板功能、Windows 原生加载、真实硬件、推送或 registry 发布。

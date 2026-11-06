@@ -1,4 +1,4 @@
-//! Shared runtime orchestration, lifecycle transactions and instance isolation.
+//! 共享运行时的调度入口；协调构造与关闭事务，并在实例边界隔离业务状态和异常。
 mod instance;
 mod management;
 mod routing;

@@ -1,4 +1,7 @@
 //! 结构体级节点声明；生成类型绑定、注册表、运行时适配与 C ABI。
+//!
+//! 方法签名由各 operation 宏独立解析，本模块不扫描源文件或 impl。
+//! 固定模块别名将方法注册绑定到节点；生成项随节点条件编译一起启用或移除。
 
 mod arguments;
 mod ffi;
@@ -30,6 +33,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
             ));
         }
         let mut generated = syn::parse2::<syn::File>(generate::expand(&item, &arguments))?;
+        // 仅复制条件编译项，不能把节点的 derive 等属性传播到导出函数、别名或注册表。
         let cfg = crate::framework::conditional_attributes(&item.attrs);
         for item in &mut generated.items {
             match item {
@@ -43,6 +47,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 _ => {}
             }
         }
+        // 所有生成完成后统一处理依赖重命名，避免注册项和 ABI 桥使用不同框架路径。
         crate::framework::rewrite_paths(quote::quote!(#generated))
     })();
     result

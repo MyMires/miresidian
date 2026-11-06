@@ -1,5 +1,5 @@
-//! In-workspace, hardware-free ABI execution example. This is part of the
-//! framework crate, not an independent project with a local framework override.
+//! 工作区内的无硬件 ABI 执行示例，用同步/异步计数和等待验证实例调度。
+//! 作为根框架的 example 构建，由 node 宏生成当前 C ABI；它不是使用本地覆盖的独立节点。
 use miresidian::{CallContext, MiresidianError, MiresidianResult};
 use std::{
     sync::atomic::{AtomicUsize, Ordering},

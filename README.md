@@ -4,9 +4,9 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.26.0**，C ABI 为 **v8**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.26.1**，C ABI 为 **v8**，租约协议为 **v2**。
 
-**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次候选与迁移说明](docs/releases/0.26.0.md)**
+**[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[本次文档修复](docs/releases/0.26.1.md)** · **[v8 迁移说明](docs/releases/0.26.0.md)**
 
 ## 核心能力与优势
 
@@ -22,7 +22,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 节点项目通常只直接依赖 `miresidian`。具体串口、TCP、USB、CAN 等通信实现和私有依赖归独立节点项目所有。框架库、过程宏、开发工具与节点 DLL 的关系见[架构总览](docs/architecture.md)。
 
-统一开发命令与整套下载见 [Miresidian CLI](tools/miresidian-cli/README.md)。CLI/套件源码版本为 0.3.2，用户安装与升级由 Cargo 管理。
+统一开发命令与整套下载见 [Miresidian CLI](tools/miresidian-cli/README.md)。CLI/套件源码版本为 0.3.3，用户安装与升级由 Cargo 管理。Pack 的现有 new/init 模板只接受 ABI v7；新建时须显式选择兼容的已发布框架，命令及 v8 手动迁移边界见工具说明。
 
 ## 从这里开始
 
@@ -42,7 +42,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下依赖示例对应源码候选 0.26.0，本任务未执行 crates.io 发布；只能在 registry 确认该版本及所需 features 已可用后采用。候选发布前，独立节点继续使用已发布版本，禁止本地覆盖。
+以下依赖采用已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.26.1** 是尚未发布的注释/文档补丁，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
 
 ```toml
 [lib]
@@ -89,6 +89,6 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本文对应源码候选框架 0.26.0、宏 0.23.0、ABI crate 0.15.0 / C ABI v8。新增入口与两个既有调用入口共享运行时及线程响应缓存；任一入口的下一次同线程调用均使上一份响应指针失效。旧调用签名和响应模型保持，宿主若要求 ABI 恰等于 7，接入 v8 DLL 前须按[迁移说明](docs/releases/0.26.0.md)更新兼容检查。
+本检出对应框架 0.26.1、宏 0.23.1、ABI crate 0.15.1 / C ABI v8；运行行为与已发布的 0.26.0 保持一致。完整请求入口与两个既有调用入口共享运行时及线程响应缓存；任一入口的下一次同线程调用均使上一份响应指针失效。宿主若要求 ABI 恰等于 7，接入 v8 DLL 前须按[迁移说明](docs/releases/0.26.0.md)更新兼容检查。
 
-本任务未发布候选或核验候选在线文档；API 可在本检出目录运行 `cargo doc -p miresidian --all-features --no-deps --locked` 后查看。源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。
+已发布版本可查 [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) 与 [format API](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html)。本次未发布的新版本文档须在本检出执行 `cargo doc -p miresidian --all-features --no-deps --locked` 查看；源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。

@@ -1,25 +1,40 @@
-//! Task snapshots are independent of submitting and polling threads.
+//! 任务快照复制结果与状态，不借用提交或查询线程的响应缓存，可跨线程读取。
 use crate::{CallContext, InvocationOutput, MiresidianResult};
 use serde::Serialize;
 use std::sync::Mutex;
+/// 查询时观察到的任务状态；终态以实际执行结果决定，不能仅从取消信号推导。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskState {
+    /// 尚未标记开始处理；排队取消仍可短暂保留此状态及取消标志。
     Queued,
+    /// 已开始处理且尚无最终结果。
     Running,
+    /// 已开始并收到取消或截止时间到达，正在等待业务安全结束。
     Cancelling,
+    /// 最终成功；即使请求过取消，业务仍可能返回成功。
     Succeeded,
+    /// 最终失败，且不是取消或截止时间错误。
     Failed,
+    /// 最终以 REQUEST_CANCELLED 错误结束。
     Cancelled,
+    /// 最终以 DEADLINE_EXCEEDED 错误结束。
     TimedOut,
 }
+/// 可跨线程持有的任务状态和结果副本；读取不释放服务容量，后续快照可能继续变化。
 #[derive(Clone, Debug, Serialize)]
 pub struct TaskSnapshot {
+    /// 所属服务内单调分配、不复用的任务 ID。
     pub id: u64,
+    /// 本次读取时的状态，最终结果优先于取消信号。
     pub state: TaskState,
+    /// 是否曾显式请求取消；不等于已经停止或截止时间已到。
     pub cancellation_requested: bool,
+    /// 未完成为 PENDING，完成后为 OK 或稳定错误代码。
     pub code: &'static str,
+    /// 错误说明；无错误时为空，不应通过解析文本判断错误类型。
     pub message: String,
+    /// 成功业务输出；批次的每个槽位是对应请求的完整 JSON 响应。
     pub output: Vec<String>,
 }
 pub(super) struct TaskEntry {
@@ -91,7 +106,7 @@ fn reason(error: &crate::MiresidianError, tag: &str) -> bool {
     }
 }
 
-/// Keep per-item batch envelopes in the same field order as normal responses.
+/// 把跨实例批次的每项结果编码为独立 JSON 响应，字段顺序与普通响应保持一致。
 pub(super) fn batch_result(result: MiresidianResult<InvocationOutput>) -> MiresidianResult<String> {
     #[derive(Serialize)]
     struct ResultEnvelope {

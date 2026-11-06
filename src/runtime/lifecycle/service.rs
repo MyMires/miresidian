@@ -1,4 +1,4 @@
-//! Concurrent runtime: management locks never cover user code or device waits.
+//! 并发节点运行时；管理锁仅保护登记与查找，不覆盖业务代码或设备等待。
 
 use super::super::instances::InstanceStore;
 use super::Instance;
@@ -18,7 +18,7 @@ pub(super) struct Management<N: DeviceNode> {
 }
 pub(super) struct RuntimeState<N: DeviceNode> {
     pub(super) management: Mutex<Management<N>>,
-    // Serialize lifecycle transactions only; independent business continues.
+    // 只串行化构造和移除事务；独立实例的业务仍可继续。
     pub(super) lifecycle: Mutex<()>,
     pub(super) stopping: AtomicUsize,
     pub(super) pending: Arc<tokio::sync::Semaphore>,
@@ -26,9 +26,11 @@ pub(super) struct RuntimeState<N: DeviceNode> {
     pub(super) limits: ExecutionLimits,
 }
 
-/// One runtime manages independently executing instances. Clones share identity,
-/// limits and lifecycle. A request (including a multi-channel batch) is exclusive
-/// on its target instance. Use async methods inside an async executor.
+/// 管理节点实例、平台绑定与请求预算的运行时句柄。
+///
+/// Clone 共用登记表、容量和生命周期；同一实例的完整请求（含多通道批次）互斥，
+/// 不同实例可并行。Direct 持有本地对象，自动 Lease 持有唯一节点所有者的共享引用。
+/// 异步调用方使用 async 方法；同步桥在单线程异步执行器中返回能力错误。
 pub struct NodeRuntime<N: DeviceNode> {
     pub(super) core: Arc<RuntimeState<N>>,
     pub(super) platforms: PlatformRegistry,
@@ -42,13 +44,18 @@ impl<N: DeviceNode> Clone for NodeRuntime<N> {
     }
 }
 impl<N: DeviceNode> NodeRuntime<N> {
+    /// 创建默认平台注册表及容量的运行时；尚不构造设备，初始化须显式调用 InitDevice。
     pub fn new() -> Self {
         Self::with_platforms(PlatformRegistry::default())
     }
+    /// 使用给定平台注册表和默认容量创建运行时；平台切换受首次初始化绑定约束。
     pub fn with_platforms(platforms: PlatformRegistry) -> Self {
         Self::with_limits(platforms, ExecutionLimits::default()).expect("valid default limits")
     }
-    /// Configure positive runtime admission, execution and batch limits.
+    /// 用给定平台注册表和容量创建运行时，尚不构造业务节点。
+    ///
+    /// limits 各项须在 1..=65536，否则返回 InvalidArgument；Clone 共享这些限额。
+    /// 初始实例策略来自节点描述，不会因开启 feature 自动改成多实例。
     pub fn with_limits(
         platforms: PlatformRegistry,
         limits: ExecutionLimits,
@@ -89,16 +96,21 @@ impl<N: DeviceNode> NodeRuntime<N> {
             Ok(())
         }
     }
+    /// 同步调用默认平台路径，返回编码后的业务输出或参数、状态及业务错误。
+    /// InitDevice 可按保留 Config 选择平台；异步线程应使用 invoke_async，避免同步等待。
     pub fn invoke(&self, request: &Invocation) -> MiresidianResult<InvocationOutput> {
         super::super::execution::block_on(self.invoke_async(request.clone()))
     }
-    /// Execute without blocking the caller's async thread. Dropping this future
-    /// does not destroy an admitted request: the spawned execution owns its locks
-    /// until completion. Use CallContext for cooperative cancellation.
+    /// 异步执行一次请求，返回平台编码后的业务输出或对应参数、状态及业务错误。
+    ///
+    /// 丢弃等待 Future 不会终止已被调度的请求；内部任务持有实例执行权直到安全结束。
+    /// 需要协作取消或截止时间时，使用 invoke_with_context 传入 CallContext。
     pub async fn invoke_async(&self, request: Invocation) -> MiresidianResult<InvocationOutput> {
         self.invoke_with_context(request, CallContext::default())
             .await
     }
+    /// 用给定上下文调用默认平台路径；上下文预算包含排队，取消不回滚已执行业务。
+    /// 返回与 invoke_async 相同的输出/错误，并可能在安全边界报告取消或截止时间错误。
     pub async fn invoke_with_context(
         &self,
         request: Invocation,
@@ -107,6 +119,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
         let adapter = self.adapter_for(&request)?;
         self.invoke_mode(adapter, request, true, context).await
     }
+    /// 同步按已注册的平台编号调用；未知编号、与当前平台冲突或重复平台 Config 返回错误。
+    /// 此路径不发布也不接受初始化的“平台适配”选择项；其他业务布局与默认入口相同。
     pub fn invoke_with_platform(
         &self,
         platform: Platform,
@@ -118,6 +132,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
             CallContext::default(),
         ))
     }
+    /// invoke_with_platform 的异步形式，使用给定上下文；输出和平台错误规则保持一致。
+    /// 丢弃等待不终止已接收的请求，取消需通过 context 协作完成。
     pub async fn invoke_platform_async(
         &self,
         platform: Platform,
@@ -130,6 +146,8 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))?;
         self.invoke_mode(adapter, request, false, context).await
     }
+    /// 使用调用方提供的适配器同步解码请求、执行命令并编码响应。
+    /// 与当前平台绑定冲突、适配器转换错误或业务错误原样返回；初始化不接受平台选择器。
     pub fn invoke_with<A: PlatformAdapter + ?Sized>(
         &self,
         adapter: &A,
@@ -171,9 +189,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
         }
         Ok(())
     }
+    /// 同步执行已结构化的命令，跳过平台 decode/encode，返回结构化响应或运行时错误。
+    /// 通道身份、容量、初始化和实例门禁仍由运行时校验。
     pub fn invoke_command(&self, command: RuntimeInvocation) -> MiresidianResult<RuntimeResponse> {
         super::super::execution::block_on(self.invoke_command_async(command))
     }
+    /// invoke_command 的异步形式；不额外编码平台输出，仍等待完整请求安全结束。
     pub async fn invoke_command_async(
         &self,
         command: RuntimeInvocation,
@@ -204,7 +225,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .map_err(|_| MiresidianError::Failure("运行时请求队列已满".into()))?;
         let activity = super::super::execution::Activity::new();
         let runtime = self.clone();
-        // A detached caller cannot drop locks while synchronous code is running.
+        // 请求由内部任务持有；调用方停止等待时，同步业务仍保留执行权直至实际返回。
         super::super::execution::executor()?
             .spawn(async move {
                 use futures_util::FutureExt;
@@ -352,8 +373,10 @@ impl<N: DeviceNode> NodeRuntime<N> {
             }
         }
     }
-    /// Execute explicitly targeted requests concurrently, preserving result
-    /// positions. Every item settles; an item error does not roll back others.
+    /// 并发执行各自携带目标 Config 的请求，按原位置返回每项成功或错误。
+    ///
+    /// 超过 max_batch 时在开始前返回整体错误；接收后等待全部项结束，单项失败不回滚其他项。
+    /// 各项仍遵守实例门禁，因此同实例互斥，不同实例才可实际并行。
     pub async fn invoke_batch_async(
         &self,
         requests: Vec<Invocation>,
@@ -368,6 +391,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
         )
         .await)
     }
+    /// invoke_batch_async 的同步桥；外层错误表示批次拒绝，每项结果仍按请求位置独立返回。
     pub fn invoke_batch(
         &self,
         requests: Vec<Invocation>,
@@ -414,8 +438,8 @@ impl<N: DeviceNode> Default for NodeRuntime<N> {
 }
 impl<N: DeviceNode> Drop for RuntimeState<N> {
     fn drop(&mut self) {
-        // Core destruction happens exactly once, including concurrent final
-        // handle drops. No request can outlive its owned runtime core.
+        // 共享核心只在最后一个 Arc 释放时析构；请求持有核心，因此不会在业务运行中清理对象。
+        // 即使多个句柄并发释放，以下实例清理也只执行一次。
         let management = self.management.get_mut().unwrap_or_else(|e| e.into_inner());
         let mut objects = Vec::new();
         while let Some(instance) = management.objects.pop() {

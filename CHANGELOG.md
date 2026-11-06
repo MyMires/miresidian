@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-07
+
+- 统一根框架、宏及工作区示例的中文说明，补全条件编译传播、任务/取消、初始化回滚和模块加载引用的设计约束；修正示例的陈旧 ABI v7 说明。
+- 修复当前手册中的发行状态、0.22.0 参数迁移起点、Direct/Shared 所有权图、工作区依赖及组件示例；工具文档明确 new/init 目录规则及 ABI v7 模板的已发布版本调用路径。
+- 内部精确依赖同步 macro 0.23.1、ABI crate 0.15.1、instances 0.16.6；Pack 0.13.3、CLI/套件 0.3.3 仅按实际文档及内嵌清单变化独立补丁升级。可执行代码、Rust/C 签名、C ABI v8、配置租约/资源代理 v2 及 MSRV 1.89 不变。
+- 勘误：0.26.0、macro 0.23.0、ABI 0.15.0 已在后续授权阶段正式发布，精确文档已可访问；保留原发行条目与标签，验收归档见 plans/2026-11-06-unified-abi-request.md。本次 0.26.1 等新版本仅本地交付，验证证据见 plans/2026-11-07-comments-and-documentation.md。
+- 验证：30 个 Rust 文件的非注释代码与前版完全一致；43 项组件/工具测试、1 项根 doctest、严格六组件全特性 Rustdoc、六个示例编译及临时 registry new/init 实测通过；版本门禁、格式和文档引用检查通过。未新增 Windows 加载或硬件验收。
+
 ## [0.26.0] - 2026-11-06
 
 - 新增 `miresidian_invoke_request` 完整 JSON 请求入口，function 必填，Config/Input 为可省略的有序字符串数组，可选数值 platform 分别复用默认 Config 选择与显式平台选择。

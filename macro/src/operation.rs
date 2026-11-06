@@ -23,6 +23,8 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
     let mut method = parse_macro_input!(item as ImplItemFn);
     let result = (|| {
         let definition = definition::parse(&attribute, &mut method)?;
+        // 生命周期方法生成关联桥接与配置元数据；普通业务方法还提交可被 node 汇总的注册项。
+        // 两类生成均保留原方法，业务参数按各自 Config/Input 索引读取，不改变 Rust 调用顺序。
         let generated = match definition {
             NodeMethod::Init(init) => {
                 let configs = init
@@ -38,6 +40,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                     .cloned()
                     .collect::<Vec<_>>();
                 let instance_indices = config::instance_indices(&init.parameters);
+                // 实例键与租约字段分别选择；lease(ignore) 不能隐式排除实例分发或完整配置比较。
                 let instance_roles = configs.iter().any(|p| p.instance != config::Role::Default);
                 let lease_roles = configs.iter().any(|p| p.lease != config::Role::Default);
                 let lease_keys = configs
@@ -103,6 +106,7 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 let call = dispatch::operation(&operation);
                 let async_wrapper = format_ident!("__miresidian_async_{}", operation.method);
                 let (async_bridge, async_pointer) = if operation.asynchronous {
+                    // 原生 async 同时提供同步桥与 Future 桥，运行时据注册指针选择调度路径。
                     let body = dispatch::operation_async(&operation);
                     (
                         quote! {fn #async_wrapper<'a>(node:&'a mut Self,config:&'a [::std::string::String],input:&'a [::std::string::String])->::miresidian::NodeFuture<'a>{#body}},
@@ -129,8 +133,8 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         };
-        // Copy conditional compilation onto every generated associated item, so a
-        // disabled method cannot leave a dangling registration behind.
+        // 把方法的条件编译同步到每个生成的关联项，而非只保留在原方法上。
+        // 否则被禁用的方法仍可能留下桥接或 inventory 注册，引用不存在的方法。
         let mut generated =
             syn::parse2::<syn::ItemImpl>(quote!(impl __MiresidianNode { #generated }))?;
         let cfg = crate::framework::conditional_attributes(&method.attrs);
@@ -149,7 +153,11 @@ pub(crate) fn expand(attribute: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Preserve output annotations even when they precede operation in source order.
+/// 处理先于 operation 展开的 output 属性，保留输出名称及格式声明。
+///
+/// 属性宏按源码顺序展开；若 output 先被消费，operation 将无法读取完整输出契约。
+/// 此处取出后续 operation，把当前 output 还原到方法属性再统一调用 expand。
+/// 非方法或没有后续 operation 的输入原样交回，由其他展开或编译诊断处理。
 pub(crate) fn expand_output(attribute: TokenStream, item: TokenStream) -> TokenStream {
     let Ok(mut method) = syn::parse::<ImplItemFn>(item.clone()) else {
         return item;

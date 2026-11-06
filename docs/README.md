@@ -2,6 +2,8 @@
 
 [项目首页](../README.md) · [架构总览与 UML](architecture.md) · [修订记录](../CHANGELOG.md)
 
+本检出为 0.26.1 注释/文档补丁，尚未发布；0.26.0 的正式发行验收已归档，详见[本次勘误与版本边界](releases/0.26.1.md)。
+
 `docs/` 按阅读任务组织核心手册与专题。先选手册，再通过章节导航查阅具体规则；每个主题集中在一个位置维护。
 
 ## 核心文档与专题
@@ -14,6 +16,7 @@
 | [平台接入与 C ABI](c-abi.md) | 宿主及平台开发者：C 入口、内存与错误约定、调用契约、平台适配器 |
 | [开发与维护规范](coding-standards.md) | 框架维护者：代码与文档要求、构建环境、验证命令、提交格式 |
 | [实例管理](instances.md) | 单实例、Config/Handle 身份、复用、多通道与关闭规则 |
+| [Config 组合身份](config-identity.md) | 实例键与租约键的独立选择、参数角色及迁移 |
 | [共享资源代理](shared-resources.md) | 通信提供者：跨 DLL/项目共用连接、事务协议、所有权与可运行示例 |
 | [版本管理](versioning.md) | P0 门禁：版本判断、依赖/锁文件、修订归档、发布顺序与标签 |
 
@@ -52,6 +55,9 @@
 | `miresidian_abi` | [ABI crate](../abi/README.md) · [公共头文件](../abi/api/miresidian.h) |
 | `miresidian_codec` | [编解码 crate](../codec/README.md) |
 | `miresidian_macro` | [过程宏 crate](../macro/README.md) |
+| `miresidian_format` | [格式选择、类型转换及 batch 组合](../features/format/README.md) |
+| `miresidian_batch` | [记录解析、长度对齐及输出聚合](../features/batch/README.md) |
+| `miresidian_instances` | [通用策略、容器及多通道调度](../features/instances/README.md) |
 | `miresidian_lease` | [租约接入、v2 协议、配置锁与迁移](../features/lease/README.md) |
 | `miresidian_pack` | [安装、输入要求与交付目录](../tools/miresidian-pack/README.md) |
 | `miresidian_testflow_windows` | [安装、BAT 生成与执行边界](../tools/miresidian-testflow-windows/README.md) |
@@ -78,9 +84,3 @@
 - 契约规则集中在对应手册，API 精确签名由源码 Rustdoc 维护；交付变更同步[修订记录](../CHANGELOG.md)并按[版本管理](versioning.md)判断影响。
 - 指导性文档必须随对应组件版本在同一提交和发布源码中更新，涵盖实际受影响的 README、Rustdoc、命令、模板、手册和示例；升版检查与发布后在线核对按 [文档同步门禁](versioning.md#指导性文档与版本同步门禁) 执行。此要求不绑定 Node skill 的更新周期。
 - 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。
-
-- [实例管理与多通道执行](instances.md)：默认单实例、Config 组合主键、Handle Config 布局与迁移。
-
-统一工具入口与整套下载安装：[Miresidian CLI](../tools/miresidian-cli/README.md)。原工具保持独立。
-
-- [Config 组合身份与租约声明](config-identity.md)：嵌套角色、默认选择、资源配置边界与 0.24.0 迁移。

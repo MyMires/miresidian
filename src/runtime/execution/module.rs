@@ -1,8 +1,7 @@
-//! Loader reference owned by an executor, released only after threads join.
+//! 执行器独占持有的模块加载引用，在工作线程全部回收后释放。
 //!
-//! Supported implementations retain existing mappings, never load another copy
-//! or use irreversible PIN/NODELETE flags. The caller must keep its host loader
-//! reference during every DLL call, including shutdown.
+//! 平台实现只增加既有映射的引用，不加载另一个副本，也不使用不可逆的 PIN/NODELETE。
+//! 宿主在每次 DLL 调用（包括关闭）期间仍须保留自己的加载引用；框架引用仅保护内部线程。
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
@@ -11,10 +10,9 @@ use crate::MiresidianResult;
 use std::{ffi::c_void, ptr::NonNull};
 
 pub(super) struct ModuleGuard(Option<NonNull<c_void>>);
-// SAFETY: this is an opaque loader reference, never dereferenced in Rust.
-// Both supported loader APIs allow reference acquisition/release across threads.
+// SAFETY: 句柄是不在 Rust 中解引用的不透明加载引用；两种平台 API 均允许跨线程取得和释放。
 unsafe impl Send for ModuleGuard {}
-// SAFETY: shared access cannot mutate or release this uniquely owned reference.
+// SAFETY: 共享访问不能修改或释放该独占引用，释放仅发生在守卫的 Drop 中。
 unsafe impl Sync for ModuleGuard {}
 impl ModuleGuard {
     pub(super) fn retain() -> MiresidianResult<Self> {
@@ -37,8 +35,8 @@ impl ModuleGuard {
 impl Drop for ModuleGuard {
     fn drop(&mut self) {
         if let Some(handle) = self.0.take() {
-            // SAFETY: this guard owns one loader reference. The executor field is
-            // dropped first, joining all workers. The host retains the calling module.
+            // SAFETY: 守卫独占这一份加载引用；Executor 的 Runtime 字段先析构并回收线程。
+            // 宿主仍持有当前调用的模块引用，因此释放额外引用不会使正在执行的代码失效。
             #[cfg(unix)]
             unsafe {
                 libc::dlclose(handle.as_ptr());

@@ -1,7 +1,8 @@
-//! Compatibility containers share runtime identity under a short lock.
+//! 兼容新旧 FFI 容器；旧 Mutex 只保护句柄读取，不覆盖完整业务调用。
 use crate::MiresidianResult;
 use std::sync::{Mutex, OnceLock};
-/// A compatibility source for generated and existing Rust FFI containers.
+/// 为宏生成代码和旧 Rust FFI 容器取得共用运行时句柄。
+/// 首次调用通过 platforms 构造注册表，后续返回 Clone；旧锁污染时先清理运行时再恢复。
 #[doc(hidden)]
 pub trait RuntimeSource<N: crate::DeviceNode>: Sync {
     fn runtime(

@@ -20,8 +20,8 @@ pub(crate) fn rewrite_paths(tokens: proc_macro2::TokenStream) -> Result<proc_mac
     }
     impl VisitMut for RenameFramework {
         fn visit_macro_mut(&mut self, value: &mut syn::Macro) {
-            // inventory initializers are expressions inside opaque macro tokens;
-            // ordinary path visitors do not reach the generated descriptor paths.
+            // inventory 初始化表达式包在宏 token 内，普通语法路径遍历不会进入。
+            // 须显式解析 submit 内容，才能同步重写注册描述中被重命名的框架依赖路径。
             if value
                 .path
                 .segments
@@ -58,7 +58,8 @@ pub(crate) fn rewrite_paths(tokens: proc_macro2::TokenStream) -> Result<proc_mac
     Ok(quote!(#file))
 }
 
-/// Retain only conditional compilation, not unrelated cfg_attr payloads such as derive.
+/// 提取 cfg 及 cfg_attr 内嵌的条件编译项，保留嵌套条件而丢弃 derive 等无关载荷。
+/// 这些属性将复制到生成项，避免被禁用的节点或方法留下注册项与悬空引用。
 pub(crate) fn conditional_attributes(attributes: &[syn::Attribute]) -> Vec<syn::Attribute> {
     fn conditional(meta: &syn::Meta) -> Option<syn::Meta> {
         if meta.path().is_ident("cfg") {

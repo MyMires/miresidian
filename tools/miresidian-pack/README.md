@@ -3,14 +3,14 @@
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-本页对应工具源码版本 **0.13.2**，不表示 registry 已发布；本地源码候选尚未发布时，可在框架仓库执行
+本页对应工具源码版本 **0.13.3**，本次未发布；可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
 ## 命令
 
 ```text
-cargo miresidian-pack --new demo-node --name 演示设备
+cargo miresidian-pack --new demo-node --name 演示设备 --miresidian-version 0.25.2
 cargo miresidian-pack --check
 cargo miresidian-pack --check 演示设备
 cargo miresidian-pack
@@ -35,14 +35,16 @@ cargo install miresidian_pack --locked
 
 `--new <目录> [--name <显示名称>] [--miresidian-version <已发布版本>|--mires-version <已发布版本>]` 创建独立单实例回显项目。
 
+**现有模板只支持 ABI v7。** 已发布的框架 0.26.0 为 ABI v8；0.13.2 和本次 0.13.3 源码均未提供 v8 模板。上述命令显式采用已核实发行的 0.25.2/v7。省略版本会查询最新正式版，不会自动筛选 ABI；若选到 v8，会写入模板及锁文件后报“模板创建尚未完成”。应在新的目标目录选择兼容版本重试；不要直接重跑 new 覆盖残留目录。v8 的既有项目升级须手动核对框架依赖、实际头文件和交付说明，再编译、检查及加载验收；不代表本工具已经提供 v8 模板支持。
+
 `--init [目录]` 使用相同选项在已有目录初始化，省略目录时使用当前目录。模板目标文件或 Cargo.lock 已存在时拒绝写入；其他文件保留。
 
 new 和 init 均以目标目录末段作为 Rust package 名，目录名须符合 Rust 包名规则；`--name` 只指定节点显示名称及调用说明文件名。省略时节点名称默认使用目录名，仍生成 `#[node("目录名")]`。例如目录 `serial-node` 指定 `--name "串口节点"` 后，package 名为 `serial-node`，节点名称为 `串口节点`，说明文件为 `docs/串口节点.md`。
 
 init 的常见冲突文件包括 Cargo.toml、Cargo.lock、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 和 `docs/<节点名称>.md`；存在时先处理冲突再运行。已有 src、docs、tools 子目录必须是普通目录，不跟随符号链接。
-目录必须不存在，父目录必须存在；包名取目录末段，须为合法 Rust 名称，可含连字符。
+new 要求目标目录不存在且父目录存在；init 要求目标目录已存在。包名取目录末段，须为合法 Rust 名称，可含连字符。
 默认显示名等于包名；显示名同时作为交付目录名，必须符合 Windows 文件名规则。
-已存在的目录即使为空也拒绝覆盖。
+new 拒绝已存在的目录，即使为空；init 则按前述模板文件冲突规则预检后写入。
 
 生成内容：Cargo.toml、src/lib.rs、src/node.rs、tools/smoke.testflow、README.md、AGENTS.md、带 UTC 日期的 CHANGELOG.md、.gitignore、
 以及 docs/<节点名称>.md。节点只使用宏标注，不手写 ABI 导出或字符串分发；不引入设备通信依赖。

@@ -1,5 +1,5 @@
-//! Executors own a module reference and join their threads before releasing it.
-//! Loader acquisition must precede thread creation, including builder failures.
+//! 业务池与生命周期池持有承载模块的加载引用，回收工作线程后才释放该引用。
+//! 先取得模块引用再创建线程；执行器构建失败时也由所有权回收已取得的引用。
 use super::module::ModuleGuard;
 use crate::{MiresidianError, MiresidianResult};
 use std::{
@@ -26,7 +26,7 @@ impl Drop for Activity {
 }
 
 pub(crate) struct Executor {
-    // Rust drops fields in declaration order: join Runtime before module release.
+    // 字段按声明顺序析构：先回收 Runtime 工作线程，再释放模块加载引用，不能交换顺序。
     runtime: Runtime,
     _module: ModuleGuard,
 }
@@ -108,7 +108,10 @@ pub(crate) fn lifecycle_executor() -> MiresidianResult<Arc<Executor>> {
     get(true)
 }
 
-/// Wait from synchronous code; use the async API inside a single-thread runtime.
+/// 同步等待框架 Future，并把执行错误原样返回。
+///
+/// 多线程 Tokio 上下文通过 block_in_place 桥接；单线程 Tokio 上下文返回 NotSupported，
+/// 调用方须改用异步 API，避免阻塞唯一负责推进 Future 的线程。
 pub fn block_on<T>(future: impl Future<Output = MiresidianResult<T>>) -> MiresidianResult<T> {
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::CurrentThread {
@@ -121,10 +124,11 @@ pub fn block_on<T>(future: impl Future<Output = MiresidianResult<T>>) -> Miresid
         executor()?.runtime.block_on(future)
     }
 }
-/// Stop/join both executors before releasing their module references. Stop host
-/// entry calls and drain task services first. In-flight work or external executor
-/// references return an error without removing either pool. This is a Rust API;
-/// no C export or existing invocation contract is changed.
+/// 停止并回收业务池和生命周期池线程，最后释放两池持有的模块加载引用。
+///
+/// 调用前须停止宿主入口并排空任务服务。存在在途工作或外部执行器引用时返回错误，
+/// 两池均保持原状；异步上下文中返回 NotSupported。成功后允许后续调用重新创建池。
+/// 其他模块引用和租约服务仍可延后卸载；此 Rust API 没有对应的节点 C 导出。
 pub fn shutdown_executor() -> MiresidianResult<()> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(MiresidianError::NotSupported(
@@ -151,7 +155,7 @@ pub fn shutdown_executor() -> MiresidianResult<()> {
         pools.stopping = true;
         (pools.business.take(), pools.lifecycle.take())
     };
-    // Do not hold registry/loader locks while waiting for worker destruction.
+    // 移出两池后释放登记锁，再等待线程析构；关闭期间 stopping 阻止其他调用重建池。
     drop(business);
     drop(lifecycle);
     EXECUTORS

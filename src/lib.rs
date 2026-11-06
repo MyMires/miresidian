@@ -46,10 +46,10 @@ pub mod interop;
 pub mod platform;
 mod runtime;
 
-/// 可选的本地 IPC 基础能力，供需要跨进程协调物理资源的节点使用。
+/// 租约通用模型及可选的本地 IPC、共享资源能力。
 ///
-/// 启用 Cargo feature `lease` 后可用。它不定义具体设备的租约协议，也不替代节点对访问控制、
-/// 身份验证和资源一致性的责任。
+/// 通用模型始终可用；Cargo feature `lease` 才启用本地 IPC 与共享资源后端。
+/// 它不定义具体设备协议，也不替代节点对访问控制、身份验证和资源一致性的责任。
 pub use miresidian_lease as lease;
 
 /// batch feature 的参数对齐与输出聚合实现。节点一般只通过参数上的 `batch` 标记接入。

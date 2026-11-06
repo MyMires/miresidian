@@ -214,7 +214,7 @@ fn invoke_platform<N: DeviceNode>(
     )
 }
 
-// Clone shared identity under a short compatibility lock, then execute freely.
+// 兼容旧 Mutex 容器时只在克隆运行时身份期间持锁；业务调用使用实例级门禁。
 fn invoke_runtime<N: DeviceNode>(
     source: &impl crate::runtime::RuntimeSource<N>,
     platforms: impl FnOnce() -> crate::PlatformRegistry,

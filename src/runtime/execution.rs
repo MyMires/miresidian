@@ -1,4 +1,4 @@
-//! Bounded execution, cooperative context and shared-library ownership.
+//! 有界请求调度、协作取消与执行器模块加载引用；业务池和生命周期池分别管理。
 mod context;
 mod limits;
 mod module;

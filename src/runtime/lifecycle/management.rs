@@ -1,5 +1,4 @@
-//! Lifecycle transactions serialize construction/removal, while business on
-//! independent instances proceeds without the management lock.
+//! 生命周期事务串行协调对象构造和移除；独立实例的业务调用不持有管理锁。
 use super::{Instance, NodeRuntime, catch_node, instance};
 use crate::{CHANNEL_REUSED_MESSAGE, INIT_DEVICE_OPERATION};
 use crate::{
@@ -187,9 +186,10 @@ impl<N: DeviceNode> NodeRuntime<N> {
         }
         result.map(|()| InvocationOutput::empty())
     }
-    /// Reject new requests, wait for in-flight initialization and instance
-    /// requests, then close/drop every object before releasing its lease.
-    /// The runtime accepts initialization again when all shutdown callers finish.
+    /// 暂停接收新请求，等待在途初始化与实例请求结束，再逐一关闭并析构对象。
+    ///
+    /// Direct 对象本地清理，Shared 引用释放代理；最后共享引用才清理所有者及租约。
+    /// 所有并发 shutdown 调用结束后，运行时可再次初始化。关闭错误仍尽力清理其余对象。
     pub fn shutdown(&self) -> MiresidianResult<()> {
         self.core.stopping.fetch_add(1, Ordering::AcqRel);
         struct Reset<'a>(&'a AtomicUsize);
@@ -206,7 +206,7 @@ impl<N: DeviceNode> NodeRuntime<N> {
             .unwrap_or_else(|e| e.into_inner());
         self.cleanup_all()
     }
-    /// Async shutdown bridge; lifecycle cleanup runs off the caller executor.
+    /// 异步关闭入口；生命周期清理交给独立执行器，避免阻塞调用方的异步线程。
     pub async fn shutdown_async(&self) -> MiresidianResult<()> {
         let runtime = self.clone();
         super::super::execution::lifecycle_executor()?

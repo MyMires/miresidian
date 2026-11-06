@@ -74,8 +74,8 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
             }
             #lease_validation
         };
-        // Node and its platform methods share a module. The alias binds independently
-        // expanded method macros without reading source files or sharing compiler state.
+        // 节点与平台方法位于同一模块；固定别名使独立展开的 operation 宏绑定相同节点类型。
+        // 注册通过 inventory 汇总，不读取源文件、不共享编译器状态，因此每模块只允许一个节点。
         type __MiresidianNode = #identifier;
         struct __MiresidianOperation {
             descriptor: ::miresidian::OperationDescriptor,

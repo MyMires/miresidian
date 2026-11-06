@@ -37,17 +37,18 @@ where
     }
 }
 
-/// Validate and normalize a batch without executing user code. Shared by sync
-/// and native async frontends. Broadcast preserves destination validity; when
-/// channel 1 is invalid, all positions are skipped without selecting a fallback.
+/// 校验并归一化多通道批次，不执行业务代码；同步与原生异步前端共用此计划。
+/// Broadcast 保留各目标槽位的有效性；通道1无效时整批跳过，不另选源通道。
+///
+/// slots 中 None、空白输入或不满足 parameters 数量/尾部默认值要求的槽位标记跳过。
+/// 返回与输入等长的计划；此处不做业务类型解析，后续执行者仍须验证实际参数。
 pub fn plan_multi_channel(
     slots: &[Option<Vec<String>>],
     parameters: &[Option<&str>],
     execution: ExecutionMode,
 ) -> MiresidianResult<Vec<Option<Vec<String>>>> {
     let mut plans = channel_plans(slots, parameters);
-    // Channel 1 is the fixed execution source. A missing/invalid source skips
-    // the entire broadcast instead of silently choosing another channel.
+    // 通道1固定为执行源；缺失或无效时整批跳过，不能改选其他输入并产生不同副作用。
     if execution == ExecutionMode::Broadcast && !plans.first().is_some_and(Option::is_some) {
         plans.fill(None);
     }

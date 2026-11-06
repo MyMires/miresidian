@@ -20,16 +20,22 @@ flowchart TB
     instances --> codec
     runtime --> lease["miresidian_lease：通用租约模型"]
     lease --> codec
+    runtime -->|format feature| format["miresidian_format：显式格式转换"]
+    format --> codec
+    runtime -->|batch feature| batch["miresidian_batch：记录解析与聚合"]
+    batch --> codec
     macros -.-> generated["编译期生成：元数据、DeviceNode 实现与 DLL 导出"]
     generated -.-> node
     pack["miresidian_pack：开发工具"] -.-> dll["节点 DLL 与发布目录"]
     node -.-> dll
     testflow["miresidian_testflow_windows：开发工具"] -.-> bat["BAT / PowerShell 执行器"]
+    cli["miresidian_cli：统一命令入口"] -.->|启动后端进程| pack
+    cli -.->|启动后端进程| testflow
     bat -.-> dll
     host["C / C# / Python / LabVIEW 宿主"] -.-> dll
 ```
 
-框架工作区包含六个库 crate 和两个 Cargo 开发工具；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。开发工具通过构建产物或 C ABI 工作，也不进入节点 DLL 的运行时依赖图。
+框架工作区包含八个库 crate（含根 crate、宏、ABI、codec、format、batch、instances、lease）和三个 Cargo 开发工具（CLI、Pack、TestFlow）；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。CLI 启动独立后端进程，开发工具不进入节点 DLL 的运行时依赖图。
 
 `instances` feature 与同名宏配置共同控制实例策略和多通道执行；未标注节点在任意 feature 组合下仍是单实例。根 crate 始终依赖独立 miresidian_instances 的通用模型及单实例容器，instances feature 开启其 runtime 后端；多实例容器和通用调度留在该 crate，根框架只适配节点生命周期。详见[实例管理](instances.md)。
 
@@ -85,7 +91,23 @@ classDiagram
         <<内部类型>>
         node
         fault
+    }
+    class NodeAccess["节点访问分支（NodeAccess）"] {
+        <<enum>>
+        Direct(N)
+        Shared(SharedNode)
+    }
+    class SharedNode["节点代理（SharedNode）"] {
+        resource
+    }
+    class SharedResource["共享资源引用（SharedResource）"] {
+        connection
         lease
+    }
+    class Owner["唯一节点所有者（Owner）"] {
+        node
+        fault
+        output
     }
     class LocalLease["本地资源租约（LocalLease）"] {
         +validate()
@@ -122,13 +144,20 @@ classDiagram
     note for DeviceNode "节点与运行时之间的接口，由属性宏生成实现。"
     note for NodeRuntime "不同实例并行；同实例请求和整个多通道批次互斥。"
     note for InstanceState "异步互斥锁保护可选对象状态；关闭时取走对象并完成清理。"
+    note for NodeAccess "Direct 与 Shared 互斥；后者只持代理，不另构造本地 N。"
+    note for Owner "所有者内构造一次 N；完整业务调用互斥，最后引用才关闭和析构。"
     note for PlatformAdapter "decode 解析平台请求；encode 编码平台输出。"
     DeviceNode <|.. ExampleNode : 宏生成实现
     NodeRuntime "1..*" o-- "1" RuntimeState : Clone 共享运行时身份
     RuntimeState "1" *-- "0..*" Instance : 默认最多一个；显式策略可多个
-    Instance "1" *-- "1" InstanceState : Mutex 保护
-    InstanceState "1" *-- "1" ExampleNode : 持有 N
-    InstanceState "1" *-- "0..1" LocalLease : feature 与声明启用时
+    Instance "1" *-- "0..1" InstanceState : Mutex 保护；关闭后取空
+    InstanceState "1" *-- "1" NodeAccess : 访问分支
+    NodeAccess "1" *-- "0..1" ExampleNode : Direct 持有 N
+    NodeAccess "1" *-- "0..1" SharedNode : Shared 持有代理
+    SharedNode "1" *-- "1" SharedResource : 资源会话引用
+    SharedResource "1" *-- "1" LocalLease : 引用侧配置锁与会话
+    SharedResource ..> Owner : IPC 转发完整业务
+    Owner "1" *-- "0..1" ExampleNode : 初始化后持有唯一 N
     NodeRuntime "1" *-- "1" PlatformRegistry : 持有已注册平台
     PlatformRegistry "1" o-- "1..*" PlatformAdapter : Arc 共享
     PlatformAdapter <|.. TbLvTestPlatformAdapter : 实现接口
@@ -151,21 +180,24 @@ classDiagram
 | 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭节点实例 |
 | 运行时 `NodeRuntime` | `core` 共享运行时状态；`platforms` 平台注册表；管理状态保存 objects 与 active_platform |
 | 运行时调用方法 | `invoke` 按配置选择平台并调用；`invoke_with` 使用指定适配器调用；`invoke_with_platform` 按平台编号调用；`shutdown` 关闭全部通道 |
-| 对象 `Instance` / `InstanceState` | `key` 关联键；`config` 已保存业务配置；`execution` 对象执行方式；`state` 加锁状态；`node` 业务对象；`fault` 故障原因；`lease` 可选租约 |
+| 对象 `Instance` / `InstanceState` | `key` 关联键；`config` 已保存业务配置；`execution` 对象执行方式；`state` 加锁状态；`node` 为 Direct/Shared 分支；`fault` 为本地故障原因 |
+| `NodeAccess` / `SharedNode` / `Owner` | Direct 持有本地 N；SharedNode 只持有资源会话引用；Owner 持有共享的 N、故障和初始化输出 |
 | 租约 `LocalLease` | `validate` 校验连接及服务代次；`release` 释放租约与配置锁 |
 | 平台注册与适配 | `register` 注册适配器；`adapter` 按平台查找适配器；`platform` 平台编号；`identifier` 文本标识；`decode` 解析请求；`encode` 编码响应 |
 | 节点与操作描述 | `name` 名称；`init_config` 初始化配置；`operations` 操作清单；`inputs` 输入参数；`outputs` 输出参数；`channel_inputs` 共享调用使用的输入参数 |
-| 参数描述 | `definition` 原样发布的描述文本；`default_value` 可选默认值 |
+| 参数描述 | `definition` 原样发布的描述文本；业务参数 `default_value` 为 None，格式选择器等框架项可有显式默认值 |
 
 运行时默认只保留一个对象；instances 策略支持按业务 Config 组合键或 Handle 定位多个对象。默认全部业务 Config 组成实例键，可用 instance(key/ignore) 调整；任一选中原始键为空则跳过初始化。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
-类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / InstanceState](../src/runtime/lifecycle/instance.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../features/lease/src/local_ipc/client.rs)。
+Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯一 N，随后释放所有者配置租约。实例状态不再直接保存 LocalLease；引用侧租约由 SharedResource 持有，所有者后端另持保护物理资源的租约。共享节点的 panic/故障保存在所有者中，不能通过另一引用绕过。
+
+类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / NodeAccess / InstanceState](../src/runtime/lifecycle/instance.rs)、[SharedNode / Owner](../src/runtime/lifecycle/shared.rs)、[SharedResource](../features/lease/src/shared/client.rs)、[所有者后端](../features/lease/src/shared/server.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../features/lease/src/local_ipc/client.rs)。
 
 ## 节点创建与方法汇总
 
 `node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、DeviceNode 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
 
-初始化不再依赖 Default：解析配置并取得租约后，调用关联构造函数，成功得到节点与业务输出后才登记通道。构造失败由构造函数内部回滚；节点已返回后，输出编码或租约校验失败由框架关闭并析构，再释放租约。端口探测是独立关联函数，不创建临时节点。普通业务调用、共享策略与 C ABI 仍遵循原有契约。
+初始化不再依赖 Default：Direct 解析配置后本地构造；Lease 取得共享代理，由唯一所有者校验接口及完整初始化参数，首次请求才构造 N，后续请求复用初始化输出。取得节点或共享引用及输出后才登记通道。构造失败由构造函数回滚；返回 N 后的输出编码错误由框架关闭并析构该 N，共享所有者失败路径在清理后释放租约。端口探测是独立关联函数，不创建临时节点。
 
 ## 一次业务调用的时序
 
@@ -179,7 +211,7 @@ sequenceDiagram
     participant Runtime as 节点运行时<br/>NodeRuntime
     participant Adapter as 平台适配器<br/>PlatformAdapter
     participant Instance as 节点通道<br/>Instance
-    participant Lease as 可选资源租约<br/>LocalLease
+    participant Proxy as 可选共享代理<br/>SharedNode / SharedResource
     participant Node as 宏生成的节点接口<br/>DeviceNode 实现
     participant Codec as 数据编解码<br/>miresidian_codec
     participant Target as 节点业务逻辑与目标资源
@@ -191,11 +223,16 @@ sequenceDiagram
     Adapter-->>Runtime: 返回结构化命令（RuntimeInvocation）
     Runtime->>Instance: 短管理锁查找对象，释放后取得实例请求执行权
     Note over Runtime,Instance: 这里使用已初始化通道；框架保留配置不参与通道键
-    opt 通道已获取资源租约
-        Instance->>Lease: 校验租约（validate）
-        Lease-->>Instance: 确认连接与服务代次仍有效
+    opt Shared 分支
+        Instance->>Proxy: 校验代理与配置租约（validate）
+        Proxy-->>Instance: 确认会话仍有效
     end
-    Instance->>Node: 按操作名分发业务（invoke）
+    alt Direct 分支
+        Instance->>Node: 本地按操作名分发（invoke）
+    else Shared 分支
+        Instance->>Proxy: 转发完整操作及上下文
+        Proxy->>Node: 所有者中互斥分发（invoke）
+    end
     Note over Node,Codec: 宏生成包装负责类型转换，业务方法接收 Rust 参数
     Node->>Codec: 将平台文本解析为强类型参数
     Codec-->>Node: 返回 Rust 参数值
@@ -203,7 +240,12 @@ sequenceDiagram
     Target-->>Node: 返回业务结果
     Node->>Codec: 将业务结果编码为平台文本
     Codec-->>Node: 返回文本输出
-    Node-->>Instance: 返回业务输出（InvocationOutput）
+    alt Direct 分支
+        Node-->>Instance: 返回业务输出（InvocationOutput）
+    else Shared 分支
+        Node-->>Proxy: 所有者返回业务结果或错误
+        Proxy-->>Instance: 恢复业务输出（InvocationOutput）
+    end
     Instance-->>Runtime: 交回通道业务输出
     Runtime->>Runtime: 封装运行时响应（RuntimeResponse）
     Runtime->>Adapter: 编码平台响应（encode）
@@ -216,6 +258,8 @@ sequenceDiagram
 ```
 
 图中将通道查找与调度合并为一步；版本和元数据查询由运行时直接处理，不创建或调用节点实例。共享调用在适配器中保留唯一一份 Config 并解析各平台通道输入，运行时先按节点策略从 Config 组合键或 Handle 定位一个对象，再将所有有效输入分派给该对象。错误和 panic 路径的状态、稳定代码与恢复规则见 [C ABI](c-abi.md)，租约失效处理见[租约说明](../features/lease/README.md)。
+
+Shared 分支的 Node 位于唯一资源所有者中；图中省略 IPC 编解码及所有者内部异步桥，不能把代理看作本地节点副本。这里的多通道“共享调用”是平台输入布局，与跨 DLL 的资源共享分别判断。
 
 ## 职责与源码位置
 
@@ -233,8 +277,9 @@ sequenceDiagram
 | `macro/` | 属性宏入口、节点声明与逐方法生成 | [lib.rs](../macro/src/lib.rs)、[node.rs](../macro/src/node.rs)、[operation.rs](../macro/src/operation.rs) |
 | `macro/src/operation/` 与 `macro/src/node/` | 方法标注校验、描述及调用包装；节点注册绑定与 FFI | [definition.rs](../macro/src/operation/definition.rs)、[dispatch.rs](../macro/src/operation/dispatch.rs)、[generate.rs](../macro/src/node/generate.rs)、[ffi.rs](../macro/src/node/ffi.rs) |
 | `features/format/` | 可选显式格式转换，宏生成选择输入及转换包装 | [说明](../features/format/README.md) |
+| `features/batch/` | 按原类型解析批量记录、广播对齐及逐槽聚合，独立于 format | [说明](../features/batch/README.md) |
 | `features/lease/` | 资源无关租约模型与可选本地 IPC | [lib.rs](../features/lease/src/lib.rs)、[local_ipc.rs](../features/lease/src/local_ipc.rs) |
-| `tools/` | 发布打包、Windows 流程执行及版本检查 | [打包说明](../tools/miresidian-pack/README.md)、[TestFlow 说明](../tools/miresidian-testflow-windows/README.md)、[check_versions.py](../tools/check_versions.py) |
+| `tools/` | 统一命令路由、发布打包、Windows 流程执行及版本检查 | [CLI](../tools/miresidian-cli/README.md)、[打包说明](../tools/miresidian-pack/README.md)、[TestFlow 说明](../tools/miresidian-testflow-windows/README.md)、[check_versions.py](../tools/check_versions.py) |
 | `tools/fixtures/smoke-node/` | 独立的工具链集成夹具 | [节点源码](../tools/fixtures/smoke-node/src/lib.rs) |
 | `tests/` 与各 crate 的测试 | 跨 crate 契约、宏编译诊断与功能回归 | [根集成测试目录](../tests)、[宏诊断测试](../tests/macro_compile_fail.rs)、[编解码测试](../codec/tests) |
 | 独立节点项目 | 资源状态、私有通信依赖、业务操作、节点测试与交付说明 | [宏驱动开发](宏驱动开发.md) |

@@ -6,10 +6,10 @@
 
 通常节点项目只需依赖 `miresidian`。只有实现宿主适配层、检查 ABI 兼容性，或需要直接使用公共 FFI 类型时，才直接引入本 crate。
 
-当前源码候选为 `miresidian_abi 0.15.0`，C ABI **v8**，本任务未执行 registry 发布。直接依赖前核实精确版本已发布；候选不可通过本地覆盖用于独立节点。
+本检出为 `miresidian_abi 0.15.1` 的未发布文档补丁，C ABI **v8**、头文件及 Rust/C 签名不变。0.15.0 已在后续授权阶段正式发布，下面使用该已核实版本；本次不发布 0.15.1，也不以本地覆盖替代发行。
 
 ```toml
-# 仅在 registry 已确认该精确版本可用后采用。
+# 已核实的发行版本；采用其他版本前重新核对 registry。
 [dependencies]
 miresidian_abi = "=0.15.0"
 ```
@@ -19,3 +19,5 @@ v8 新增 `const char *miresidian_invoke_request(const char *request_json)`，�
 三个调用入口共用同一线程的响应缓存，响应仍为 `status/code/message/output`。返回指针由 DLL 持有，调用方立即复制且不得释放；同线程任一调用入口的下一次调用、线程退出或卸载使原指针失效。ABI 版本查询不替换缓存。已有调用签名不变，宿主若按 ABI 恰等于 7 拒绝加载，须在评估兼容性后增加 v8 支持。
 
 完整 C ABI 调用约定见[C ABI](../docs/c-abi.md)。
+
+精确发行资料：[0.15.0 API](https://docs.rs/miresidian_abi/0.15.0/miresidian_abi/)；本次补丁文档从本检出生成，源码版本不代表已经发布。

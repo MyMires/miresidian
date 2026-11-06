@@ -1,4 +1,4 @@
-//! Bounded task ownership and cross-thread result retrieval.
+//! 有界任务所有权与跨线程结果读取；任务和结果持续占容量直到显式释放。
 mod entry;
 use crate::{
     CallContext, DeviceNode, Invocation, MiresidianError, MiresidianResult, NodeRuntime, Platform,
@@ -19,9 +19,11 @@ struct Table {
     drained: bool,
     entries: BTreeMap<u64, Arc<TaskEntry>>,
 }
-/// Runtime-owned task service. Completed results count against capacity until
-/// explicitly released. Cancellation requests never forcibly terminate user code.
-/// Call shutdown and join the framework executor before unloading a DLL.
+/// 持有运行时句柄并管理后台请求、结果和任务 ID 的服务。
+///
+/// 完成结果在显式 release 前仍占容量；取消仅发出协作信号，不强制终止业务。
+/// shutdown 永久停止本服务提交并等待任务、清理运行时；其他 Clone 共用该运行时。
+/// DLL 卸载前还须停止宿主并发入口并回收框架执行器，不能只丢弃服务或等待 Future。
 pub struct TaskService<N: DeviceNode> {
     runtime: NodeRuntime<N>,
     table: Mutex<Table>,
@@ -30,6 +32,8 @@ pub struct TaskService<N: DeviceNode> {
     drain: tokio::sync::Mutex<()>,
 }
 impl<N: DeviceNode> TaskService<N> {
+    /// 用给定运行时创建任务表；capacity 须在 1..=65536，否则返回 InvalidArgument。
+    /// 容量同时计算运行中任务与未释放结果；创建服务不会初始化节点。
     pub fn new(runtime: NodeRuntime<N>, capacity: usize) -> MiresidianResult<Self> {
         if capacity == 0 || capacity > 65536 {
             return Err(MiresidianError::InvalidArgument {
@@ -49,8 +53,10 @@ impl<N: DeviceNode> TaskService<N> {
             drain: tokio::sync::Mutex::new(()),
         })
     }
-    /// Submit a request. None selects the default platform path; Some uses the
-    /// explicit-platform path with the same Config rules as invoke_with.
+    /// 提交请求并返回本服务内不复用的任务 ID；容量满或服务已关闭时返回错误。
+    ///
+    /// platform=None 使用默认平台路径，Some 使用显式平台路径及其 Config 布局。
+    /// timeout 从上下文创建时计算并包含排队，None 不设置截止时间；提交成功不代表业务成功。
     pub fn submit(
         &self,
         request: Invocation,
@@ -59,6 +65,8 @@ impl<N: DeviceNode> TaskService<N> {
     ) -> MiresidianResult<u64> {
         self.submit_context(request, platform, CallContext::new(timeout))
     }
+    /// 用调用方上下文提交请求；返回任务 ID，容量和服务关闭错误与 submit 相同。
+    /// 上下文可预先取消或已到期；其截止时间不从本次提交重新计算。
     pub fn submit_context(
         &self,
         request: Invocation,
@@ -67,8 +75,10 @@ impl<N: DeviceNode> TaskService<N> {
     ) -> MiresidianResult<u64> {
         self.submit_work(Some((request, platform)), None, context)
     }
-    /// Submit an explicitly targeted batch. Each output is the corresponding
-    /// request's JSON result, including its own status/code/message/output.
+    /// 提交各自携带目标 Config 的批次，返回代表整个批次的任务 ID。
+    ///
+    /// 超过运行时批次限额、服务容量已满或已关闭时返回错误。任务输出按原请求顺序
+    /// 保存每项 JSON 响应，各自含 status/code/message/output；单项业务错误不取消其他项。
     pub fn submit_batch(
         &self,
         requests: Vec<Invocation>,
@@ -156,11 +166,14 @@ impl<N: DeviceNode> TaskService<N> {
                 message: "任务不存在或已释放".into(),
             })
     }
+    /// 立即复制任务快照，不等待业务，不消费结果；未知或已释放 ID 返回 InvalidArgument。
     pub fn poll(&self, id: u64) -> MiresidianResult<TaskSnapshot> {
         Ok(self.entry(id)?.snapshot())
     }
-    /// Wait at most timeout for completion; expiration returns a nonterminal
-    /// snapshot and does not cancel or release the task.
+    /// 异步等待任务完成或本次等待超时，返回当时快照；未知或已释放 ID 返回参数错误。
+    ///
+    /// timeout=None 等待至完成；等待超时可能返回非终态，不取消任务、不释放结果，
+    /// 也不修改提交时的截止时间。可从其他线程继续查询或等待同一 ID。
     pub async fn wait_async(
         &self,
         id: u64,
@@ -191,9 +204,12 @@ impl<N: DeviceNode> TaskService<N> {
         };
         Ok(entry.snapshot())
     }
+    /// wait_async 的同步桥；等待预算不改变业务截止时间，单线程异步上下文中返回能力错误。
     pub fn wait(&self, id: u64, timeout: Option<Duration>) -> MiresidianResult<TaskSnapshot> {
         super::execution::block_on(self.wait_async(id, timeout))
     }
+    /// 为未完成任务发出取消信号并返回即时快照，不等待停止或回滚设备动作。
+    /// 已完成任务保留结果；未知或已释放 ID 返回 InvalidArgument。
     pub fn cancel(&self, id: u64) -> MiresidianResult<TaskSnapshot> {
         let entry = self.entry(id)?;
         if entry
@@ -206,7 +222,8 @@ impl<N: DeviceNode> TaskService<N> {
         }
         Ok(entry.snapshot())
     }
-    /// Release only a fully completed task, never an in-flight execution.
+    /// 移除已实际结束任务及其结果，归还服务容量；未知 ID 或任务仍在运行时返回错误。
+    /// cancel 信号或终态快照不代替后台任务结束，不能据此提前释放运行资源。
     pub fn release(&self, id: u64) -> MiresidianResult<()> {
         let mut table = self.table.lock().unwrap_or_else(|e| e.into_inner());
         let entry = table
@@ -234,14 +251,16 @@ impl<N: DeviceNode> TaskService<N> {
         table.entries.remove(&id);
         Ok(())
     }
-    /// Permanently stop submission, request cooperative cancellation and wait
-    /// for every owned task before cleaning runtime instances. Blocking business
-    /// may extend this wait until its own timeout; no thread is force-killed.
+    /// 永久停止本服务的新提交，发出协作取消并等待全部任务，再关闭其共用运行时。
+    ///
+    /// 业务若忽略取消，会继续等待其自行返回或设备超时；不强杀线程。
+    /// 已有结果保留供查询和释放；清理错误返回调用方。同步入口不支持单线程异步上下文。
     pub fn shutdown(&self) -> MiresidianResult<()> {
         super::execution::block_on(self.shutdown_async())
     }
 
-    /// Async equivalent of shutdown; safe on a single-thread caller executor.
+    /// shutdown 的异步形式，可在单线程调用方执行器中等待；相同停止、等待和清理语义。
+    /// 丢弃等待 Future 后服务仍保持停止提交，下次关闭可继续排空任务。
     pub async fn shutdown_async(&self) -> MiresidianResult<()> {
         let _drain = self.drain.lock().await;
         let entries = {
@@ -252,8 +271,8 @@ impl<N: DeviceNode> TaskService<N> {
         for entry in &entries {
             entry.context.cancel();
         }
-        // Keep JoinHandles in their entries until every task is finished. If
-        // this waiting future is dropped, the next shutdown can still drain it.
+        // 全部任务结束前保留登记表中的 JoinHandle；本次等待被丢弃后，下次关闭仍可排空，
+        // 避免只取走句柄就使在途任务脱离服务的关闭流程。
         loop {
             let complete = entries.iter().all(|entry| {
                 entry

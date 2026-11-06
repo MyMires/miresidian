@@ -4,7 +4,7 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.26.0**. Rust MSRV: **1.89**. C ABI: **v8**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This is a source candidate; this task does not publish it to crates.io or verify candidate docs.rs pages. Use the dependency example only after verifying registry availability and required features; independent nodes must keep using published versions without local overrides.
+Current source: **0.26.1**. Rust MSRV: **1.89**. C ABI: **v8**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This documentation patch is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
 
 ## Getting started
 
@@ -45,7 +45,7 @@ The shared resource implementation has been tested using exclusive file handles,
 
 The batch/format update is validated with independent feature configurations, typed records, aligned format columns, and native async methods. Unchanged resource-sharing validation remains applicable. Cargo publication verifies normalized packages against registry dependencies. Independent nodes must use published exact framework versions, without path/git dependencies or local overrides.
 
-[Release notes](docs/releases/0.26.0.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
+[Documentation patch](docs/releases/0.26.1.md) · [v8 migration](docs/releases/0.26.0.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
 
 When delivering a Node DLL, keep one user-facing Node DLL at the top of each node's architecture directory and place accompanying third-party and helper runtime DLLs under `dependencies/`. Document the entry filename, architecture, and dependency purpose; no empty directory is needed when there are no such dependencies. See the [delivery layout and loading checks](docs/coding-standards.md#6-注释与文档).
 
@@ -58,4 +58,6 @@ Format remains a single-value encoding conversion. The macro combines the indepe
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-Source candidates: framework 0.26.0, macro 0.23.0, ABI crate 0.15.0 / C ABI v8. Existing call signatures and responses remain available. Hosts that require ABI exactly 7 must review their compatibility check before accepting v8. See the [request contract and migration](docs/releases/0.26.0.md); use `cargo doc -p miresidian --all-features --no-deps --locked` for local candidate API documentation. Source commits, local tags, registry publication, and docs.rs availability are separate checks.
+This checkout contains framework 0.26.1, macro 0.23.1, and ABI crate 0.15.1, with unchanged C ABI v8 and runtime behavior. The preceding framework 0.26.0, macro 0.23.0, and ABI 0.15.0 were formally published in the release phase recorded in the [release plan](plans/2026-11-06-unified-abi-request.md#发布执行结果). See the published [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) and [format module](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html). Hosts requiring ABI exactly 7 must review compatibility before accepting v8. Generate this unpublished patch's local API with `cargo doc -p miresidian --all-features --no-deps --locked`; source commits, local tags, registry publication, and docs.rs availability remain separate checks.
+
+CLI/toolset source is 0.3.3. Pack's existing new/init templates accept only ABI v7, so explicitly select a compatible published framework such as 0.25.2 when creating a project. Selecting 0.26.0/v8 writes the template but reports incomplete creation; it does not produce a validated v8 template. See the [CLI commands](tools/miresidian-cli/README.md) and migrate existing projects manually using the actual v8 header.

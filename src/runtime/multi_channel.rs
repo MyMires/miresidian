@@ -1,4 +1,4 @@
-//! One batch owns instance request rights; each item uses its state lock.
+//! 整个多通道批次独占目标实例的请求执行权，各通道再通过同一状态锁访问对象。
 use super::lifecycle::Instance;
 use crate::{
     CallContext, DeviceNode, ExecutionMode, MiresidianResult, MultiChannelResponse,
@@ -35,8 +35,8 @@ pub(super) async fn invoke_multi_channel<N: DeviceNode>(
             .map(|plan| if plan.is_some() { output.clone() } else { None })
             .collect()
     } else if execution == ExecutionMode::Parallel {
-        // Futures wait on the instance mutex without allocating OS threads;
-        // every admitted item settles before returning the first indexed error.
+        // 通道 Future 异步等待状态锁，不为每个等待项分配操作系统线程。
+        // 等待全部已接收项结束后，按输入位置返回首个错误；其他项的副作用不回滚。
         futures_util::future::join_all(plans.into_iter().enumerate().map(|(i, p)| execute(i, p)))
             .await
             .into_iter()

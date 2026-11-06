@@ -154,7 +154,8 @@ impl<N: DeviceNode> Instance<N> {
         let call_context = context.clone();
         let native_operation = operation.clone();
         let native_input = input.clone();
-        // Lease IPC and synchronous user code never block an async worker.
+        // 租约 IPC 校验和同步业务统一进入阻塞池；Direct 原生 async 在校验后返回异步路径。
+        // 两条路径都持有同一状态锁，跨 await 或阻塞等待期间不能插入其他业务。
         let native = N::is_async_operation(&operation)
             && state
                 .as_ref()
