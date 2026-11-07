@@ -74,3 +74,17 @@
 - 引用：全仓 63 份 Markdown 的 353 处本地文件/锚点引用通过；其中本次 19 份 Markdown 的 276 处通过。检查覆盖内容迁移后的入口，不新增外网访问或在线发行断言。
 - 范围：无 Rust 源码、子 crate/工具清单、独立节点、模板或夹具变化。Cargo.toml 和 Cargo.lock 仅根包版本由 0.26.1 改为 0.26.2，内部精确依赖不变；原技术指导多处当前版本文本已收敛。
 - git diff --check 与 python3 tools/check_versions.py --base HEAD 通过。不运行无关构建、Windows 加载或真实硬件验证；本任务不推送和发布。提交钩子与提交后标签结果在最终交付报告中列出。
+
+## 推送与发布阶段（2026-11-08，用户追加授权）
+
+用户明确要求“推送和发布框架”，授权推送当前 master 和框架标签，并正式发布根框架 miresidian 0.26.2。前文“不推送和发布”保留为原实施阶段边界，本节作为后续执行依据；不升级节点或发布无关工具/组件。
+
+发行快照固定为 5ceca1b23a8f823c2f6c9a865e8135d6e1b6d734，标签 miresidian-v0.26.2 已通过 require-tag；远端 master 为 394fa52，尚无该标签。crates.io 精确查询根 0.26.2 为 404；七个内部依赖精确版本均为 200 且未撤回，因此只上传根包。
+
+1. 提交本次发布方案（纯方案，版本影响：无），在 /tmp/miresidian-publish-0.26.2 建立固定发行提交的干净 detached worktree。核对标签和正式包文件清单，尤其本次整理的手册、历史归档、skill 与引用入口。
+2. 原子推送 master 与指定标签，不 force、不推送所有标签；读取远端分支与标签解引用确认一致。
+3. 在干净发行快照执行 cargo publish -p miresidian --all-features --locked，保留正式打包、registry 依赖编译和上传，不使用 allow-dirty/no-verify，不做等价重复 dry-run。网络失败后先查询实际上传状态，再判断是否重试。
+4. 发布后下载官方 crate，核对 API 的未撤回状态与 checksum、包内源码提交/非 dirty、registry 精确依赖、README/CHANGELOG/本次手册及 skill。核对远端标签源码和 docs.rs 精确版本 README、根 API、format 可选 API及源码入口；文档排队时有限复查，如实报告状态。
+5. 在本方案归档实际证据，以纯方案提交推送 master；版本标签保持发行提交。无运行时变化，既有源码验证按适用范围复用；本次仅增加正式发布包编译和发行资料验收，不扩展 Windows 或硬件验证。
+
+当前状态：方案已落盘，待执行推送及正式发布。
