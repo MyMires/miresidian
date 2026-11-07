@@ -1,4 +1,4 @@
-# Config 组合身份与租约声明（0.24.0）
+# Config 组合身份与租约声明
 
 [文档中心](README.md) · [实例管理](instances.md) · [配置租约](../features/lease/README.md)
 
@@ -9,7 +9,7 @@ Config 描述平台输入；实例键定位业务对象；租约资源键标识�
 本版本只支持初始化参数上的嵌套写法：
 
 ```rust
-#[miresidian::config("串口名称", instance(key), lease(key))]
+#[miresidian::config("串口名称:COM1", instance(key), lease(key))]
 port_name: String,
 ```
 
@@ -44,7 +44,7 @@ struct SerialNode;
 impl SerialNode {
     #[miresidian::operation]
     fn init_device(
-        #[miresidian::config("串口名称", lease(key))] port_name: String,
+        #[miresidian::config("串口名称:COM1", lease(key))] port_name: String,
         #[miresidian::config("波特率:")] baud_rate: u32,
         #[miresidian::config("读取超时/ms:", lease(ignore))] timeout_ms: u64,
     ) -> miresidian::MiresidianResult<Self> {
@@ -90,4 +90,4 @@ TCP 可分别在 ip、port 上标记 instance(key)、lease(key)，超时标记 l
 
 ## 0.25.0 自动资源租约补充
 
-lease(key/ignore) 的资源键与配置字节编码不变，宏标签不变。Lease 模式现在自动共享整个节点资源对象，因此除资源配置相容外，完整规范化业务 Config、初始化 Input 和节点接口也必须一致；lease(ignore) 仍排除配置租约比较，但不会使不同初始化状态安全地共用同一业务对象。不同站号/超时需要独立初始化状态时，使用通信层 SharedResource 保留各节点对象。详见[共享资源](shared-resources.md)。
+参数角色与配置编码保持本页定义；自动共享节点、独立通信提供者和初始化兼容条件由[共享资源](shared-resources.md#现有-lease-标签自动共享节点资源)统一维护。

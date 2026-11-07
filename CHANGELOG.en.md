@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-11-08
+
+- Classify documentation by node development, runtime topics, host integration, maintenance and history. Define each topic in one guide and replace duplicate parameter, instance and shared-lifecycle rules with links.
+- Move retrospectives and old version narratives into the maintenance archive; collect unimplemented requests in the roadmap. Remove the duplicate current-component version table from version policy.
+- Define the first-business-Config default requirement in the node guide only. Keep lookup and review entry points in the Node skill and synchronize its complete installed copy.
+- Only the root framework advances to 0.26.2 for bundled guidance. Components, tools, internal dependencies, Rust behavior, ABI/protocols and independent nodes are unchanged. No push or publication; see plans/2026-11-08-first-config-default.md for validation evidence.
+
 ## [0.26.1] - 2026-11-07
 
 - Clarify Chinese source documentation for macro expansion, conditional compilation, task ownership, cancellation, initialization cleanup, and module loader references; correct the private fixture ABI note.

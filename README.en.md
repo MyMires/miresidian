@@ -4,9 +4,11 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.26.1**. Rust MSRV: **1.89**. C ABI: **v8**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This documentation patch is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
+Current source: **0.26.2**. Rust MSRV: **1.89**. C ABI: **v8**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This documentation patch is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
 
 ## Getting started
+
+Documentation is organized by topic in the [documentation index](docs/README.md). Each rule is defined in its owning guide; skill instructions and other guides refer to it rather than keeping independent copies.
 
 ```toml
 [lib]

@@ -2,35 +2,32 @@
 
 [项目首页](../README.md) · [架构总览与 UML](architecture.md) · [修订记录](../CHANGELOG.md)
 
-本检出为 0.26.1 注释/文档补丁，尚未发布；0.26.0 的正式发行验收已归档，详见[本次勘误与版本边界](releases/0.26.1.md)。
-
-`docs/` 按阅读任务组织核心手册与专题。先选手册，再通过章节导航查阅具体规则；每个主题集中在一个位置维护。
+本页是主题索引；当前源码版本见 [Cargo.toml](../Cargo.toml)，版本变化见 [CHANGELOG](../CHANGELOG.md)，发行证据见对应归档。专题手册不各自维护“当前版本/已发布版本”表。
 
 ## 核心文档与专题
 
-| 文档 | 内容与阅读对象 |
-| --- | --- |
-| [本页：文档中心](README.md) | 统一入口、阅读路径、包级说明和文档合并索引 |
-| [架构总览](architecture.md) | 中文图注、crate 依赖、UML 类图、调用时序、源码索引与演进计划 |
-| [节点开发与数据编解码](宏驱动开发.md) | 节点作者：职责边界、宏标注、参数类型、数组和字节/文本编解码 |
-| [平台接入与 C ABI](c-abi.md) | 宿主及平台开发者：C 入口、内存与错误约定、调用契约、平台适配器 |
-| [开发与维护规范](coding-standards.md) | 框架维护者：代码与文档要求、构建环境、验证命令、提交格式 |
-| [实例管理](instances.md) | 单实例、Config/Handle 身份、复用、多通道与关闭规则 |
-| [Config 组合身份](config-identity.md) | 实例键与租约键的独立选择、参数角色及迁移 |
-| [共享资源代理](shared-resources.md) | 通信提供者：跨 DLL/项目共用连接、事务协议、所有权与可运行示例 |
-| [版本管理](versioning.md) | P0 门禁：版本判断、依赖/锁文件、修订归档、发布顺序与标签 |
+| 分类 | 文档 | 唯一负责的内容 |
+| --- | --- | --- |
+| 项目结构 | [架构总览](architecture.md) | crate 分层、类型关系、源码位置、执行器设计及后续演进计划 |
+| 节点开发 | [节点开发与数据编解码](宏驱动开发.md) | 方法与参数声明、描述及预填规范、类型解析、输出编码 |
+| 运行时专题 | [Config 身份](config-identity.md) | instance/lease 参数角色、组合键选择、身份规范化与迁移 |
+| 运行时专题 | [实例管理](instances.md) | 对象复用与关闭、Handle、Config 布局和多通道执行 |
+| 运行时专题 | [共享资源](shared-resources.md) | 跨 DLL/进程所有者、物理连接、代理事务和引用生命周期 |
+| 宿主接入 | [平台接入与 C ABI](c-abi.md) | C 入口、响应与内存契约、TB 文本协议和平台适配器 |
+| 仓库维护 | [开发与维护规范](coding-standards.md) | 方案门禁、编码、验证、构建环境和交付组织 |
+| 仓库维护 | [版本管理](versioning.md) | 版本判断、依赖/锁文件、修订归档、提交门禁和发布标签 |
+| 历史记录 | [发行说明](releases/) · [维护历史与复盘](history/maintenance.md) · [任务方案](../plans/) | 版本迁移、历史背景、实施过程和验收证据，不作为第二套现行规范 |
 
 ## 按任务阅读
 
-| 任务 | 建议顺序 |
+| 任务 | 阅读路径 |
 | --- | --- |
 | 第一次了解项目 | [项目首页](../README.md) → [架构总览](architecture.md) |
-| 开发节点插件 | [节点声明](宏驱动开发.md#声明方式) → [数据编解码](宏驱动开发.md#数据编解码) → [打包工具](../tools/miresidian-pack/README.md) |
-| 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [Windows TestFlow](../tools/miresidian-testflow-windows/README.md) |
-| 扩展测试平台 | [核心类型关系](architecture.md#核心类型关系uml) → [平台适配器](c-abi.md#平台适配器) |
-| 启用框架可选能力 | [实例管理](instances.md) / [租约](../features/lease/README.md) / [batch crate](../features/batch/README.md) / [format feature](../features/format/README.md) |
-| 多个 DLL 共用一个串口或其他独占资源 | [实例身份](instances.md#实例身份与物理资源身份) → [共享连接](shared-resources.md) → [配置租约](../features/lease/README.md) |
-| 修改框架或准备发布 | [版本管理](versioning.md) → [开发规范](coding-standards.md) → [构建环境](coding-standards.md#构建环境) → [打包工具](../tools/miresidian-pack/README.md) |
+| 开发节点插件 | [参数与方法声明](宏驱动开发.md) → 按需查实例/共享资源专题 → [打包工具](../tools/miresidian-pack/README.md) |
+| 接入节点 DLL | [C ABI](c-abi.md#c-abi) → [平台调用契约](c-abi.md#平台调用契约) → [TestFlow](../tools/miresidian-testflow-windows/README.md) |
+| 多个 DLL 共用独占连接 | [Config 身份](config-identity.md) → [共享资源](shared-resources.md) |
+| 修改框架或准备发布 | [开发规范](coding-standards.md) → [版本管理](versioning.md) |
+| 使用 AI 开发 Node | [Node skill](../skills/miresidian-node/SKILL.md)：开发流程、资料查询与检查入口 |
 
 ## 按实际版本查阅
 
@@ -79,8 +76,8 @@
 
 ## 维护约定
 
-- 按本页主题扩展现有章节，相关内容优先合并；新增独立文档须说明主题边界并更新索引与引用。
-- 图表保留源码标识符，并配中文名称和可见注释；依赖、类型、调用链变化时同步核对架构图。
-- 契约规则集中在对应手册，API 精确签名由源码 Rustdoc 维护；交付变更同步[修订记录](../CHANGELOG.md)并按[版本管理](versioning.md)判断影响。
-- 指导性文档必须随对应组件版本在同一提交和发布源码中更新，涵盖实际受影响的 README、Rustdoc、命令、模板、手册和示例；升版检查与发布后在线核对按 [文档同步门禁](versioning.md#指导性文档与版本同步门禁) 执行。此要求不绑定 Node skill 的更新周期。
-- 仓库强制指令见 [AGENTS.md](../AGENTS.md)，文档和代码要求见[开发与维护规范](coding-standards.md)。
+- 先按上表确定主题归属，再修改该主题的正文；其他页面需要关联时使用章节链接，不复制完整规则、例外或版本表。
+- README 负责简介与入口；skill 负责工作流程和资料查询；review 负责检查项；技术手册定义行为；CHANGELOG、releases 和 plans 记录变化与证据。示例应符合所属规则，不能形成另一套规则说明。
+- 新文件只用于独立主题或历史归档；不为单个小需求增加专题。已有章节迁移时保留入口或修正引用，图中的源码标识符与实际结构保持一致。
+- [文档随版本同步](versioning.md#指导性文档与版本同步门禁)是实际受影响内容的同步，不要求把同一需求写进所有文档。
+- 仓库强制指令见 [AGENTS.md](../AGENTS.md)，skill 的完整副本同步见其[维护规则](../skills/miresidian-node/AGENTS.md)。
