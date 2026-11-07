@@ -87,4 +87,14 @@
 4. 发布后下载官方 crate，核对 API 的未撤回状态与 checksum、包内源码提交/非 dirty、registry 精确依赖、README/CHANGELOG/本次手册及 skill。核对远端标签源码和 docs.rs 精确版本 README、根 API、format 可选 API及源码入口；文档排队时有限复查，如实报告状态。
 5. 在本方案归档实际证据，以纯方案提交推送 master；版本标签保持发行提交。无运行时变化，既有源码验证按适用范围复用；本次仅增加正式发布包编译和发行资料验收，不扩展 Windows 或硬件验证。
 
-当前状态：方案已落盘，待执行推送及正式发布。
+当前状态：框架推送、正式发布及精确在线资料验收完成。
+
+### 发布执行结果
+
+- master 与 miresidian-v0.26.2 已原子推送；发布方案提交 d4907a0，版本标签解引用固定为发行提交 5ceca1b23a8f823c2f6c9a865e8135d6e1b6d734，未移动任何既有标签。后续本方案验收记录只推进 master。
+- 干净发行检出 /tmp/miresidian-publish-0.26.2 的 require-tag 通过，正式包清单为 203 文件，包含本次分类手册、历史归档、发行说明和完整 5 文件 skill。
+- cargo publish -p miresidian --all-features --locked 成功，保留正式 Packaging、Verifying、registry 精确依赖编译、Uploading 和 Published，未使用 allow-dirty/no-verify。日志 /tmp/miresidian-0262-publish.log。本次只发布根框架，七个既有依赖及所有工具未重复发布。
+- crates.io 精确版本为 200、yanked=false；官方下载包 SHA-256 为 7492bf68e111c04d6453ae8d9b6bc27f1797dfa32bbb52ae878d5c1f3dfd12bf，与官方 API checksum 一致。203 项包清单完全一致；200 个原始文件逐字节对应发行检出，规范化 Cargo.toml 的七个内部依赖均为正确精确 registry 版本，没有 path/git。VCS 信息为发行提交、非 dirty、仓库根目录；docs.rs 全特性 metadata 已核对。证据 /tmp/miresidian-0262-published/verification.json。
+- 精确在线资料 7/7 通过：[README](https://docs.rs/crate/miresidian/0.26.2)、[根 API](https://docs.rs/miresidian/0.26.2/miresidian/)、[format API](https://docs.rs/miresidian/0.26.2/miresidian/format/index.html)、[节点手册源码](https://docs.rs/crate/miresidian/0.26.2/source/docs/宏驱动开发.md)、[历史归档源码](https://docs.rs/crate/miresidian/0.26.2/source/docs/history/maintenance.md)、[库源码入口](https://docs.rs/crate/miresidian/0.26.2/source/src/lib.rs)及 GitHub 精确标签 README，均为 200 且内容核对通过；标签 README 与发行检出原文一致。结果 /tmp/miresidian-0262-online.json。
+- 正式包验证脚本初次把 TOML 的 docs.rs 误作带点单键而未通过 metadata 检查；按实际 docs → rs 嵌套结构修正后，复用已下载包完成全部检查，未因此重复发布。发布快照中的候选措辞保留为原实施阶段记录，正式状态以本节 registry/文档证据为准，不覆盖已发布包。
+- 未升级独立 Node，未增加 Windows DLL 加载或硬件验证。发布结果按纯方案记录提交并推送；版本影响：无，仅归档实际发行证据，不修改已发布组件或技术指导。
