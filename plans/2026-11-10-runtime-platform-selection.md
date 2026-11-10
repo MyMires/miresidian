@@ -1,6 +1,6 @@
 # platform=0 进入运行时平台选择流程
 
-日期：2026-11-10。状态：用户已确认采用现有 Config 选择流程；实施及本机验收完成，待本地提交与不可移动标签核对。
+日期：2026-11-10。状态：实施及本机验收完成；用户后续授权推送与正式发布，实际发行与文档核对见末尾记录。
 
 ## 需求与目标
 
@@ -81,3 +81,28 @@
 7. 将实际命令、版本、提交/标签、checksum/来源及文档可用性记录到本方案，纯结果提交并推送 master；保留不可移动发行标签指向 de9f16f。最终核对干净状态、远端分支与全部发行标签，报告真实完成项和未验证边界。
 
 预计正式上传/编译及在线资料生成需要数分钟，docs.rs 排队可能更久。当前只读预检不代表已推送或已发布，执行结果待补充。
+
+
+### 发布执行结果（2026-11-10）
+
+- 方案归档提交 4a747a1；master 与本次三个版本标签已显式原子推送至 origin。远端实读 master 为 4a747a1a4bd14f970afbb8fddb0ad487f7b19511，三个版本标签解引用均为发行提交 de9f16f7edef28e4c223f87b89febbca513db068。后续结果归档仅推进 master，不移动发行标签。
+- 固定该发行提交的干净 detached worktree `/tmp/miresidian-publish-0.27.0` 中，根/ABI/宏 require-tag 均通过；package --list 验证 ABI 8 文件、宏 21 文件、根 205 文件，必需 README/CHANGELOG/源码和根技术指导/迁移文档均在包内。
+- crates.io 发布前官方 API 确认三个目标版本均不存在，根其他精确内部依赖 format 0.3.2、codec 0.16.0、batch 0.2.2、lease 0.17.1、instances 0.16.6 均已发布且未撤回，没有重复发布无关包。
+- 正式 `cargo publish` 按 ABI 0.16.0 → macro 0.23.2 → 根 0.27.0 顺序全部完成 Packaging / Verifying / Uploading / Published；根以 --all-features 从真实 registry 依赖编译通过，没有 allow-dirty 或 no-verify。日志分别为 `/tmp/miresidian-platform-publish-{abi,macro,root}.log`。
+- 发布后官方 API 再次确认三个精确版本可用且未撤回；下载 static.crates.io 的实际 .crate 并核对官方 SHA-256。三个包 `.cargo_vcs_info.json` 均为发行提交 de9f16f7edef28e4c223f87b89febbca513db068 且非 dirty；README/日期 CHANGELOG 与固定源码一致，规范化清单 repository 正确。
+- ABI 包的元数据/头文件/常量均为 C ABI 9，含 MIRESIDIAN_PLATFORM_RUNTIME_SELECT=0；根包的内部依赖均为相应真实 registry 精确版本，无 path/git，保留 docs.rs all-features，路由源码及接入/迁移文档一致；宏转发源码与发行提交一致。GitHub 三个精确版本标签下的 README、ABI 头文件、宏入口源码及根接入/迁移手册均 HTTP 200 且字节一致。
+- 真实发行验收脚本及结果：`/tmp/miresidian-platform-verify-release.py`、`/tmp/miresidian-platform-release-results.json`。源码检出和固定发行 worktree 在上传后仍干净。
+
+官方 SHA-256：
+
+| crate | version | SHA-256 |
+| --- | --- | --- |
+| miresidian_abi | 0.16.0 | `d9cb2c08e2c0380698b21dd8a44c68be640f283746ae12d27a4c99c43e47a9c2` |
+| miresidian_macro | 0.23.2 | `c4535eb1bc858f8621de4a321a664f4c67bf0db00c85d3d8903685c0ee51e9af` |
+| miresidian | 0.27.0 | `bcbafb43b3de54a31d9c8268930260091683aecfab73363a893f6698b7afb7ca` |
+
+精确在线资料首次检查：三个组件 README/API、新零值常量、根 format 可选能力和源码入口共 12 页均 HTTP 404，尚未确认 docs.rs 收录/构建；精确版本 builds 页面同样 404。保留初次事实于 `/tmp/miresidian-platform-docs-initial-results.json`，不将 registry 上传成功当成 docs.rs 文档已生成。后续有限复查结果另记，不改写首次状态。
+
+在线文档有限复查结果：两轮 12 页精确链接检查均未能确认生成；第一轮全部 404，第二轮 10 页 404、根 README/API 两页 TLS 握手超时。另对三个精确版本 README 加查询参数并请求 no-cache，全部仍为 404；构建页面亦为 404，不能据此断言构建已失败或确认正在排队。最后探测时官方 API 记录的发布时刻分别为 ABI 2026-11-10T13:24:00Z、宏 13:24:21Z、根 13:25:02Z，探测约为 13:29 UTC（北京时间 21:29）。保留 `/tmp/miresidian-platform-docs-results.json` 与首次结果；docs.rs README/API、根 format 与新常量、源码在线页面均明确为尚未确认可用，不将 registry 和 GitHub 成功替代文档可用性。
+
+本次推送及 crates.io 正式发布完成；真实发行包、不可移动标签、GitHub 精确源码及 Cargo 包编译验证已通过。docs.rs 生成状态为待外部服务完成/可访问后再核对，属于明确保留的在线资料未完成项；未声明 Windows 加载或真实硬件新增验收。方案和验收记录的版本影响：无；仅记录已授权动作和实际结果，不改变产品源码、依赖、交付契约或已有版本。结果归档提交后仅推送 master，发行标签继续固定在 de9f16f。
