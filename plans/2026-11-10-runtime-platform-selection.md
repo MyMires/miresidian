@@ -61,3 +61,23 @@
 范围边界：仅本机模拟和进程内 ABI，无 Windows 原生 DLL 加载或真实硬件验收；不新增框架/工具全量回归、不改变独立节点、不推送或发布。源码候选、不可移动标签、registry 发行与 docs.rs 可用性分别看待。本轮没有查询候选的 registry/docs.rs 在线状态，也未将候选标记为已发布。
 
 提交要求：本方案与实现、文档、版本、锁文件同次暂存并执行钩子门禁；提交后用 `--require-tag` 核对 miresidian-v0.27.0，并为 ABI/宏执行 `--component ... --tag` 与 `--require-tag`。实际提交和标签以 Git 元数据及交付回复为准，已有版本标签不移动。
+
+## 推送与正式发布阶段（2026-11-10，用户追加授权）
+
+用户明确要求“推送和发布”，授权当前分支、本次三个版本标签的推送和对应 crate 的 crates.io 正式发布，及后续发行验收/方案结果归档。此前“仅本地交付/不发布”是实施阶段范围，本节作为本次发布阶段的执行依据。不升级独立 Node、不发布无关工具、不扩展实际设备操作。
+
+### 目标、设计与版本评估
+
+固定发行提交 de9f16f（feat: 支持零值平台进入运行时配置选择），不可移动标签 miresidian-v0.27.0、miresidian_abi-v0.16.0、miresidian_macro-v0.23.2 均指向该提交。按依赖顺序先 ABI 0.16.0、macro 0.23.2，再根 0.27.0；已发布精确依赖仅核对来源，不重复发布。不改变发行源码、已归档修订或已建标签；README 中的候选描述属于原实现阶段，实际发行状态由本节验收补充。仅追加本方案的授权和验收记录，版本影响：无；不改变产品、工具或可调用/可交付契约，无新产品版本。
+
+### 步骤与验收
+
+1. 核对干净状态、远端分支与三个标签；通过 crates.io 官方 API 查询三个目标版本和根全部内部精确依赖，拒绝覆盖已发布版本。复用前节已通过的测试、Clippy/Rustdoc 和头文件结果，不重复等价全量回归。
+2. 本方案先落盘并以纯方案提交归档，保留发行标签；在 /tmp 创建固定 de9f16f 的干净 detached worktree。该发行快照核对根、ABI、宏 require-tag 门禁；cargo package --list 核对三个发行包的 README/CHANGELOG、源码及根技术指导/头文件来源。相对引用越出子包的资料通过精确 Git 标签源码入口核实。
+3. 显式原子推送 master 和三个本次标签到 origin，禁用 force，不推送全部标签；实读远端分支和解引用标签，确保修订正确。
+4. 在干净固定发行 worktree 执行 cargo publish -p miresidian_abi --locked、cargo publish -p miresidian_macro --locked、cargo publish -p miresidian --locked --all-features。保留 Cargo 打包编译验证，不使用 allow-dirty/no-verify，不额外重复 dry-run。若失败先查询 registry 上传状态，再根据明确错误修正或重试。
+5. 发布后从官方 API 和 static.crates.io 核对精确版本未撤回、官方 SHA-256、真实发行包 README/CHANGELOG/规范化清单/.cargo_vcs_info.json 的修订及非 dirty。ABI 包核对编号 9 和零值常量；根核对新路由及全部 registry 精确依赖，宏核对转发源码未变。核对 GitHub 三个精确标签的源码/手册入口。
+6. 逐一访问 docs.rs 精确版本 README/API；根需覆盖重导出零值常量、ffi_runtime::invoke_with 说明、format 可选能力及源码入口，ABI 需覆盖新常量，宏需覆盖 node API。排队或失败时如实记录，有限复查，不以上传成功代替文档可用。
+7. 将实际命令、版本、提交/标签、checksum/来源及文档可用性记录到本方案，纯结果提交并推送 master；保留不可移动发行标签指向 de9f16f。最终核对干净状态、远端分支与全部发行标签，报告真实完成项和未验证边界。
+
+预计正式上传/编译及在线资料生成需要数分钟，docs.rs 排队可能更久。当前只读预检不代表已推送或已发布，执行结果待补充。
