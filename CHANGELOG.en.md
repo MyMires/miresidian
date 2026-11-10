@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## Node build feature selection workflow - 2026-11-11
+
+- Before creating or fully building a Node, or changing its feature combination, show the options supported by its actual versions, their purpose, default and active state, related configuration, combination constraints and delivery impact. Recommend a combination and let the user choose; reuse applicable prior choices and state when no options exist.
+- Record choices and configuration in the plan and carry them through dependencies, implementation, build/packaging, usage documentation and acceptance. Update planning references, review checks, UI prompts and the complete installed skill without maintaining a fixed feature catalog.
+- Version impact: none. Only skill workflow rules and the task plan change; framework 0.27.0, other components, source, templates, dependencies, lockfiles and existing tags remain unchanged. No unrelated builds. See plans/2026-11-11-node-feature-selection.md for validation.
+
 ## [0.27.0] - 2026-11-10
 
 - Route `miresidian_invoke_with(0, ...)` and JSON `platform:0` through existing Config-based platform selection. Queries publish choices for the host to present; InitDevice chooses an adapter and later zero calls follow it.
