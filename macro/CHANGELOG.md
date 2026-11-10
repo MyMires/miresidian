@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-11-10
+
+- 仅修订随包 README：ABI 版本由框架决定，框架 0.27.0 / ABI v9 支持 platform=0 进入 Config 选择；非零仍显式选择。宏源码、标注及生成逻辑保持。
+- English: Bundled guidance only. ABI version comes from the framework; framework 0.27.0 / ABI v9 routes platform zero through Config selection. Macro source and generated code are unchanged. Unpublished patch.
+
 ## [0.23.1] - 2026-11-07
 
 - 用中文补全 node/operation 的生成职责、模块别名绑定、cfg 传播、依赖重命名及 output 属性展开顺序；不改变生成的可执行代码或宏标注。

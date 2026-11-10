@@ -12,9 +12,9 @@ use std::{
 use serde::Serialize;
 
 use crate::{
-    DeviceNode, ErrorCategory, Invocation, MIRESIDIAN_STATUS_INTERNAL_ERROR,
-    MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED,
-    MiresidianError, MiresidianStatus, NodeRuntime, Platform,
+    DeviceNode, ErrorCategory, Invocation, MIRESIDIAN_PLATFORM_RUNTIME_SELECT,
+    MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
+    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus, NodeRuntime, Platform,
 };
 
 const INTERNAL_ERROR_RESPONSE: &str =
@@ -62,9 +62,11 @@ pub unsafe fn invoke<N: DeviceNode>(
     }))
 }
 
-/// 使用显式平台适配器调用 DLL，并返回 DLL 持有的 JSON C 字符串指针。
+/// 按平台路由值调用 DLL，并返回 DLL 持有的 JSON C 字符串指针。
 ///
-/// 此路径对应 `NodeRuntime::invoke_with`：`platform` 必须是节点 DLL 已注册的平台枚举数值；
+/// `platform` 为 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`（0）时与 [`invoke`] 等价：
+/// 查询发布 `平台适配` 选择器，`InitDevice` 通过 Config 选择，后续使用已选平台。
+/// 非零值必须是节点 DLL 已注册的平台枚举数值，对应 `NodeRuntime::invoke_with`：
 /// `InitDevice` 的 Config 不发布也不接受 `平台适配` 选择器。
 ///
 /// # Safety
@@ -78,7 +80,7 @@ pub unsafe fn invoke_with<N: DeviceNode>(
     config_json: *const c_char,
     input_json: *const c_char,
 ) -> *const c_char {
-    // SAFETY: 字符串指针满足此函数的调用契约；platform 在 dispatch_with 中校验。
+    // SAFETY: 字符串指针满足此函数的调用契约；dispatch_with 先处理 0 路由，再校验具体编号。
     store_response(caught_response(|| unsafe {
         dispatch_with(runtime, platform, function, config_json, input_json)
     }))
@@ -87,8 +89,8 @@ pub unsafe fn invoke_with<N: DeviceNode>(
 /// 从完整 JSON 请求调用 DLL，返回 DLL 持有的 JSON 响应文本。
 ///
 /// `function` 为必填非空字符串，`config`/`input` 为可省略的字符串数组（默认 `[]`）。
-/// 可选的 `platform` 必须为 u32 JSON 整数；提供时沿用 [`invoke_with`] 的显式平台规则，
-/// 省略时沿用 [`invoke`] 的 Config 平台选择流程，不隐式补平台编号。
+/// 可选的 `platform` 必须为 u32 JSON 整数；省略或为 0 时沿用 [`invoke`] 的 Config
+/// 平台选择流程，非零时沿用 [`invoke_with`] 的显式平台规则，不隐式补平台编号。
 /// 拒绝显式 null、未知字段、重复字段及错误类型，参数错误返回统一 INVALID_ARGUMENT 响应。
 ///
 /// 所有入口共用线程局部响应缓存；返回文本在同线程下一次调用任一入口、线程退出或
@@ -177,6 +179,10 @@ unsafe fn dispatch_with<N: DeviceNode>(
     config_json: *const c_char,
     input_json: *const c_char,
 ) -> crate::MiresidianResult<Vec<String>> {
+    if platform == MIRESIDIAN_PLATFORM_RUNTIME_SELECT {
+        // SAFETY: 调用方保证输入 C 字符串有效，0 完全沿用默认入口的解析与选择流程。
+        return unsafe { dispatch(runtime, function, config_json, input_json) };
+    }
     let platform =
         Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?;
     // SAFETY: 调用方提供有效 C 字符串；这些函数检查空指针、UTF-8 和 JSON。
@@ -193,6 +199,11 @@ fn dispatch_platform<N: DeviceNode>(
     platform: u32,
     invocation: Invocation,
 ) -> crate::MiresidianResult<Vec<String>> {
+    if platform == MIRESIDIAN_PLATFORM_RUNTIME_SELECT {
+        return invoke_runtime(runtime, N::platform_registry, |runtime| {
+            runtime.invoke(&invocation)
+        });
+    }
     let platform =
         Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?;
     invoke_platform(runtime, platform, invocation)

@@ -120,7 +120,7 @@ fn legacy(
 
 #[test]
 fn absent_platform_and_numeric_platform_preserve_existing_routes() {
-    for platform in [None, Some(1), Some(65_536)] {
+    for platform in [None, Some(0), Some(1), Some(65_536)] {
         let runtime = Runtime::new();
         let mut query = json!({"function":"GetInitConfig"});
         if let Some(platform) = platform {
@@ -131,8 +131,8 @@ fn absent_platform_and_numeric_platform_preserve_existing_routes() {
             legacy(&runtime, platform, "GetInitConfig", json!([]), json!([]))
         );
         let mut config = json!(["A"]);
-        // 省略 platform 时通过 Config 选择自定义平台，不能偷偷补成 TB 编号 1。
-        if platform.is_none() {
+        // 省略 platform 或传 0 时通过 Config 选择自定义平台，不能补成 TB 编号 1。
+        if platform.is_none() || platform == Some(0) {
             config
                 .as_array_mut()
                 .unwrap()
@@ -166,6 +166,109 @@ fn absent_platform_and_numeric_platform_preserve_existing_routes() {
             legacy(&runtime, platform, "CloseDevice", json!(["A"]), json!([]))["code"],
             "OK"
         );
+    }
+}
+
+#[test]
+fn zero_routes_metadata_selection_and_lifecycle_through_config() {
+    for json_entry in [false, true] {
+        let runtime = Runtime::new();
+        let call = |function: &str, config: Value, input: Value| {
+            if json_entry {
+                request(
+                    &runtime,
+                    &json!({"platform":0,"function":function,"config":config,"input":input})
+                        .to_string(),
+                )
+            } else {
+                legacy(
+                    &runtime,
+                    Some(miresidian::MIRESIDIAN_PLATFORM_RUNTIME_SELECT),
+                    function,
+                    config,
+                    input,
+                )
+            }
+        };
+        for function in ["GetInitConfig", "GetFunctions"] {
+            let metadata = call(function, json!([]), json!([]));
+            assert_eq!(metadata["code"], "OK");
+            assert_eq!(
+                metadata,
+                legacy(&runtime, None, function, json!([]), json!([]))
+            );
+            assert!(metadata["output"].as_array().unwrap().iter().any(|value| {
+                value
+                    .as_str()
+                    .unwrap()
+                    .contains("平台适配:request_test/tb_lv_test_platform")
+            }));
+            for platform in [1, 65_536] {
+                let explicit = legacy(&runtime, Some(platform), function, json!([]), json!([]));
+                assert_eq!(explicit["code"], "OK");
+                assert!(
+                    explicit["output"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .all(|value| { !value.as_str().unwrap().contains("平台适配:") })
+                );
+            }
+        }
+        let invalid = call("InitDevice", json!(["A", "平台适配:missing"]), json!([]));
+        assert_eq!(invalid["code"], "UNKNOWN_PLATFORM_ADAPTER");
+        assert_eq!(invalid["status"], 1);
+        assert_eq!(
+            call(
+                "InitDevice",
+                json!(["A", "平台适配:request_test"]),
+                json!([])
+            )["code"],
+            "OK"
+        );
+        assert_eq!(
+            call("Record", json!(["A"]), json!(["zero"]))["output"],
+            json!(["zero", "1", "custom"])
+        );
+        // 省略平台与非零显式入口访问同一个实例，业务 Config 无需重复平台选择器。
+        for (index, platform) in [None, Some(65_536)].into_iter().enumerate() {
+            let response = legacy(
+                &runtime,
+                platform,
+                "Record",
+                json!(["A"]),
+                json!(["shared"]),
+            );
+            assert_eq!(
+                response["output"],
+                json!(["shared", (index + 2).to_string(), "custom"])
+            );
+        }
+        let conflict = call(
+            "InitDevice",
+            json!(["B", "平台适配:tb_lv_test_platform"]),
+            json!([]),
+        );
+        assert_eq!(conflict["code"], "INVALID_ARGUMENT");
+        assert_eq!(conflict["status"], 1);
+        assert_eq!(
+            call("Record", json!(["A"]), json!(["retained"]))["output"],
+            json!(["retained", "4", "custom"])
+        );
+        assert_eq!(call("CloseDevice", json!(["A"]), json!([]))["code"], "OK");
+        assert_eq!(
+            call(
+                "InitDevice",
+                json!(["B", "平台适配:tb_lv_test_platform"]),
+                json!([])
+            )["code"],
+            "OK"
+        );
+        assert_eq!(
+            call("Record", json!(["B"]), json!(["tb"]))["output"],
+            json!(["tb", "1"])
+        );
+        assert_eq!(call("CloseDevice", json!(["B"]), json!([]))["code"], "OK");
     }
 }
 
@@ -226,7 +329,6 @@ fn invalid_requests_are_rejected_before_runtime_creation() {
 fn platform_numbers_keep_stable_codes_and_explicit_selector_rules() {
     let runtime = Runtime::new();
     for (platform, code) in [
-        (0, "INVALID_PLATFORM_ID"),
         (2, "INVALID_PLATFORM_ID"),
         (65_535, "INVALID_PLATFORM_ID"),
         (65_537, "UNKNOWN_PLATFORM_ADAPTER"),
@@ -282,7 +384,7 @@ fn request_panics_return_errors_and_allow_cleanup_and_later_queries() {
 
 #[test]
 fn macro_exports_share_state_across_all_three_entries() {
-    assert_eq!(miresidian_abi_version(), 8);
+    assert_eq!(miresidian_abi_version(), 9);
     // SAFETY: 全部 C 字符串在调用期间有效；每次响应立即读取到拥有的 JSON 值中。
     unsafe {
         let initialized = copy_response(miresidian_invoke(
@@ -292,11 +394,12 @@ fn macro_exports_share_state_across_all_three_entries() {
         ));
         assert_eq!(initialized["code"], "OK");
         let first = copy_response(miresidian_invoke_request(
-            c"{\"function\":\"Record\",\"config\":[\"A\"],\"input\":[\"one\"]}".as_ptr(),
+            c"{\"platform\":0,\"function\":\"Record\",\"config\":[\"A\"],\"input\":[\"one\"]}"
+                .as_ptr(),
         ));
         assert_eq!(first["output"], json!(["one", "1"]));
         let second = copy_response(miresidian_invoke_with(
-            1,
+            miresidian::MIRESIDIAN_PLATFORM_RUNTIME_SELECT,
             c"Record".as_ptr(),
             c"[\"A\"]".as_ptr(),
             c"[\"two\"]".as_ptr(),

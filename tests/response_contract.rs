@@ -151,7 +151,7 @@ fn expect(response: &serde_json::Value, status: i32, code: &str) {
 
 #[test]
 fn both_entries_preserve_version_queries_and_output_with_code() {
-    for platform in [None, Some(1)] {
+    for platform in [None, Some(0), Some(1)] {
         let runtime = Runtime::new();
         let framework = call(&runtime, platform, "GetFrameworkVersion", &[], &[]);
         expect(&framework, 0, "OK");
@@ -178,7 +178,7 @@ fn both_entries_preserve_version_queries_and_output_with_code() {
 
 #[test]
 fn both_entries_report_stable_lifecycle_and_business_codes() {
-    for platform in [None, Some(1)] {
+    for platform in [None, Some(0), Some(1)] {
         let runtime = Runtime::new();
         expect(
             &call(&runtime, platform, "数值", &["A"], &["1"]),
@@ -226,7 +226,7 @@ fn unknown_platform_is_distinct_from_reserved_platform_number() {
         1,
         "UNKNOWN_PLATFORM_ADAPTER",
     );
-    for platform in [0, 2, 65_535] {
+    for platform in [2, 65_535] {
         expect(
             &call(&runtime, Some(platform), "GetFunctions", &[], &[]),
             1,
@@ -242,7 +242,7 @@ fn unknown_platform_is_distinct_from_reserved_platform_number() {
 
 #[test]
 fn malformed_abi_inputs_keep_the_same_four_fields() {
-    for platform in [None, Some(1)] {
+    for platform in [None, Some(0), Some(1)] {
         let runtime = Runtime::new();
         let invalid_utf8 = CStr::from_bytes_with_nul(&[0xff, 0]).unwrap();
         for (function, config, input) in [

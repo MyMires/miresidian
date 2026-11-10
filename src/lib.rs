@@ -100,9 +100,9 @@ pub mod codec {
 
 pub use interop::{ffi, ffi_runtime};
 pub use miresidian_abi::{
-    MIRESIDIAN_ABI_VERSION, MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianStatus,
-    MiresidianTextArray,
+    MIRESIDIAN_ABI_VERSION, MIRESIDIAN_PLATFORM_RUNTIME_SELECT, MIRESIDIAN_STATUS_INTERNAL_ERROR,
+    MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED,
+    MiresidianStatus, MiresidianTextArray,
 };
 pub use miresidian_codec::{
     ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,

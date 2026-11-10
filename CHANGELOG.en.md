@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-10
+
+- Route `miresidian_invoke_with(0, ...)` and JSON `platform:0` through existing Config-based platform selection. Queries publish choices for the host to present; InitDevice chooses an adapter and later zero calls follow it.
+- Add `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`; advance C ABI to v9 and ABI crate to 0.16.0. Preserve nonzero selection, live-instance switching constraints, responses and ownership. Macro 0.23.2 updates bundled guidance only; align exact dependencies and the workspace lockfile.
+- Update headers, Rustdoc, bilingual READMEs, guides and v8/v9 migration examples. Local candidates and tags only; no push, publication or independent-node upgrade. See plans/2026-11-10-runtime-platform-selection.md for validation evidence.
+
 ## [0.26.2] - 2026-11-08
 
 - Classify documentation by node development, runtime topics, host integration, maintenance and history. Define each topic in one guide and replace duplicate parameter, instance and shared-lifecycle rules with links.

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-10
+
+- C ABI 升至 v9，新增 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT = 0`：带平台入口的零值复用 Config 选择；非零平台、函数签名、响应结构与指针有效期保持。
+- 同步头文件、Rust 常量/元数据测试、README 及框架迁移说明；源码候选未发布。
+- English: C ABI v9 adds `MIRESIDIAN_PLATFORM_RUNTIME_SELECT = 0` for Config selection in both platform-taking entries. Nonzero selection, signatures and response ownership remain unchanged. Update header, metadata consistency tests and guidance; unpublished source candidate.
+
 ## [0.15.1] - 2026-11-07
 
 - 修正 README 的发行状态说明，区分已发布 0.15.0 与本次未发布源码，提供明确的精确依赖及文档入口。

@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.26.2"
+version = "0.27.0"
 dependencies = [
  "futures-util",
  "inventory",
@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.15.1"
+version = "0.16.0"
 
 [[package]]
 name = "miresidian_batch"
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.23.1"
+version = "0.23.2"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

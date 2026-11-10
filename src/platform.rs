@@ -37,7 +37,10 @@ impl Platform {
         }
     }
 
-    /// 由 C ABI 数值解析平台。保留编号和零值会被拒绝。
+    /// 由 C ABI 数值解析具体适配器。保留编号和零值会被拒绝。
+    ///
+    /// C ABI 调用入口先将 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`（0）路由至 Config
+    /// 平台选择流程；该入口路由值不表示具体适配器，因此本方法仍返回 `None`。
     pub const fn from_abi(value: u32) -> Option<Self> {
         match value {
             Self::TB_LV_TEST_PLATFORM => Some(Self::TbLvTestPlatform),

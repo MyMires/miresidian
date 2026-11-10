@@ -7,5 +7,5 @@ int main(void) {
 
     const char *(MIRESIDIAN_CALL *invoke_request)(const char *) = miresidian_invoke_request;
 
-    return (abi_version == 0 || invoke == 0 || invoke_with == 0 || invoke_request == 0 || MIRESIDIAN_STATUS_OK != 0 || MIRESIDIAN_ABI_VERSION != 8);
+    return (abi_version == 0 || invoke == 0 || invoke_with == 0 || invoke_request == 0 || MIRESIDIAN_STATUS_OK != 0 || MIRESIDIAN_ABI_VERSION != 9 || MIRESIDIAN_PLATFORM_RUNTIME_SELECT != 0);
 }

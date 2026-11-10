@@ -82,7 +82,7 @@
 - 常量使用 `SCREAMING_SNAKE_CASE`。
 - 默认保持私有；仅当跨 crate、宏生成代码或调用方确实需要时才暴露 `pub` API。
 - Rust 内部采用惯用命名，例如 `invoke`、`init_device`、`close_device`。
-- C ABI 导出符号和对外 Operation 名称以契约为准。当前 C ABI v8 调用入口为 `miresidian_invoke_request`、`miresidian_invoke` 与 `miresidian_invoke_with`；前者接收完整 JSON 请求，后两者保留分参契约。
+- C ABI 导出符号和对外 Operation 名称以契约为准。当前 C ABI v9 调用入口为 `miresidian_invoke_request`、`miresidian_invoke` 与 `miresidian_invoke_with`；前者接收完整 JSON 请求，后两者保留分参签名；两个带 platform 的入口传 0 进入现有 Config 平台选择流程。
 - 物理量、超时、长度等应通过名称或文档表明单位，例如 `timeout_ms`、`voltage_v`、`maximum_bytes`。
 - 禁止散落的魔法数字；协议常量、默认值和状态码必须定义为具名常量或明确的枚举成员。
 

@@ -31,8 +31,12 @@ use miresidian::{config, input, node, operation, output};
 
 ## 完整请求入口（0.23.0 起）
 
-`node` 自动生成 C ABI v8 的 `miresidian_invoke_request(const char *request_json)`，同时保留原有 `miresidian_invoke`、`miresidian_invoke_with` 及 ABI 版本查询。完整请求含 function、config、input 和可选数值 platform；省略 platform 沿用初始化 Config 的平台选择，提供时沿用显式平台规则。三个调用入口共用同一个运行时，节点作者无需增加标注或手写导出。请求解析和响应生命周期由框架 0.26.0 统一实现，完整字段与迁移见 [C ABI](../docs/c-abi.md#完整请求入口v8)。
+`node` 自动生成 C ABI 的 `miresidian_invoke_request(const char *request_json)`，同时保留原有 `miresidian_invoke`、`miresidian_invoke_with` 及 ABI 版本查询。完整请求含 function、config、input 和可选数值 platform；省略 platform 沿用初始化 Config 的平台选择，非零数值沿用显式平台规则。ABI 版本由所依赖框架的常量决定；框架 0.27.0 / ABI v9 起，数值 0 同样进入 Config 选择流程，宿主从 GetInitConfig/GetFunctions 呈现选项，再在 InitDevice 中传入用户选择。宏生成逻辑与标注无需改变。三个调用入口共用同一个运行时，节点作者无需增加标注或手写导出。请求解析和响应生命周期自框架 0.26.0 起由根运行时统一实现，完整字段与迁移见 [C ABI](../docs/c-abi.md#完整请求入口v8)。
 
-0.23.0 已随框架 0.26.0 的后续授权阶段正式发布，见[发布验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)。本检出为尚未发布的 0.23.1，补充生成职责、条件编译、output 展开顺序及中文说明，不改变生成的可执行代码。独立节点仍采用已发布框架的精确依赖，不用本地覆盖替代发行。
+0.23.0 已随框架 0.26.0 的后续授权阶段正式发布，见[发布验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)。本检出为尚未发布的 0.23.2，仅修订框架 ABI v9 的平台路由指导，不改变生成的可执行代码。独立节点仍采用已发布框架的精确依赖，不用本地覆盖替代发行。
 
 Pack 0.13.2 及本次 0.13.3 源码的 `new/init` 模板仍只接受 ABI v7；创建时显式选择已发布的 v7 框架，见[命令](../tools/miresidian-pack/README.md#最小模板)。既有节点手动升级到已发布 v8 框架时，须按实际头文件更新交付说明。TestFlow 保留原同步入口调用方式，不因此自动采用完整请求入口。
+
+## English
+
+Unpublished source 0.23.2 updates bundled guidance only. Generated exports obtain the ABI version from the framework. With framework 0.27.0 / ABI v9, platform zero follows Config selection: query the choices, present them in the host, and pass the chosen identifier in InitDevice Config. Nonzero values retain explicit selection. Macro annotations and generated code are unchanged.

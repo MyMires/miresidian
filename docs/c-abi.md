@@ -11,7 +11,7 @@
 Miresidian 节点 DLL 导出完整请求入口 `miresidian_invoke_request`，并保留默认入口 `miresidian_invoke` 与显式平台入口 `miresidian_invoke_with`。三个入口均使用 UTF-8 文本，
 不要求调用方分配输出缓冲区，不传递 Rust 结构体。
 
-ABI 版本由 miresidian_abi_version() 查询；本页描述 C ABI v8，签名以[公共头文件](../abi/api/miresidian.h)为准。组件版本和发行状态按[实际版本](README.md#按实际版本查阅)核对。
+ABI 版本由 miresidian_abi_version() 查询；本页描述 C ABI v9，签名以[公共头文件](../abi/api/miresidian.h)为准。组件版本和发行状态按[实际版本](README.md#按实际版本查阅)核对。
 
 ### 入口声明
 
@@ -32,7 +32,7 @@ const char *miresidian_invoke_with(
     const char *input_json);
 ~~~
 
-- platform：仅 `miresidian_invoke_with` 使用；`uint32_t` 平台枚举值。`1` 为 `tb_lv_test_platform`，第三方平台使用不小于 `65536` 的已注册值。
+- platform：仅 `miresidian_invoke_with` 使用；`uint32_t` 平台路由值。`0` 进入 Config 选择流程，`1` 为 `tb_lv_test_platform`，第三方平台使用不小于 `65536` 的已注册值。
 - function：UTF-8 C 字符串，例如 GetFunctions、GetFrameworkVersion、GetProjectVersion、InitDevice、CloseAllDevices 或节点操作名。
 - config_json、input_json：JSON 字符串数组，例如 ["COM3","9600"]；传 NULL 等同于 []。数组元素不能是数值、布尔值或对象。
 - 返回值 `result_json`：DLL 内部保存的 UTF-8 JSON C 字符串指针。
@@ -42,7 +42,7 @@ request_json 为完整请求入口的单个 UTF-8 JSON 对象文本，契约见�
 三个调用入口共享运行时及当前线程响应缓存。DLL 在当前线程中持有返回文本。调用方无需分配输出缓冲区、无需传容量、也不得释放返回指针；
 应在同一线程下一次调用任一调用入口前将文本复制到自己的内存；线程退出或 DLL 卸载同样使指针失效，以最早发生者为准。ABI 版本查询不替换响应缓存。
 
-默认入口按 `InitDevice` 的保留 `平台适配` Config 选择平台。显式平台入口对应 Rust 的 `NodeRuntime::invoke_with`：平台枚举数值单独传入，`InitDevice` Config 不发布也不接受 `平台适配`。
+默认入口按 `InitDevice` 的保留 `平台适配` Config 选择平台。带 platform 的入口在值为 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`（0）时复用默认入口；非零时对应 Rust 的 `NodeRuntime::invoke_with`，`InitDevice` Config 不发布也不接受 `平台适配`。
 
 例如，调用 GetFunctions：
 
@@ -75,15 +75,19 @@ const char *result_json = miresidian_invoke_request(
 | function | 必填字符串 | 非空，操作名精确匹配，不 trim |
 | config | 字符串数组，省略为 [] | 按 Config 声明顺序；不可把数组再次编码为字符串 |
 | input | 字符串数组，省略为 [] | 按 Input 声明顺序 |
-| platform | 可选 u32 JSON 整数 | 省略沿用 miresidian_invoke；提供沿用 miresidian_invoke_with |
+| platform | 可选 u32 JSON 整数 | 省略或 0 沿用 miresidian_invoke；非零沿用显式平台路径 |
 
 字段顺序任意；拒绝未知字段、重复字段、任何字段的显式 null、非对象请求、非法 JSON/UTF-8、空指针及错误类型，返回 `status:1/code:INVALID_ARGUMENT/output:[]`。platform 不接受名称、数字字符串（如 `"1"`）、布尔、负数、小数（包括 `1.0`/`1e0`）或整数溢出。
 
-平台编号是稳定标识，不是 Rust/C 枚举声明顺序：`1` 对应 `MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM`，`2..65535` 当前保留，第三方从 `MIRESIDIAN_PLATFORM_CUSTOM_MIN`（65536）开始且须编译并注册进当前 DLL。`0` 或无效保留编号返回 `INVALID_PLATFORM_ID`；合法未注册编号（包括未注册的 u32 最大值）返回 `UNKNOWN_PLATFORM_ADAPTER`，status 均为 1。升级不能随意重新分配既有编号。
+平台编号是稳定标识，不是 Rust/C 枚举声明顺序：`1` 对应 `MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM`，`2..65535` 当前保留，第三方从 `MIRESIDIAN_PLATFORM_CUSTOM_MIN`（65536）开始且须编译并注册进当前 DLL。`0`（`MIRESIDIAN_PLATFORM_RUNTIME_SELECT`）为运行时 Config 选择流程入口，不代表具体适配器；无效保留编号返回 `INVALID_PLATFORM_ID`；合法未注册编号（包括未注册的 u32 最大值）返回 `UNKNOWN_PLATFORM_ADAPTER`，status 均为 1。升级不能随意重新分配既有编号。
 
-省略 platform 不等于补 1：初始化前查询、`InitDevice` 的“平台适配”保留 Config、选型后的调用及平台切换限制均沿用默认入口。例如先查询 `{"function":"GetInitConfig"}`，按发布顺序传业务 Config 与所选平台文本，再初始化。后续省略 platform 的请求继续使用运行时已选择的平台。显式提供 platform 时初始化元数据和 Config 均不含该选择器，重复传入返回参数错误。
+省略 platform 或传 `0` 不等于补 1：初始化前查询、`InitDevice` 的“平台适配”保留 Config、选型后的调用及平台切换限制均沿用默认入口。例如先查询 `{"platform":0,"function":"GetInitConfig"}`，由宿主展示返回的 `平台适配:<id...>` 选项，按发布顺序传业务 Config 与所选平台文本，再初始化。后续省略 platform 或传 `0` 的请求继续使用运行时已选择的平台。未传选择项时保持默认平台；已有实例存活期间切换仍返回 `INVALID_ARGUMENT`，全部关闭后可重新选择。显式提供非零 platform 时初始化元数据和 Config 均不含该选择器，重复传入返回参数错误。框架不弹出选择窗口，也不因 `0` 自动替换 function；它仍执行请求指定的查询或业务操作。
 
 request_json 非 NULL 时必须是调用期间可读、NUL 结尾的 C 字符串；输入内存归调用方。无效地址或缺少 NUL 终止符无法安全校验。可展开 panic 按既有错误隔离规则返回统一响应；新入口不新增线程、设备实例或独立响应缓存。
+
+#### v8 到 v9 迁移
+
+框架 0.27.0 / ABI crate 0.16.0 起，`miresidian_invoke_with(0, ...)` 和 JSON 的 `"platform":0` 从 `INVALID_PLATFORM_ID` 改为 Config 选择流程；三个函数签名、响应及缓存所有权保持。具体适配器解析 `Platform::from_abi(0)` 仍为 `None`，入口先处理零值路由。宿主先核对 DLL 返回 ABI 9，评估并更新支持版本集合；v8 DLL 仍拒绝 0，可用省略 platform 或默认入口选择平台。安装示例不能将未发布候选视作可安装版本。参见[0.27.0 调用与迁移](releases/0.27.0.md)。
 
 #### v7 到 v8 迁移
 
@@ -163,7 +167,7 @@ FFI 和异步请求边界捕获额外运行时异常并执行清理。三个同�
 | 0 | `OK` | 成功，业务结果位于 output。 |
 | 1 | `INVALID_ARGUMENT` | UTF-8、JSON、参数类型、数量或配置不合法。 |
 | 1 | `INVALID_OPERATION` | 未知操作。 |
-| 1 | `INVALID_PLATFORM_ID` | 零值或未分配的保留平台编号。 |
+| 1 | `INVALID_PLATFORM_ID` | 未分配的保留平台编号（2..65535）；0 为 Config 选择入口。 |
 | 1 | `UNKNOWN_PLATFORM_ADAPTER` | 平台未在节点 DLL 中注册。 |
 | 2 | `NOT_INITIALIZED` | 尚未初始化。 |
 | 2 | `UNKNOWN_CHANNEL` | 配置未对应已登记通道。 |
@@ -195,9 +199,9 @@ Function + Config[] + Input[] -> Output[]
 | C ABI 入口 | 结果形式 |
 | --- | --- |
 | `miresidian_abi_version` | 返回当前 ABI 版本号。 |
-| `miresidian_invoke_request` | 接收完整请求对象，可选数值 platform；省略时由 InitDevice Config 选择平台。 |
+| `miresidian_invoke_request` | 接收完整请求对象，可选数值 platform；省略或 0 时由 InitDevice Config 选择平台。 |
 | `miresidian_invoke` | 使用 InitDevice Config 选择平台，返回 DLL 持有的 `result_json`。 |
-| `miresidian_invoke_with` | 显式传入已注册的平台枚举值，语义对应 `NodeRuntime::invoke_with`，返回相同 `result_json`。 |
+| `miresidian_invoke_with` | 传 0 进入 Config 选择；非零显式指定已注册适配器，对应 `NodeRuntime::invoke_with`，返回相同 `result_json`。 |
 
 `miresidian_invoke_request` 使用上一节的完整 JSON 请求对象。既有 `miresidian_invoke` 以 `function`、`config_json`、`input_json` 传入业务请求；`miresidian_invoke_with` 在其前额外传入 `uint32_t platform`。`config_json`
 与 `input_json` 是 UTF-8 JSON 字符串数组；原生入口不会直接传递字符串指针数组。完整的参数
@@ -318,7 +322,7 @@ struct MyPlatformAdapter;
 
 ## 执行器与模块加载引用（0.15.1）
 
-三个调用入口都同步返回，跨实例并行由运行时内部完成；当前 C ABI v8 只新增完整请求入口，没有新增任务导出。
+三个调用入口都同步返回，跨实例并行由运行时内部完成；当前 C ABI v9 沿用 v8 的完整请求及既有两个入口，新增零值平台路由，没有新增任务导出。
 执行器启动后台线程前取得承载模块的额外加载引用；工作线程退出前该引用不会释放，避免宿主释放自身句柄导致后台代码悬空。
 宿主每次调用及读取返回文本期间仍须持有自己的加载引用，不能在调用过程中释放最后一个宿主引用。
 当前 C 入口没有最终执行器关闭操作，释放宿主句柄后模块可能保留至进程退出；Rust 嵌入可排空任务并关闭实例，再调用 shutdown_executor 等待线程退出和释放框架引用。
@@ -340,8 +344,8 @@ batch 方法的业务参数仍按 GetFunctions 发布的顺序组织 Input 字�
 
 共享初始化、最后引用关闭和迁移统一见[共享资源](shared-resources.md#现有-lease-标签自动共享节点资源)，不新增 C ABI 入口；宿主仍按本页的同步响应契约调用。
 
-### 当前完整请求 ABI 的适用范围（0.26.0）
+### 当前完整请求 ABI 的适用范围（0.27.0）
 
-本页历史特性段落中的“ABI v7 不变”指各特性引入当时的既有两个入口。当前 DLL 版本为 v8，新增完整请求入口；业务 Config/Input 布局、batch/format、同步调度、错误响应和租约/资源协议均未由本次改变。
+本页历史特性段落中的“ABI v7 不变”指各特性引入当时的既有两个入口。当前 DLL 版本为 v9，沿用 v8 的完整请求入口，并让 platform=0 复用现有 Config 平台选择。非零显式平台、业务 Config/Input 布局、batch/format、同步调度、响应结构及租约/资源协议保持。
 
 模板接受的 ABI 范围按所用版本的 [Pack 手册](../tools/miresidian-pack/README.md#最小模板)核对；TestFlow 的实际调用入口按其[工具说明](../tools/miresidian-testflow-windows/README.md)核对，不从框架版本推断工具能力。
