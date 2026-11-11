@@ -10,8 +10,6 @@ pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
 
 /// 框架自动追加到 `InitDevice` 的平台适配器选择器名称。
 pub const PLATFORM_ADAPTER_NAME: &str = "平台适配";
-/// 未显式构造平台注册表时发布的默认平台适配器。
-pub const PLATFORM_ADAPTER_DEFINITION: &str = "平台适配:tb_lv_test_platform";
 
 /// 节点租约的激活策略。`Selectable` 由平台在初始化时选择访问路径。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,12 +62,31 @@ pub struct ParameterDescriptor {
     pub definition: &'static str,
     /// 明确指定的框架选择器或手写契约默认值；业务参数宏不从描述推导此值。
     pub default_value: Option<&'static str>,
+    /// 原 Rust 输入类型提供的结构化候选，格式与输入表示由平台适配器决定。
+    pub enum_options: &'static [crate::EnumOption],
 }
 
 impl ParameterDescriptor {
-    /// 生成 C# 兼容的元数据形式：`名称` 或 `名称:默认值`。
+    /// 原样返回声明，不选择平台或生成候选。平台查询使用 definition_for。
     pub fn definition(&self) -> String {
         self.definition.to_owned()
+    }
+
+    /// 是否应使用类型候选；已有非空默认/候选描述优先保留。
+    pub fn has_auto_options(&self) -> bool {
+        !self.enum_options.is_empty()
+            && self
+                .definition
+                .split_once(':')
+                .is_none_or(|(_, rest)| rest.trim().is_empty())
+    }
+
+    /// 使用调用方明确指定的平台生成参数描述。
+    pub fn definition_for(
+        &self,
+        adapter: &dyn crate::PlatformAdapter,
+    ) -> crate::MiresidianResult<String> {
+        adapter.format_parameter(self)
     }
 }
 
@@ -87,6 +104,19 @@ pub struct OperationDescriptor {
 }
 
 impl OperationDescriptor {
+    /// 按明确的平台格式发布操作参数；不缓存其他平台的结果。
+    pub fn signature_for(
+        &self,
+        adapter: &dyn crate::PlatformAdapter,
+    ) -> crate::MiresidianResult<String> {
+        Ok(format!(
+            "{}({})({})",
+            self.name,
+            definitions_for(self.inputs, adapter)?,
+            definitions_for(self.outputs, adapter)?
+        ))
+    }
+
     /// 生成兼容签名：`名称(输入...)(输出...)`。
     pub fn signature(&self) -> String {
         format!(
@@ -98,7 +128,7 @@ impl OperationDescriptor {
     }
 }
 
-/// 设备节点的编译期元数据。
+/// 业务节点的编译期元数据。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeDescriptor {
     /// 用于诊断及后续发现机制的稳定节点名称。
@@ -120,6 +150,57 @@ pub struct NodeDescriptor {
 }
 
 impl NodeDescriptor {
+    /// 由调用平台生成初始化 Config 描述，不包含运行时平台选择器。
+    pub fn init_config_definitions_for(
+        &self,
+        adapter: &dyn crate::PlatformAdapter,
+    ) -> crate::MiresidianResult<Vec<String>> {
+        let mut values = self.config_definitions();
+        for (value, parameter) in values.iter_mut().zip(self.init_config) {
+            *value = parameter.definition_for(adapter)?;
+        }
+        Ok(values)
+    }
+
+    /// 由调用平台生成所有查询、生命周期及业务操作的参数描述。
+    pub fn function_signatures_for(
+        &self,
+        adapter: &dyn crate::PlatformAdapter,
+    ) -> crate::MiresidianResult<Vec<String>> {
+        let config = self.init_config_definitions_for(adapter)?;
+        let mut init = config.clone();
+        init.extend(
+            self.init_inputs
+                .iter()
+                .map(|p| p.definition_for(adapter))
+                .collect::<crate::MiresidianResult<Vec<_>>>()?,
+        );
+        let mut values = vec![
+            "GetFunctions()(函数列表)".to_owned(),
+            "GetFrameworkVersion()(框架版本)".to_owned(),
+            "GetProjectVersion()(项目版本)".to_owned(),
+            format!("GetInitConfig()({})", config.join(",")),
+            format!(
+                "GetPortNO({})(搜索结果,端口号)",
+                definitions_for(self.port_probe_inputs, adapter)?
+            ),
+            format!(
+                "InitDevice({})({})",
+                init.join(","),
+                definitions_for(self.init_outputs, adapter)?
+            ),
+            "CloseDevice()()".to_owned(),
+            "CloseAllDevices()()".to_owned(),
+        ];
+        values.extend(
+            self.operations
+                .iter()
+                .map(|operation| operation.signature_for(adapter))
+                .collect::<crate::MiresidianResult<Vec<_>>>()?,
+        );
+        Ok(values)
+    }
+
     /// 返回固定操作和节点自定义操作的全部签名。
     pub fn function_signatures(&self) -> Vec<String> {
         let mut signatures = Vec::with_capacity(self.operations.len() + 8);
@@ -145,42 +226,12 @@ impl NodeDescriptor {
         signatures
     }
 
-    /// 返回包含运行时平台注册表的平台选择器的全部签名。
-    pub fn function_signatures_with_platform(&self, platform_selector: &str) -> Vec<String> {
-        let mut signatures = Vec::with_capacity(self.operations.len() + 8);
-        signatures.push(format!("GetFunctions()({})", "函数列表"));
-        signatures.push(format!("GetFrameworkVersion()({})", "框架版本"));
-        signatures.push(format!("GetProjectVersion()({})", "项目版本"));
-        signatures.push(format!(
-            "GetInitConfig()({})",
-            self.init_config_definition_with_platform(platform_selector)
-        ));
-        signatures.push(format!(
-            "GetPortNO({})(搜索结果,端口号)",
-            definitions(self.port_probe_inputs)
-        ));
-        signatures.push(format!(
-            "InitDevice({})({})",
-            self.init_parameter_definition_with_platform(platform_selector),
-            definitions(self.init_outputs)
-        ));
-        signatures.push("CloseDevice()()".to_owned());
-        signatures.push("CloseAllDevices()()".to_owned());
-        signatures.extend(self.operations.iter().map(OperationDescriptor::signature));
-        signatures
-    }
-
     /// 返回 `GetInitConfig` 所使用的初始化配置元数据。
     pub fn init_config_definitions(&self) -> Vec<String> {
-        self.config_definitions(None)
+        self.config_definitions()
     }
 
-    /// 返回包含运行时平台注册表的平台选择器的初始化配置元数据。
-    pub fn init_config_definitions_with_platform(&self, platform_selector: &str) -> Vec<String> {
-        self.config_definitions(Some(platform_selector))
-    }
-
-    fn config_definitions(&self, platform_selector: Option<&str>) -> Vec<String> {
+    fn config_definitions(&self) -> Vec<String> {
         let layout = ConfigLayout::new(
             self.init_config.len(),
             self.instances,
@@ -197,9 +248,6 @@ impl NodeDescriptor {
         if layout.lease.is_some() {
             definitions.push(RESOURCE_ACCESS_DEFINITION.to_owned());
         }
-        if let Some(platform_selector) = platform_selector {
-            definitions.push(platform_selector.to_owned());
-        }
         if layout.execution {
             definitions.push(SHARED_EXECUTION_MODE_DEFINITION.to_owned());
         }
@@ -215,19 +263,6 @@ impl NodeDescriptor {
         definitions.extend(self.init_inputs.iter().map(ParameterDescriptor::definition));
         definitions.join(",")
     }
-
-    fn init_config_definition_with_platform(&self, platform_selector: &str) -> String {
-        self.init_config_definitions_with_platform(platform_selector)
-            .join(",")
-    }
-
-    /// 返回 `InitDevice` 签名所发布的全部参数。配置与输入在 ABI 中属于不同数组，
-    /// 但函数签名需同时使平台可发现两类业务参数。
-    fn init_parameter_definition_with_platform(&self, platform_selector: &str) -> String {
-        let mut definitions = self.init_config_definitions_with_platform(platform_selector);
-        definitions.extend(self.init_inputs.iter().map(ParameterDescriptor::definition));
-        definitions.join(",")
-    }
 }
 
 fn definitions(parameters: &[ParameterDescriptor]) -> String {
@@ -236,4 +271,15 @@ fn definitions(parameters: &[ParameterDescriptor]) -> String {
         .map(ParameterDescriptor::definition)
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn definitions_for(
+    parameters: &[ParameterDescriptor],
+    adapter: &dyn crate::PlatformAdapter,
+) -> crate::MiresidianResult<String> {
+    Ok(parameters
+        .iter()
+        .map(|parameter| parameter.definition_for(adapter))
+        .collect::<crate::MiresidianResult<Vec<_>>>()?
+        .join(","))
 }

@@ -38,13 +38,7 @@ fn independent_runtimes_share_composite_identity_and_reject_conflicting_configur
         a.invoke(&Invocation::new("GetInitConfig", vec![], vec![]))
             .unwrap()
             .as_slice(),
-        [
-            "地址",
-            "端口:",
-            "速率:",
-            "超时:",
-            "平台适配:tb_lv_test_platform"
-        ]
+        ["地址", "端口:", "速率:", "超时:",]
     );
     let b = NodeRuntime::<Node>::new();
     let other_port = NodeRuntime::<Node>::new();

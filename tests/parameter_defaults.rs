@@ -149,7 +149,7 @@ fn strings_and_paths_are_literal_inputs_without_defaults_or_separator_conversion
     );
 }
 #[test]
-fn both_ffi_entries_preserve_the_same_parameter_rules() {
+fn default_and_explicit_json_platforms_preserve_the_same_parameter_rules() {
     use std::{
         ffi::{CStr, CString},
         sync::OnceLock,
@@ -163,16 +163,17 @@ fn both_ffi_entries_preserve_the_same_parameter_rules() {
             // SAFETY: C 字符串在调用期间有效；响应在下一次调用前复制和解析。
             unsafe {
                 let ptr = if explicit {
-                    miresidian::ffi_runtime::invoke_with(
-                        &runtime,
-                        1,
+                    ffi_support::request(
+                        |request| miresidian::ffi_runtime::invoke(&runtime, request),
+                        Some(1),
                         op.as_ptr(),
                         config.as_ptr(),
                         input.as_ptr(),
                     )
                 } else {
-                    miresidian::ffi_runtime::invoke(
-                        &runtime,
+                    ffi_support::request(
+                        |request| miresidian::ffi_runtime::invoke(&runtime, request),
+                        None,
                         op.as_ptr(),
                         config.as_ptr(),
                         input.as_ptr(),
@@ -195,3 +196,6 @@ fn both_ffi_entries_preserve_the_same_parameter_rules() {
         );
     }
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

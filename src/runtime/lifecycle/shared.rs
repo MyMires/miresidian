@@ -127,7 +127,14 @@ fn contract<N: Node>() -> Vec<String> {
     let mut operations = descriptor
         .operations
         .iter()
-        .map(|operation| operation.signature())
+        .map(|operation| {
+            format!(
+                "{}\n{:?}\n{:?}",
+                operation.signature(),
+                operation.inputs,
+                operation.outputs
+            )
+        })
         .collect::<Vec<_>>();
     operations.sort();
     // Node 名称标识共同业务契约；文件名、Rust 类型路径、项目版本和 Handle 不参与。

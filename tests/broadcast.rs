@@ -210,9 +210,21 @@ fn ffi(explicit: bool, operation: &str, key: &str, input: &[&str]) -> serde_json
     // thread before another framework call replaces its response cache.
     let text = unsafe {
         let pointer = if explicit {
-            miresidian_invoke_with(1, operation.as_ptr(), config.as_ptr(), input.as_ptr())
+            ffi_support::request(
+                |request| miresidian_invoke(request),
+                Some(1),
+                operation.as_ptr(),
+                config.as_ptr(),
+                input.as_ptr(),
+            )
         } else {
-            miresidian_invoke(operation.as_ptr(), config.as_ptr(), input.as_ptr())
+            ffi_support::request(
+                |request| miresidian_invoke(request),
+                None,
+                operation.as_ptr(),
+                config.as_ptr(),
+                input.as_ptr(),
+            )
         };
         CStr::from_ptr(pointer).to_str().unwrap().to_owned()
     };
@@ -250,3 +262,6 @@ fn both_existing_c_entries_broadcast_the_first_channels_single_result() {
         }
     }
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

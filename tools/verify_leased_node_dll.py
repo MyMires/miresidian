@@ -15,12 +15,14 @@ from pathlib import Path
 
 def load(path):
     library = ctypes.CDLL(str(path.resolve()))
+    library.miresidian_abi_version.restype = ctypes.c_uint32
+    assert library.miresidian_abi_version() == 10, "此脚本需要 ABI v10 单 JSON 入口"
     invoke = library.miresidian_invoke
-    invoke.argtypes = [ctypes.c_char_p] * 3
+    invoke.argtypes = [ctypes.c_char_p]
     invoke.restype = ctypes.c_void_p
 
     def call(operation, config=(), inputs=(), code='OK'):
-        response = json.loads(ctypes.string_at(invoke(operation.encode(), json.dumps(list(config)).encode(), json.dumps(list(inputs)).encode())))
+        response = json.loads(ctypes.string_at(invoke(json.dumps({"platform": 0, "function": operation, "config": list(config), "input": list(inputs)}).encode())))
         assert response['code'] == code, response
         return response['output']
     return library, call

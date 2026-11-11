@@ -10,11 +10,18 @@ pub(super) fn parameters(
     parameters.iter().map(|parameter| {
         let name = &parameter.name;
         let definition = &parameter.definition;
+        let ty = &parameter.ty;
+        // format 参数只承诺 FormatInput，不额外要求 NodeInput。
+        let options = if parameter.format.is_some() || parameter.default.is_some() {
+            quote!(&[])
+        } else {
+            quote!(<#ty as ::miresidian::NodeInput>::OPTIONS)
+        };
         let default = match &parameter.default {
             Some(value) => quote!(Some(#value)),
             None => quote!(None),
         };
-        quote!(::miresidian::ParameterDescriptor { name: #name, definition: #definition, default_value: #default })
+        quote!(::miresidian::ParameterDescriptor { name: #name, definition: #definition, default_value: #default, enum_options: #options })
     })
 }
 /// 生成 Output 的平台描述项；输出没有默认值。
@@ -23,7 +30,7 @@ pub(super) fn outputs(
 ) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     outputs
         .iter()
-        .map(|name| quote!(::miresidian::ParameterDescriptor { name: #name, definition: #name, default_value: None }))
+        .map(|name| quote!(::miresidian::ParameterDescriptor { name: #name, definition: #name, default_value: None, enum_options: &[] }))
 }
 /// 生成一个完整的平台操作描述。
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {

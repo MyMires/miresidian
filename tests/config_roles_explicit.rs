@@ -9,7 +9,7 @@ async fn selected_composite_keys() {
 }
 
 #[test]
-fn both_ffi_entries_route_by_the_same_composite_key() {
+fn default_and_explicit_json_platforms_route_by_the_same_composite_key() {
     use std::ffi::{CStr, CString};
     let call = |explicit_adapter: bool, operation: &str, config: &[&str]| {
         let operation = CString::new(operation).unwrap();
@@ -17,14 +17,21 @@ fn both_ffi_entries_route_by_the_same_composite_key() {
         // SAFETY: input strings remain alive during the call; copy the thread-local response immediately.
         let response = unsafe {
             let pointer = if explicit_adapter {
-                selected::miresidian_invoke_with(
-                    1,
+                ffi_support::request(
+                    |request| selected::miresidian_invoke(request),
+                    Some(1),
                     operation.as_ptr(),
                     config.as_ptr(),
                     c"[]".as_ptr(),
                 )
             } else {
-                selected::miresidian_invoke(operation.as_ptr(), config.as_ptr(), c"[]".as_ptr())
+                ffi_support::request(
+                    |request| selected::miresidian_invoke(request),
+                    None,
+                    operation.as_ptr(),
+                    config.as_ptr(),
+                    c"[]".as_ptr(),
+                )
             };
             CStr::from_ptr(pointer).to_owned()
         };
@@ -50,3 +57,6 @@ fn both_ffi_entries_route_by_the_same_composite_key() {
     );
     assert_eq!(call(false, "CloseAllDevices", &[])["code"], "OK");
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

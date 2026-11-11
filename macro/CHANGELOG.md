@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-11
+
+- 新增 NodeEnum 派生，从无字段枚举生成输入、输出、规范化、集合和结构化候选；保留成员 cfg 和依赖重命名规则。
+- 参数描述绑定原 Rust 类型候选，format 参数和输出不额外要求 NodeInput；平台负责实际渲染。
+- ABI v10 只生成单 JSON miresidian_invoke 及版本查询，移除旧调用导出和别名。
+
 ## [0.25.0] - 2026-11-11
 
 - 节点宏改为生成 Node 实现，配置规范化改为调用 NodeInput::normalize_text；不生成旧名称兼容实现。

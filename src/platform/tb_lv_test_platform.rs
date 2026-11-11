@@ -16,6 +16,54 @@ pub const TB_LV_TEST_PLATFORM: &str = "tb_lv_test_platform";
 pub struct TbLvTestPlatformAdapter;
 
 impl PlatformAdapter for TbLvTestPlatformAdapter {
+    fn format_parameter(&self, parameter: &crate::ParameterDescriptor) -> MiresidianResult<String> {
+        if !parameter.has_auto_options() {
+            return Ok(parameter.definition.to_owned());
+        }
+        let mut labels = std::collections::HashMap::new();
+        let mut choices = Vec::new();
+        for (index, option) in parameter.enum_options.iter().enumerate() {
+            for text in [option.value, option.display] {
+                if text.trim().is_empty()
+                    || text.trim() != text
+                    || text
+                        .chars()
+                        .any(|c| c.is_control() || ":/-|\\,()".contains(c))
+                    || labels.insert(text, index).is_some_and(|old| old != index)
+                {
+                    return Err(crate::MiresidianError::InvalidArgument {
+                        field: parameter.name.to_owned(),
+                        message: "枚举候选不符合 TB 参数格式或存在歧义".to_owned(),
+                    });
+                }
+            }
+            choices.push(if option.value == option.display {
+                option.value.to_owned()
+            } else {
+                format!("{}-{}", option.value, option.display)
+            });
+        }
+        Ok(format!("{}:{}", parameter.name, choices.join("/")))
+    }
+
+    fn normalize_parameter(
+        &self,
+        parameter: &crate::ParameterDescriptor,
+        value: &str,
+    ) -> MiresidianResult<String> {
+        if parameter.has_auto_options() {
+            self.format_parameter(parameter)?;
+        }
+        let value = crate::normalize_value_with_definition(
+            &[value.to_owned()],
+            0,
+            parameter.name,
+            parameter.definition,
+            None,
+        )?;
+        crate::normalize_enum_text(&value, parameter.enum_options, parameter.name)
+    }
+
     fn platform(&self) -> Platform {
         Platform::TbLvTestPlatform
     }

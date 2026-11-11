@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-11
+
+- 新增 NodeEnum 派生，生成通用枚举 codec、集合与结构化候选；无非空描述的参数自动使用候选，手写描述优先，缺参不取首项。
+- 候选渲染和输入规范化由本次实际平台适配器成对实现；TB 使用既有文本语法，其他平台不静默继承 TB 格式。
+- ABI 升至 v10：业务调用仅保留 miresidian_invoke(request_json)，删除旧分参数导出及旧完整请求名称；保留版本查询。platform 0/省略固定使用 DLL 默认平台，移除 Config 平台选择及对应 helper。
+- 同步 root/codec/macro/ABI、实际 codec 依赖组件、TestFlow 和 CLI/套件的独立版本、精确依赖、锁文件、日期归档及迁移指导；独立节点和夹具保持已发布依赖。
+- 验证证据见 plans/2026-11-11-enum-display-options.md；本次仅本地源码交付，不推送、不发布。
+
 ## [0.29.0] - 2026-11-11
 
 - 公开类型统一为 Node、NodeInput、NodeOutput、NodeCollectionElement、NodeScalar、NodeValue；编解码方法改为 parse_text、normalize_text、into_output、parse_collection、format_collection，不保留旧名称别名。

@@ -82,7 +82,6 @@ fn metadata_and_both_call_paths_agree_on_handle_position() {
             "设备:device",
             "速度:9600",
             "Handle",
-            "平台适配:tb_lv_test_platform",
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
         ]
     );
@@ -310,15 +309,21 @@ fn ffi_call(
     // SAFETY: 输入字符串存活至调用结束，响应在下次调用前立即复制。
     let value = unsafe {
         let ptr = if explicit {
-            ffi_runtime::invoke_with(
-                runtime,
-                1,
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                Some(1),
                 operation.as_ptr(),
                 config.as_ptr(),
                 input.as_ptr(),
             )
         } else {
-            ffi_runtime::invoke(runtime, operation.as_ptr(), config.as_ptr(), input.as_ptr())
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                None,
+                operation.as_ptr(),
+                config.as_ptr(),
+                input.as_ptr(),
+            )
         };
         CStr::from_ptr(ptr).to_str().unwrap()
     };
@@ -326,7 +331,7 @@ fn ffi_call(
 }
 
 #[test]
-fn both_ffi_entries_extract_handle_from_config_and_skip_blank_initialization() {
+fn default_and_explicit_json_platforms_extract_handle_from_config_and_skip_blank_initialization() {
     for explicit in [false, true] {
         let runtime = OnceLock::new();
         let response = ffi_call(
@@ -429,3 +434,6 @@ fn missing_handle_is_unknown_before_init_and_after_the_last_close_in_all_entries
         );
     }
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

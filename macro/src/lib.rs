@@ -5,9 +5,19 @@
 
 mod framework;
 mod node;
+mod node_enum;
 mod operation;
 
 use proc_macro::TokenStream;
+
+/// 为无字段业务枚举生成 NodeInput、NodeOutput、集合转换和结构化候选。
+///
+/// 成员名作为实际值，不读取整数 discriminant；候选格式和输入表示由调用平台适配。
+/// 不要求 Clone/Copy/Default；不支持带数据、空或泛型枚举。
+#[proc_macro_derive(NodeEnum)]
+pub fn node_enum(item: TokenStream) -> TokenStream {
+    node_enum::expand(item)
+}
 
 /// 标记一个可由 Miresidian 加载的节点结构体。
 ///

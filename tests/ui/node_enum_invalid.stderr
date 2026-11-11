@@ -1,0 +1,35 @@
+error: NodeEnum 只能用于枚举
+ --> tests/ui/node_enum_invalid.rs:2:1
+  |
+2 | struct NotEnum;
+  | ^^^^^^^^^^^^^^^
+
+error: NodeEnum 需要至少一个无字段成员
+ --> tests/ui/node_enum_invalid.rs:5:1
+  |
+5 | enum Empty {}
+  | ^^^^^^^^^^^^^
+
+error: NodeEnum 不支持泛型枚举
+ --> tests/ui/node_enum_invalid.rs:8:13
+  |
+8 | enum Generic<T> { Item(T) }
+  |             ^^^
+
+error: NodeEnum 只支持无字段成员
+  --> tests/ui/node_enum_invalid.rs:11:13
+   |
+11 | enum Data { Item(u32) }
+   |             ^^^^^^^^^
+
+error: NodeEnum 只支持无字段成员
+  --> tests/ui/node_enum_invalid.rs:14:14
+   |
+14 | enum Tuple { Item() }
+   |              ^^^^^^
+
+error: NodeEnum 只支持无字段成员
+  --> tests/ui/node_enum_invalid.rs:17:14
+   |
+17 | enum Named { Item { value: u32 } }
+   |              ^^^^^^^^^^^^^^^^^^^

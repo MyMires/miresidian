@@ -79,8 +79,11 @@ using System.Text;
 
 public static class MiresidianDllCaller
 {
-    [DllImport("$csharpDllPath", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern IntPtr miresidian_invoke(IntPtr function, IntPtr configJson, IntPtr inputJson);
+    [DllImport("$csharpDllPath", EntryPoint = "miresidian_invoke", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr InvokeLegacyNative(IntPtr function, IntPtr configJson, IntPtr inputJson);
+
+    [DllImport("$csharpDllPath", EntryPoint = "miresidian_invoke", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr InvokeRequestNative(IntPtr requestJson);
 
     [DllImport("$csharpDllPath", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     public static extern UInt32 miresidian_abi_version();
@@ -104,7 +107,14 @@ public static class MiresidianDllCaller
         return Encoding.UTF8.GetString(bytes);
     }
 
-    public static string Invoke(string function, string configJson, string inputJson)
+    public static string InvokeRequest(string requestJson)
+    {
+        IntPtr pointer = Utf8Pointer(requestJson);
+        try { return CopyUtf8(InvokeRequestNative(pointer)); }
+        finally { Marshal.FreeHGlobal(pointer); }
+    }
+
+    public static string InvokeLegacy(string function, string configJson, string inputJson)
     {
         IntPtr functionPointer = IntPtr.Zero;
         IntPtr configPointer = IntPtr.Zero;
@@ -114,7 +124,7 @@ public static class MiresidianDllCaller
             functionPointer = Utf8Pointer(function);
             configPointer = Utf8Pointer(configJson);
             inputPointer = Utf8Pointer(inputJson);
-            return CopyUtf8(miresidian_invoke(functionPointer, configPointer, inputPointer));
+            return CopyUtf8(InvokeLegacyNative(functionPointer, configPointer, inputPointer));
         }
         finally
         {
@@ -125,6 +135,24 @@ public static class MiresidianDllCaller
     }
 }
 "@
+
+function Invoke-NodeRequest([string]$Function, [string]$ConfigJson, [string]$InputJson) {
+    # 同名导出在 ABI v10 改为单参数，必须先核对版本再选择函数指针签名。
+    $abi = [MiresidianDllCaller]::miresidian_abi_version()
+    if ($abi -eq 10) {
+        $request = [ordered]@{
+            platform = 0
+            function = $Function
+            config = @(ConvertFrom-Json -InputObject $ConfigJson)
+            input = @(ConvertFrom-Json -InputObject $InputJson)
+        }
+        return [MiresidianDllCaller]::InvokeRequest((ConvertTo-Json -InputObject $request -Depth 32 -Compress))
+    }
+    if ($abi -ge 7 -and $abi -le 9) {
+        return [MiresidianDllCaller]::InvokeLegacy($Function, $ConfigJson, $InputJson)
+    }
+    throw "不支持 ABI $abi，未调用不匹配的函数签名。"
+}
 
 function Assert-StringArray([string]$Json, [string]$Name) {
     # The ABI accepts only JSON arrays whose every element is a string.
@@ -196,7 +224,7 @@ function Get-Definitions([string]$Definitions) {
 }
 
 function Get-FlowMethodDefinitions {
-    $response = [MiresidianDllCaller]::Invoke('GetFunctions', '[]', '[]')
+    $response = Invoke-NodeRequest 'GetFunctions' '[]' '[]'
     $payload = Get-SuccessPayload $response 'GetFunctions'
     $methods = @{}
     foreach ($signature in @($payload.output)) {
@@ -250,7 +278,7 @@ function Invoke-Flow([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "找不到流程文件：$Path" }
     $resolvedPath = (Resolve-Path -LiteralPath $Path).ProviderPath
     $methods = Get-FlowMethodDefinitions
-    $configResponse = [MiresidianDllCaller]::Invoke('GetInitConfig', '[]', '[]')
+    $configResponse = Invoke-NodeRequest 'GetInitConfig' '[]' '[]'
     $configDefinitions = @((Get-SuccessPayload $configResponse 'GetInitConfig').output)
     $selectedConfig = $null
     $initializedConfigs = @{}
@@ -317,11 +345,7 @@ function Invoke-Flow([string]$Path) {
 
             Write-Output ''
             Write-Output ('-------------------- 流程第 {0} 行：{1} --------------------' -f $call.LineNumber, $call.Name)
-            $response = [MiresidianDllCaller]::Invoke(
-                $call.Name,
-                (ConvertTo-Json -InputObject $config -Compress),
-                (ConvertTo-Json -InputObject $input -Compress)
-            )
+            $response = Invoke-NodeRequest $call.Name (ConvertTo-Json -InputObject $config -Compress) (ConvertTo-Json -InputObject $input -Compress)
             Get-SuccessPayload $response ("流程第 {0} 行 {1}" -f $call.LineNumber, $call.Name) | Out-Null
             Format-Response $response
 
@@ -339,7 +363,7 @@ function Invoke-Flow([string]$Path) {
                 $config = @($entry.Value)
                 Write-Output ''
                 Write-Output '流程结束时自动调用 CloseDevice。'
-                $response = [MiresidianDllCaller]::Invoke('CloseDevice', (ConvertTo-Json -InputObject $config -Compress), '[]')
+                $response = Invoke-NodeRequest 'CloseDevice' (ConvertTo-Json -InputObject $config -Compress) '[]'
                 Get-SuccessPayload $response '自动 CloseDevice' | Out-Null
                 Format-Response $response
             } catch {
@@ -365,7 +389,7 @@ try {
     Assert-StringArray $Config 'config'
     Assert-StringArray $Input 'input'
 
-    $result = [MiresidianDllCaller]::Invoke($Function, $Config, $Input)
+    $result = Invoke-NodeRequest $Function $Config $Input
     if ($Pretty) {
         Format-Response $result
     } else {

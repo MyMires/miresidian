@@ -97,7 +97,7 @@ impl<N: Node> NodeRuntime<N> {
         }
     }
     /// 同步调用默认平台路径，返回编码后的业务输出或参数、状态及业务错误。
-    /// InitDevice 可按保留 Config 选择平台；异步线程应使用 invoke_async，避免同步等待。
+    /// 平台固定使用注册表默认值；异步线程应使用 invoke_async，避免同步等待。
     pub fn invoke(&self, request: &Invocation) -> MiresidianResult<InvocationOutput> {
         super::super::execution::block_on(self.invoke_async(request.clone()))
     }
@@ -117,7 +117,7 @@ impl<N: Node> NodeRuntime<N> {
         context: CallContext,
     ) -> MiresidianResult<InvocationOutput> {
         let adapter = self.adapter_for(&request)?;
-        self.invoke_mode(adapter, request, true, context).await
+        self.invoke_mode(adapter, request, context).await
     }
     /// 同步按已注册的平台编号调用；未知编号、与当前平台冲突或重复平台 Config 返回错误。
     /// 此路径不发布也不接受初始化的“平台适配”选择项；其他业务布局与默认入口相同。
@@ -144,21 +144,22 @@ impl<N: Node> NodeRuntime<N> {
             .platforms
             .adapter(platform)
             .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))?;
-        self.invoke_mode(adapter, request, false, context).await
+        self.invoke_mode(adapter, request, context).await
     }
     /// 使用调用方提供的适配器同步解码请求、执行命令并编码响应。
     /// 与当前平台绑定冲突、适配器转换错误或业务错误原样返回；初始化不接受平台选择器。
-    pub fn invoke_with<A: PlatformAdapter + ?Sized>(
+    pub fn invoke_with(
         &self,
-        adapter: &A,
+        adapter: &dyn PlatformAdapter,
         request: Invocation,
     ) -> MiresidianResult<InvocationOutput> {
         self.check_platform(adapter.platform())?;
-        let command = adapter.decode(request)?;
+        let mut command = adapter.decode(request)?;
+        self.normalize_command(adapter, &mut command)?;
         let response = super::super::execution::block_on(self.command_async(
             command,
             Some(adapter.platform()),
-            false,
+            Some(adapter),
             CallContext::default(),
         ))?;
         adapter.encode(response)
@@ -167,13 +168,18 @@ impl<N: Node> NodeRuntime<N> {
         &self,
         adapter: Arc<dyn PlatformAdapter>,
         request: Invocation,
-        selector: bool,
         context: CallContext,
     ) -> MiresidianResult<InvocationOutput> {
         self.check_platform(adapter.platform())?;
-        let command = adapter.decode(request)?;
+        let mut command = adapter.decode(request)?;
+        self.normalize_command(adapter.as_ref(), &mut command)?;
         let response = self
-            .command_async(command, Some(adapter.platform()), selector, context)
+            .command_async(
+                command,
+                Some(adapter.platform()),
+                Some(adapter.as_ref()),
+                context,
+            )
             .await?;
         adapter.encode(response)
     }
@@ -199,20 +205,20 @@ impl<N: Node> NodeRuntime<N> {
         &self,
         command: RuntimeInvocation,
     ) -> MiresidianResult<RuntimeResponse> {
-        self.command_async(command, None, true, CallContext::default())
+        self.command_async(command, None, None, CallContext::default())
             .await
     }
     async fn command_async(
         &self,
         command: RuntimeInvocation,
         platform: Option<Platform>,
-        selector: bool,
+        adapter: Option<&dyn PlatformAdapter>,
         context: CallContext,
     ) -> MiresidianResult<RuntimeResponse> {
         N::validate_definition()?;
         context.check()?;
         if let RuntimeInvocation::Single(request) = &command
-            && let Some(output) = self.metadata(&request.operation, selector)
+            && let Some(output) = self.metadata(&request.operation, adapter)?
         {
             return Ok(RuntimeResponse::Output(output));
         }
@@ -231,11 +237,10 @@ impl<N: Node> NodeRuntime<N> {
                 use futures_util::FutureExt;
                 let _activity = activity;
                 let _admission = admission;
-                let result = std::panic::AssertUnwindSafe(
-                    runtime.execute(command, platform, selector, context),
-                )
-                .catch_unwind()
-                .await;
+                let result =
+                    std::panic::AssertUnwindSafe(runtime.execute(command, platform, context))
+                        .catch_unwind()
+                        .await;
                 let value = match result {
                     Ok(value) => value,
                     Err(_) => {
@@ -258,7 +263,6 @@ impl<N: Node> NodeRuntime<N> {
         &self,
         command: RuntimeInvocation,
         platform: Option<Platform>,
-        selector: bool,
         context: CallContext,
     ) -> MiresidianResult<RuntimeResponse> {
         use crate::{
@@ -283,18 +287,12 @@ impl<N: Node> NodeRuntime<N> {
                         blocking_context.check()?;
                         blocking_context.mark_started();
                         let result = match request.operation.as_str() {
-                            INIT_DEVICE_OPERATION => runtime.init_device(
-                                &request.config,
-                                &request.input,
-                                platform,
-                                selector,
-                            ),
-                            CLOSE_DEVICE_OPERATION => runtime.close_device(
-                                &request.config,
-                                &request.input,
-                                selector,
-                                platform,
-                            ),
+                            INIT_DEVICE_OPERATION => {
+                                runtime.init_device(&request.config, &request.input, platform)
+                            }
+                            CLOSE_DEVICE_OPERATION => {
+                                runtime.close_device(&request.config, &request.input, platform)
+                            }
                             CLOSE_ALL_DEVICES_OPERATION => {
                                 if !request.config.is_empty() || !request.input.is_empty() {
                                     return Err(MiresidianError::InvalidArgument {
@@ -317,7 +315,7 @@ impl<N: Node> NodeRuntime<N> {
             RuntimeInvocation::MultiChannel(r) => (&r.operation, &r.config),
         };
         let operation = operation.clone();
-        let instance = self.channel_for_config(config, selector, platform)?;
+        let instance = self.channel_for_config(config, platform)?;
         let _pending = instance
             .pending
             .clone()
@@ -399,30 +397,44 @@ impl<N: Node> NodeRuntime<N> {
         super::super::execution::block_on(self.invoke_batch_async(requests))
     }
 
-    fn metadata(&self, operation: &str, selector: bool) -> Option<InvocationOutput> {
+    fn metadata(
+        &self,
+        operation: &str,
+        adapter: Option<&dyn PlatformAdapter>,
+    ) -> MiresidianResult<Option<InvocationOutput>> {
         use crate::*;
-        Some(InvocationOutput::new(match operation {
-            GET_FUNCTIONS_OPERATION => {
-                if selector {
-                    N::descriptor()
-                        .function_signatures_with_platform(&self.platforms.selector_definition())
-                } else {
-                    N::descriptor().function_signatures()
-                }
+        match operation {
+            GET_FRAMEWORK_VERSION_OPERATION => {
+                return Ok(Some(InvocationOutput::new(vec![MIRESIDIAN_VERSION.into()])));
             }
-            GET_INIT_CONFIG_OPERATION => {
-                if selector {
-                    N::descriptor().init_config_definitions_with_platform(
-                        &self.platforms.selector_definition(),
-                    )
-                } else {
-                    N::descriptor().init_config_definitions()
-                }
+            GET_PROJECT_VERSION_OPERATION => {
+                return Ok(Some(InvocationOutput::new(vec![
+                    N::project_version().into(),
+                ])));
             }
-            GET_FRAMEWORK_VERSION_OPERATION => vec![MIRESIDIAN_VERSION.into()],
-            GET_PROJECT_VERSION_OPERATION => vec![N::project_version().into()],
-            _ => return None,
-        }))
+            GET_FUNCTIONS_OPERATION | GET_INIT_CONFIG_OPERATION => {}
+            _ => return Ok(None),
+        }
+        let fallback;
+        let adapter = match adapter {
+            Some(adapter) => adapter,
+            None => {
+                let platform = self
+                    .active_platform()
+                    .unwrap_or(self.platforms.default_platform());
+                fallback = self
+                    .platforms
+                    .adapter(platform)
+                    .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))?;
+                fallback.as_ref()
+            }
+        };
+        let output = if operation == GET_FUNCTIONS_OPERATION {
+            N::descriptor().function_signatures_for(adapter)?
+        } else {
+            N::descriptor().init_config_definitions_for(adapter)?
+        };
+        Ok(Some(InvocationOutput::new(output)))
     }
     pub(crate) fn batch_limit(&self) -> usize {
         self.core.limits.max_batch

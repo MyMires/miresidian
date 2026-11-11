@@ -377,7 +377,9 @@ fn c_abi_preserves_json_slots_and_prevalidation_for_typed_format_columns() {
         let inputs = CString::new(serde_json::to_string(inputs).unwrap()).unwrap();
         // SAFETY: 输入 C 字符串在调用期间存活，响应在同线程下次调用前立即复制解析。
         let response = unsafe {
-            CStr::from_ptr(miresidian_invoke(
+            CStr::from_ptr(ffi_support::request(
+                |request| miresidian_invoke(request),
+                None,
                 operation.as_ptr(),
                 c"[]".as_ptr(),
                 inputs.as_ptr(),
@@ -410,3 +412,6 @@ fn c_abi_preserves_json_slots_and_prevalidation_for_typed_format_columns() {
     assert_eq!(call("次数", &[])["output"], serde_json::json!(["5"]));
     assert_eq!(call("CloseAllDevices", &[])["status"], 0);
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

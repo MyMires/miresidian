@@ -190,7 +190,7 @@ fn short_format_reaches_the_generated_complete_json_entry() {
     let call = |request: &str| {
         let request = CString::new(request).unwrap();
         // SAFETY: 本次调用持有 NUL 终止的请求，下一次 ABI 调用前复制 DLL 响应。
-        let response = unsafe { CStr::from_ptr(miresidian_invoke_request(request.as_ptr())) };
+        let response = unsafe { CStr::from_ptr(miresidian_invoke(request.as_ptr())) };
         serde_json::from_slice::<serde_json::Value>(response.to_bytes()).unwrap()
     };
     assert_eq!(call(r#"{"function":"InitDevice"}"#)["code"], "OK");

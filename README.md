@@ -4,9 +4,9 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.29.0**，C ABI 为 **v9**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.30.0**，C ABI 为 **v10**，租约协议为 **v2**。
 
-**[0.29.0 公开类型命名迁移](docs/releases/0.29.0.md)** · **[0.28.0 宏简写与兼容迁移](docs/releases/0.28.0.md)** · **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[运行时平台选择与 v9 迁移](docs/releases/0.27.0.md)**
+**[0.30.0 枚举与单 JSON 入口](docs/releases/0.30.0.md)** · **[0.29.0 公开类型命名迁移](docs/releases/0.29.0.md)** · **[0.28.0 宏简写与兼容迁移](docs/releases/0.28.0.md)** · **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[运行时平台选择与 v9 迁移](docs/releases/0.27.0.md)**
 
 ## 核心能力与优势
 
@@ -22,7 +22,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 节点项目通常只直接依赖 `miresidian`。具体串口、TCP、USB、CAN 等通信实现和私有依赖归独立节点项目所有。框架库、过程宏、开发工具与节点 DLL 的关系见[架构总览](docs/architecture.md)。
 
-统一开发命令与整套下载见 [Miresidian CLI](tools/miresidian-cli/README.md)。CLI/套件源码版本为 0.3.4，用户安装与升级由 Cargo 管理。Pack 的现有 new/init 模板只接受 ABI v7；新建时须显式选择兼容的已发布框架，命令及 v8 手动迁移边界见工具说明。
+统一开发命令与整套下载见 [Miresidian CLI](tools/miresidian-cli/README.md)。CLI/套件源码版本为 0.3.5，用户安装与升级由 Cargo 管理。Pack 的现有 new/init 模板只接受 ABI v7；新建时须显式选择兼容的已发布框架，命令及 v8 手动迁移边界见工具说明。
 
 ## 从这里开始
 
@@ -42,7 +42,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.29.0** 是尚未发布的公开类型更名源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
+以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.30.0** 是尚未发布的枚举派生与唯一 JSON ABI 源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
 
 ```toml
 [lib]
@@ -77,7 +77,7 @@ impl EchoNode {
 }
 ```
 
-宏自动生成完整请求入口 `miresidian_invoke_request`、保留的 `miresidian_invoke`/`miresidian_invoke_with` 及版本查询 `miresidian_abi_version`。新入口接收 `{"function":"GetFunctions","config":[],"input":[]}`；在本检出 0.29.0 / ABI v9 中，可选数值 `platform` 省略或为 `0` 时沿用初始化 Config 选平台：用 `{"platform":0,"function":"GetInitConfig"}` 查询可选平台，由宿主展示“平台适配”选项，`InitDevice` 按发布顺序传入用户选择；后续 `0` 调用使用已选平台。非零编号显式选平台且 Config 不重复携带选择器。上面安装示例的 0.26.0 / ABI v8 仍拒绝 `0`，可省略字段使用 Config 选择流程。响应固定包含 `status`、`code`、`message`、`output`。DLL 持有返回文本，调用方须立即复制且不得释放指针。完整签名与有效期以 [C ABI](docs/c-abi.md) 为准。
+本源码 0.30.0 / ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 业务调用入口和 `miresidian_abi_version()` 版本查询。请求如 `{"platform":1,"function":"GetFunctions"}`；platform 非零指定已注册平台，0/省略使用 DLL 固定默认平台。Config 不发布也不接受“平台适配”选择。先核对 ABI 10 再使用单参数签名，不能把上面已发布 0.26.0/v8 的调用方式与本候选混用。响应和指针复制要求见 [C ABI](docs/c-abi.md)。
 
 子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
@@ -107,6 +107,6 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本检出对应框架 0.29.0、宏 0.25.0、codec 0.17.0、ABI crate 0.16.0 / C ABI v9；公开类型统一使用 Node 名称，编解码 trait 方法使用 parse_text、normalize_text、into_output、parse_collection、format_collection。此为 Rust 源码不兼容更名，不保留旧类型别名；平台选择、生命周期、数据编码及 C ABI 保持。详见[类型迁移](docs/releases/0.29.0.md)。完整请求入口与两个既有调用入口共享运行时及线程响应缓存；任一入口的下一次同线程调用均使上一份响应指针失效。宿主接入 v9 DLL 前须按[迁移说明](docs/releases/0.27.0.md)评估并更新支持版本集合。
+本检出对应框架 0.30.0、macro 0.26.0、codec 0.18.0、ABI 0.17.0/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
 
 已发布版本可查 [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) 与 [format API](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html)。本次未发布的新版本文档须在本检出执行 `cargo doc -p miresidian --all-features --no-deps --locked` 查看；源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。

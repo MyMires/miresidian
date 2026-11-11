@@ -21,7 +21,7 @@ pub use contract::{
 };
 pub use descriptor::{
     ExecutionMode, LeaseAccess, LeaseActivation, NodeDescriptor, OperationDescriptor,
-    PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
+    PLATFORM_ADAPTER_NAME, ParameterDescriptor,
 };
 pub use instances::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};
 pub use lifecycle::NodeRuntime;

@@ -117,7 +117,6 @@ impl<N: Node> NodeRuntime<N> {
     pub(super) fn parse_config<'a>(
         &self,
         config: &'a [String],
-        platform_selector_enabled: bool,
         explicit_adapter: Option<Platform>,
     ) -> MiresidianResult<ParsedConfig<'a>> {
         let descriptor = N::descriptor();
@@ -150,27 +149,19 @@ impl<N: Node> NodeRuntime<N> {
                         .trim()
                 }),
         );
-        let mut reserved_index = layout.platform;
-        let (platform, consumes_selector) = if platform_selector_enabled {
-            self.platform_selection(config.get(reserved_index).map(String::as_str))?
-        } else {
-            if let Some(value) = config.get(reserved_index)
-                && self.is_platform_selector(value)
-            {
-                return Err(MiresidianError::InvalidArgument {
-                    field: PLATFORM_ADAPTER_NAME.to_owned(),
-                    message: "invoke_with 已显式指定平台适配器，不应在 Config 中重复选择"
-                        .to_owned(),
-                });
-            }
-            (
-                explicit_adapter
-                    .or(self.active_platform())
-                    .unwrap_or(self.platforms.default_platform()),
-                false,
-            )
-        };
-        reserved_index += usize::from(consumes_selector);
+        let reserved_index = layout.platform;
+        if config
+            .get(reserved_index)
+            .is_some_and(|value| self.is_platform_selector(value))
+        {
+            return Err(MiresidianError::InvalidArgument {
+                field: "platform".into(),
+                message: "平台由 DLL 请求的 platform 字段确定，不应在 Config 中重复选择".into(),
+            });
+        }
+        let platform = explicit_adapter
+            .or(self.active_platform())
+            .unwrap_or(self.platforms.default_platform());
         if config.len() > reserved_index + usize::from(layout.execution) {
             return Err(MiresidianError::InvalidArgument {
                 field: "Config".to_owned(),
@@ -203,40 +194,65 @@ impl<N: Node> NodeRuntime<N> {
             || self.platforms.adapter_by_identifier(value).is_some()
     }
 
-    fn platform_selection(&self, value: Option<&str>) -> MiresidianResult<(Platform, bool)> {
-        let Some(value) = value else {
-            return Ok((self.platforms.default_platform(), false));
-        };
-        let value = value.trim();
-        if let Some((name, selected)) = value.split_once(":")
-            && name.trim() == PLATFORM_ADAPTER_NAME
-        {
-            let selected = selected.trim();
-            return self
-                .platforms
-                .platform_by_identifier(selected)
-                .map(|platform| (platform, true))
-                .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(selected.to_owned()));
-        }
-        if let Some(platform) = self.platforms.platform_by_identifier(value) {
-            return Ok((platform, true));
-        }
-        Ok((self.platforms.default_platform(), false))
-    }
-
     pub(super) fn adapter_for(
         &self,
         invocation: &Invocation,
     ) -> MiresidianResult<std::sync::Arc<dyn PlatformAdapter>> {
-        let platform = if invocation.operation == INIT_DEVICE_OPERATION {
-            self.parse_config(&invocation.config, true, None)?.platform
-        } else {
-            self.active_platform()
-                .unwrap_or(self.platforms.default_platform())
-        };
+        let _ = invocation;
+        let platform = self.platforms.default_platform();
         self.platforms
             .adapter(platform)
             .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))
+    }
+
+    /// 本次实际适配器先将枚举输入转换为 codec 实际值，不保存适配器借用。
+    pub(super) fn normalize_command(
+        &self,
+        adapter: &dyn PlatformAdapter,
+        command: &mut crate::RuntimeInvocation,
+    ) -> MiresidianResult<()> {
+        let normalize = |values: &mut [String],
+                         parameters: &[crate::ParameterDescriptor]|
+         -> MiresidianResult<()> {
+            for (value, parameter) in values.iter_mut().zip(parameters) {
+                if !parameter.enum_options.is_empty() {
+                    *value = adapter.normalize_parameter(parameter, value)?;
+                }
+            }
+            Ok(())
+        };
+        let descriptor = N::descriptor();
+        let inputs = |operation: &str| -> &[crate::ParameterDescriptor] {
+            match operation {
+                crate::INIT_DEVICE_OPERATION => descriptor.init_inputs,
+                crate::GET_PORT_NO_OPERATION => descriptor.port_probe_inputs,
+                _ => self
+                    .operation_descriptor(operation)
+                    .map_or(&[], |operation| operation.channel_inputs),
+            }
+        };
+        match command {
+            crate::RuntimeInvocation::Single(request) => {
+                if matches!(
+                    request.operation.as_str(),
+                    crate::GET_FUNCTIONS_OPERATION
+                        | crate::GET_INIT_CONFIG_OPERATION
+                        | crate::GET_FRAMEWORK_VERSION_OPERATION
+                        | crate::GET_PROJECT_VERSION_OPERATION
+                ) {
+                    return Ok(());
+                }
+                normalize(&mut request.config, descriptor.init_config)?;
+                normalize(&mut request.input, inputs(&request.operation))?;
+            }
+            crate::RuntimeInvocation::MultiChannel(request) => {
+                normalize(&mut request.config, descriptor.init_config)?;
+                for input in request.slots.iter_mut().flatten() {
+                    normalize(input, inputs(&request.operation))?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn operation_descriptor(

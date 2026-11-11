@@ -20,12 +20,14 @@ def main():
     args = parser.parse_args()
     library = ctypes.CDLL(str(args.library.resolve()))
     library.miresidian_abi_version.restype = ctypes.c_uint32
+    library.miresidian_abi_version.restype = ctypes.c_uint32
+    assert library.miresidian_abi_version() == 10, "此脚本需要 ABI v10 单 JSON 入口"
     invoke = library.miresidian_invoke
-    invoke.argtypes = [ctypes.c_char_p] * 3
+    invoke.argtypes = [ctypes.c_char_p]
     invoke.restype = ctypes.c_void_p
 
     def call(operation, config=(), inputs=()):
-        pointer = invoke(operation.encode(), json.dumps(list(config)).encode(), json.dumps(list(inputs)).encode())
+        pointer = invoke(json.dumps({"platform": 0, "function": operation, "config": list(config), "input": list(inputs)}).encode())
         result = json.loads(ctypes.string_at(pointer))
         assert result['code'] == 'OK', result
         return result['output']

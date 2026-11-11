@@ -2,10 +2,13 @@
 //!
 //! 框架提供稳定调用契约、生命周期、属性宏与 C ABI，并在通道边界隔离可展开 panic。
 //!
-//! 完整请求入口 `miresidian_invoke_request` 自 C ABI v8 提供，当前保持 v9，由宏与两个既有入口一起生成。
+//! C ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 调用及独立 ABI 版本查询。
 //! 请求含必填非空 `function`、可省略的字符串数组 `config`/`input`（默认 `[]`），以及
-//! 可选 u32 数值 `platform`；省略或为 0 沿用初始化 Config 的平台选择，非零则显式选型。
-//! 三个入口共用运行时和线程响应缓存，调用方应在下一次调用前复制返回文本，不得释放。
+//! 可选 u32 数值 `platform`；省略或为 0 固定使用 DLL 默认平台，非零显式选择已注册平台。
+//! Config 不包含平台选择项。调用方应在同线程下一次调用前复制 DLL 返回文本，不得释放。
+//!
+//! `#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成 codec 与结构化候选；
+//! 参数没有非空描述时，由本次平台适配器渲染并配套规范化输入，不提供缺参首项默认值。
 //!
 //! 0.28.0 起支持 feature 短写：`instances` 默认单对象顺序多通道，
 //! `instances(multiple, config)` 显式多对象关联；裸 `lease` 等价于固定 required。
@@ -97,28 +100,29 @@ pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// 编码规则。根 crate 同时保留同名重导出，以兼容已有 Rust 调用代码。
 pub mod codec {
     pub use miresidian_codec::{
-        ByteTextFormat, NodeCollectionElement, NodeInput, NodeOutput, decode_text_to_bytes,
-        decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
-        normalize_value_with_definition, parse_byte_text_format, transcode_text,
+        ByteTextFormat, EnumOption, NodeCollectionElement, NodeInput, NodeOutput,
+        decode_text_to_bytes, decode_value, decode_value_with_definition, encode_bytes_to_text,
+        encode_value, normalize_enum_text, normalize_value_with_definition, parse_byte_text_format,
+        transcode_text,
     };
 }
 
 pub use interop::{ffi, ffi_runtime};
 pub use miresidian_abi::{
-    MIRESIDIAN_ABI_VERSION, MIRESIDIAN_PLATFORM_RUNTIME_SELECT, MIRESIDIAN_STATUS_INTERNAL_ERROR,
+    MIRESIDIAN_ABI_VERSION, MIRESIDIAN_PLATFORM_DEFAULT, MIRESIDIAN_STATUS_INTERNAL_ERROR,
     MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED,
     MiresidianStatus, MiresidianTextArray,
 };
 pub use miresidian_codec::{
-    ByteTextFormat, ErrorCategory, InvocationOutput, MiresidianError, MiresidianResult,
+    ByteTextFormat, EnumOption, ErrorCategory, InvocationOutput, MiresidianError, MiresidianResult,
     NodeCollectionElement, NodeInput, NodeOutput, NodeScalar, NodeValue, decode_text_to_bytes,
     decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
-    normalize_value_with_definition, parse_byte_text_format, transcode_text,
+    normalize_enum_text, normalize_value_with_definition, parse_byte_text_format, transcode_text,
 };
 /// 供具体节点使用的属性宏。
 ///
 /// 这是框架节点项目的必选代码生成能力。
-pub use miresidian_macro::{config, input, lease, node, operation, output};
+pub use miresidian_macro::{NodeEnum, config, input, lease, node, operation, output};
 pub use platform::{
     MultiChannelInvocation, MultiChannelResponse, Platform, PlatformAdapter, PlatformRegistry,
     RuntimeInvocation, RuntimeResponse, SharedInvocation, SharedResponse, TB_LV_TEST_PLATFORM,
@@ -130,9 +134,8 @@ pub use runtime::{
     GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
     GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, InstanceBinding, InstanceMode,
     InstancePolicy, Invocation, LeaseAccess, LeaseActivation, Node, NodeDescriptor, NodeFuture,
-    NodeRuntime, OperationDescriptor, PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME,
-    ParameterDescriptor, SHARED_INVOCATION_MARKER, TaskService, TaskSnapshot, TaskState,
-    shutdown_executor,
+    NodeRuntime, OperationDescriptor, PLATFORM_ADAPTER_NAME, ParameterDescriptor,
+    SHARED_INVOCATION_MARKER, TaskService, TaskSnapshot, TaskState, shutdown_executor,
 };
 
 /// 宏通过框架符号检查显式格式转换能力。

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-11
+
+- codec 精确依赖同步至 0.18.0；支持其派生枚举集合契约，记录规则、长度对齐和调用语义保持。
+
 ## [0.3.0] - 2026-11-11
 
 - 精确依赖 codec 0.17.0，公开批量解析约束使用 NodeInput/NodeCollectionElement，输出聚合使用 NodeOutput。

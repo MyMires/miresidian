@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.1] - 2026-11-11
+
+- codec 精确依赖同步至 0.18.0；显式格式类型不新增 NodeInput 约束，格式选择与字节契约保持。
+
 ## [0.4.0] - 2026-11-11
 
 - 精确依赖 codec 0.17.0，内部转换改用 NodeInput::parse_text、NodeOutput::into_output。

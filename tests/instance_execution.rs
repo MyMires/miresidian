@@ -11,11 +11,13 @@ const ARGUMENTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "值",
     definition: "值",
     default_value: None,
+    enum_options: &[],
 }];
 const CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "地址",
     definition: "地址",
     default_value: None,
+    enum_options: &[],
 }];
 const OPERATIONS: [OperationDescriptor; 1] = [OperationDescriptor {
     name: "计数",
@@ -95,7 +97,7 @@ fn fixed<const POLICY: usize>() {
             .invoke(&request("GetInitConfig", &[], &[]))
             .unwrap()
             .as_slice(),
-        ["地址", "平台适配:tb_lv_test_platform"]
+        ["地址"]
     );
     assert!(
         runtime
@@ -159,11 +161,7 @@ fn fixed_broadcast_executes_channel_one_once_and_copies_its_output() {
 
 #[test]
 fn selectable_uses_the_declared_default_for_missing_or_blank_values() {
-    for config in [
-        vec!["A"],
-        vec!["A", ""],
-        vec!["A", "tb_lv_test_platform", " "],
-    ] {
+    for config in [vec!["A"], vec!["A", ""]] {
         let runtime = NodeRuntime::<PolicyNode<3>>::new();
         runtime
             .invoke(&request("InitDevice", &config, &[]))

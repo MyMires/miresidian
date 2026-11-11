@@ -39,8 +39,8 @@ impl Platform {
 
     /// 由 C ABI 数值解析具体适配器。保留编号和零值会被拒绝。
     ///
-    /// C ABI 调用入口先将 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`（0）路由至 Config
-    /// 平台选择流程；该入口路由值不表示具体适配器，因此本方法仍返回 `None`。
+    /// C ABI 调用入口先将 `MIRESIDIAN_PLATFORM_DEFAULT`（0）路由至默认
+    /// 平台；该入口路由值不表示具体适配器，因此本方法仍返回 `None`。
     pub const fn from_abi(value: u32) -> Option<Self> {
         match value {
             Self::TB_LV_TEST_PLATFORM => Some(Self::TbLvTestPlatform),
@@ -59,9 +59,9 @@ impl fmt::Display for Platform {
     }
 }
 
-/// 运行时可选择的平台适配器集合。
+/// 调用时可指定的平台适配器注册表。
 ///
-/// `InitDevice` 的保留 Config `平台适配` 从此集合选择适配器。所有已初始化通道必须
+/// DLL 请求的 platform 字段从此集合确定适配器；默认值为 default_platform。所有已初始化通道必须
 /// 使用同一个平台，最后一个通道关闭后可重新选择。
 #[derive(Clone)]
 pub struct PlatformRegistry {
@@ -81,7 +81,7 @@ impl PlatformRegistry {
         }
     }
 
-    /// 注册或替换一个可由 `平台适配` 选择的适配器。平台数值与文本标识均保持唯一；
+    /// 注册或替换一个可由请求 platform 指定的适配器。平台数值与文本标识均保持唯一；
     /// 若替换了默认适配器的文本标识，默认平台数值也随之更新，确保默认调用始终可解析。
     pub fn register<A: PlatformAdapter>(&mut self, adapter: A) {
         let platform = adapter.platform();
@@ -114,7 +114,7 @@ impl PlatformRegistry {
         self.adapters.get(&platform).cloned()
     }
 
-    /// 根据旧 Config 文本标识返回适配器，供默认 C ABI 路径兼容使用。
+    /// 根据稳定文本标识返回适配器，供显式诊断和配置检查使用，不从 Config 选择。
     pub fn adapter_by_identifier(&self, identifier: &str) -> Option<Arc<dyn PlatformAdapter>> {
         self.adapters
             .values()
@@ -122,14 +122,14 @@ impl PlatformRegistry {
             .cloned()
     }
 
-    /// 根据旧 Config 文本标识返回平台类型。
+    /// 根据稳定文本标识返回平台类型。
     pub fn platform_by_identifier(&self, identifier: &str) -> Option<Platform> {
         self.adapters.iter().find_map(|(platform, adapter)| {
             (adapter.identifier() == identifier).then_some(*platform)
         })
     }
 
-    /// 平台稳定文本标识列表，供兼容初始化元数据使用。
+    /// 平台稳定文本标识列表，仅供诊断和显式检查，不生成 Config 选择器。
     pub fn identifiers(&self) -> Vec<&str> {
         let mut identifiers = self
             .adapters
@@ -138,11 +138,6 @@ impl PlatformRegistry {
             .collect::<Vec<_>>();
         identifiers.sort_unstable();
         identifiers
-    }
-
-    /// `InitDevice` 中平台选择器的发布定义。
-    pub fn selector_definition(&self) -> String {
-        format!("平台适配:{}", self.identifiers().join("/"))
     }
 }
 
@@ -212,10 +207,38 @@ impl MultiChannelResponse {
 ///
 /// 新平台应实现此 trait，而不应将其专有的函数命名、参数拼接或输出编码写入运行时。
 pub trait PlatformAdapter: Send + Sync + 'static {
+    /// 发布当前平台的参数描述；自动枚举候选必须由平台明确实现，不能套用其他平台语法。
+    fn format_parameter(&self, parameter: &crate::ParameterDescriptor) -> MiresidianResult<String> {
+        if parameter.has_auto_options() {
+            Err(crate::MiresidianError::NotSupported(format!(
+                "平台 {} 未实现枚举候选格式",
+                self.identifier()
+            )))
+        } else {
+            Ok(parameter.definition.to_owned())
+        }
+    }
+
+    /// 将本平台枚举输入转换为 codec 实际值/集合文本；和 format_parameter 配套实现。
+    fn normalize_parameter(
+        &self,
+        parameter: &crate::ParameterDescriptor,
+        value: &str,
+    ) -> MiresidianResult<String> {
+        if parameter.enum_options.is_empty() {
+            Ok(value.to_owned())
+        } else {
+            Err(crate::MiresidianError::NotSupported(format!(
+                "平台 {} 未实现枚举输入转换",
+                self.identifier()
+            )))
+        }
+    }
+
     /// 平台稳定类型标识；会映射为 C ABI 的 `uint32_t`。
     fn platform(&self) -> Platform;
 
-    /// 供默认 Config 兼容路径与诊断使用的平台文本标识，例如 `tb_lv_test_platform`。
+    /// 供注册表诊断使用的平台文本标识，例如 `tb_lv_test_platform`。
     fn identifier(&self) -> &'static str;
 
     /// C ABI 统一后的文本请求。适配器可在此解析平台自己的名称、输入编码和共享协议。

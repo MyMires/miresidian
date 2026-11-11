@@ -44,3 +44,9 @@ Delay 接收 0..2147483647 的毫秒数字符串。方法是否存在、参数�
 不同 Config 的静态关联按原始字符串数组判断；涉及默认值等价替换时应保持相同 Config 写法。
 统一入口为 cargo miresidian testflow --os windows <流程.testflow>，--os 由入口消费，原工具路径用法保持兼容。
 整套下载与命令对照见 [CLI](../miresidian-cli/README.md)。
+
+## 0.13.0 调用签名适配
+
+本源码候选尚未发布。执行器先读取 miresidian_abi_version：ABI 7–9 走其原有三参数入口，ABI 10 将 function/config/input 组装为完整 JSON，platform 固定为 0（DLL 默认平台），调用单参数 miresidian_invoke；其他版本在调用前拒绝。不使用旧函数指针调用新 DLL。当前流程发现和参数布局仍按 TB 文本契约解析；不宣称支持任意自定义平台元数据格式。
+
+Linux 上的生成器与宿主模拟检查不替代 Windows 原生 PowerShell/PInvoke 验证。

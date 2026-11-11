@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-11
+
+- Add NodeEnum codecs and structured choices for fieldless business enums. Missing descriptions use typed choices, explicit descriptions take precedence, and missing values never select the first choice.
+- Pair candidate rendering and input normalization in the actual call adapter; custom platforms do not inherit TB syntax.
+- ABI v10 retains only miresidian_invoke(request_json) for invocation plus its separate version query. Remove old split-argument exports and the old request-export name; zero/omission uses the DLL fixed default without a Config platform selector.
+- Synchronize independently versioned components, exact dependencies, lockfile and migration guidance; native checks and validation are recorded in plans/2026-11-11-enum-display-options.md. No push or publication.
+
 ## [0.29.0] - 2026-11-11
 
 - Rename public Rust types to Node, NodeInput, NodeOutput, NodeCollectionElement, NodeScalar and NodeValue, without old aliases. Rename codec trait methods to parse_text, normalize_text, into_output, parse_collection and format_collection.

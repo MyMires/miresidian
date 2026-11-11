@@ -71,15 +71,21 @@ fn call(
     // SAFETY: 全部参数由存活的 CString 提供，响应在下一次调用前立即复制和解析。
     let response = unsafe {
         let pointer = if explicit {
-            ffi_runtime::invoke_with(
-                runtime,
-                1,
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                Some(1),
                 function.as_ptr(),
                 config.as_ptr(),
                 input.as_ptr(),
             )
         } else {
-            ffi_runtime::invoke(runtime, function.as_ptr(), config.as_ptr(), input.as_ptr())
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                None,
+                function.as_ptr(),
+                config.as_ptr(),
+                input.as_ptr(),
+            )
         };
         CStr::from_ptr(pointer).to_str().unwrap()
     };
@@ -293,3 +299,6 @@ fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
             .collect::<Vec<_>>(),
     )
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-11
+
+- 新增平台无关 EnumOption、NodeInput/NodeCollectionElement 的默认 OPTIONS 常量及 Option/Vec 转发。
+- 新增 normalize_enum_text 处理结构候选的具体显示值与标准集合，不解析平台元数据分隔符、不提供首项默认。原自定义实现无需新增必填成员。
+
 ## [0.17.0] - 2026-11-11
 
 - 公开类型 DeviceInput/DeviceOutput/DeviceCollectionElement/DeviceScalar/DeviceValue 分别更名为 NodeInput/NodeOutput/NodeCollectionElement/NodeScalar/NodeValue，不保留别名。

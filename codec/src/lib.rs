@@ -7,6 +7,7 @@ mod binary;
 mod collection;
 mod definition;
 mod error;
+mod options;
 mod output;
 mod scalar;
 mod text;
@@ -15,6 +16,7 @@ mod value;
 use std::{fmt, str::FromStr};
 
 pub use error::{ErrorCategory, MiresidianError, MiresidianResult};
+pub use options::{EnumOption, normalize_enum_text};
 pub use output::InvocationOutput;
 pub use value::{NodeScalar, NodeValue};
 
@@ -127,6 +129,9 @@ pub fn transcode_text(
 
 /// 可由测试平台参数文本构造的输入或配置类型。
 pub trait NodeInput: Sized {
+    /// 平台无关的有限候选；空切片表示无自动候选，不提供业务缺参默认值。
+    const OPTIONS: &'static [EnumOption] = &[];
+
     /// 从单个已完成名称与默认值处理的文本值构造目标类型。
     fn parse_text(value: &str, field: &str) -> MiresidianResult<Self>;
 
@@ -148,6 +153,9 @@ pub trait NodeOutput {
 /// 对标准类型已由框架实现。自定义业务类型若要使用 `Vec<T>` 参数或返回值，应实现本 trait，
 /// 以明确其数组文本的解析和格式化规则。
 pub trait NodeCollectionElement: Sized {
+    /// 集合元素的有限候选，供 Vec 参数转发；不改变集合文本规则。
+    const OPTIONS: &'static [EnumOption] = &[];
+
     /// 将整个数组文本转换为有序元素。
     fn parse_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>>;
 
@@ -207,6 +215,8 @@ pub fn encode_value<T: NodeOutput>(value: T) -> MiresidianResult<InvocationOutpu
 }
 
 impl<T: NodeCollectionElement> NodeInput for Vec<T> {
+    const OPTIONS: &'static [EnumOption] = T::OPTIONS;
+
     fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
         T::parse_collection(value, field)
     }
@@ -223,6 +233,8 @@ impl<T: NodeCollectionElement> NodeOutput for Vec<T> {
 }
 
 impl<T: NodeInput> NodeInput for Option<T> {
+    const OPTIONS: &'static [EnumOption] = T::OPTIONS;
+
     fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
         if value.trim().is_empty() {
             Ok(None)

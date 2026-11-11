@@ -1,4 +1,4 @@
-//! 经两类 C ABI 入口验证固定响应字段、稳定错误码和业务输出。
+//! 经默认及显式平台 JSON 请求验证固定响应字段、稳定错误码和业务输出。
 use miresidian::{
     Invocation, InvocationOutput, MiresidianError, MiresidianResult, NodeRuntime, Platform,
     PlatformAdapter, RuntimeInvocation, RuntimeResponse,
@@ -104,10 +104,20 @@ unsafe fn raw_call(
     // SAFETY: 调用者保证指针指向有效 C 字符串，或为契约中允许的 NULL。
     let response = unsafe {
         match platform {
-            Some(platform) => {
-                miresidian::ffi_runtime::invoke_with(runtime, platform, operation, config, input)
-            }
-            None => miresidian::ffi_runtime::invoke(runtime, operation, config, input),
+            Some(platform) => ffi_support::request(
+                |request| miresidian::ffi_runtime::invoke(runtime, request),
+                Some(platform),
+                operation,
+                config,
+                input,
+            ),
+            None => ffi_support::request(
+                |request| miresidian::ffi_runtime::invoke(runtime, request),
+                None,
+                operation,
+                config,
+                input,
+            ),
         }
     };
     // SAFETY: ABI 返回线程本地有效 C 字符串，在下次调用前复制。
@@ -150,7 +160,7 @@ fn expect(response: &serde_json::Value, status: i32, code: &str) {
 }
 
 #[test]
-fn both_entries_preserve_version_queries_and_output_with_code() {
+fn default_and_explicit_platforms_preserve_version_queries_and_output_with_code() {
     for platform in [None, Some(0), Some(1)] {
         let runtime = Runtime::new();
         let framework = call(&runtime, platform, "GetFrameworkVersion", &[], &[]);
@@ -177,7 +187,7 @@ fn both_entries_preserve_version_queries_and_output_with_code() {
 }
 
 #[test]
-fn both_entries_report_stable_lifecycle_and_business_codes() {
+fn default_and_explicit_platforms_report_stable_lifecycle_and_business_codes() {
     for platform in [None, Some(0), Some(1)] {
         let runtime = Runtime::new();
         expect(
@@ -224,7 +234,7 @@ fn unknown_platform_is_distinct_from_reserved_platform_number() {
             &[],
         ),
         1,
-        "UNKNOWN_PLATFORM_ADAPTER",
+        "INVALID_ARGUMENT",
     );
     for platform in [2, 65_535] {
         expect(
@@ -283,3 +293,6 @@ fn unexpected_adapter_panic_has_internal_code_and_releases_runtime_lock() {
         "OK",
     );
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

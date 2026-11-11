@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_instances"
-version = "0.16.7"
+version = "0.16.8"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 的实例策略、对象容器与可选多通道调度。"
@@ -13,4 +13,4 @@ default = []
 runtime = []
 
 [dependencies]
-miresidian_codec = { version = "=0.17.0", path = "../../codec" }
+miresidian_codec = { version = "=0.18.0", path = "../../codec" }

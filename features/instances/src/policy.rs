@@ -135,7 +135,7 @@ impl Default for InstancePolicy {
     }
 }
 
-/// 描述发布与请求解析共用的框架配置布局。平台选择器仍允许兼容性省略。
+/// 描述发布与请求解析共用的框架配置布局。平台由调用确定；历史 platform 字段表示执行方式起始位置，不占用平台 Config。
 pub struct ConfigLayout {
     pub business: usize,
     pub handle: Option<usize>,

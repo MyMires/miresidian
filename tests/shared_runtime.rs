@@ -148,11 +148,7 @@ fn shared_unknown_or_closed_config_never_selects_another_object() {
 fn shared_config_uses_explicit_values_prefixes_and_reserved_config_rules() {
     let runtime = NodeRuntime::<SharedNode>::new();
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
-    for config in [
-        vec!["A"],
-        vec!["地址:A"],
-        vec!["A", TB_LV_TEST_PLATFORM, "Sequential"],
-    ] {
+    for config in [vec!["A"], vec!["地址:A"], vec!["A", "Sequential"]] {
         assert_eq!(
             runtime
                 .invoke(&request("记录", &config, &["共享", "x"]))
@@ -232,15 +228,21 @@ fn call(
     // SAFETY: 输入 CString 存活至调用结束，返回文本在下一次调用前立即复制并解析。
     let response = unsafe {
         let pointer = if explicit {
-            ffi_runtime::invoke_with(
-                runtime,
-                1,
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                Some(1),
                 operation.as_ptr(),
                 config.as_ptr(),
                 input.as_ptr(),
             )
         } else {
-            ffi_runtime::invoke(runtime, operation.as_ptr(), config.as_ptr(), input.as_ptr())
+            ffi_support::request(
+                |request| ffi_runtime::invoke(runtime, request),
+                None,
+                operation.as_ptr(),
+                config.as_ptr(),
+                input.as_ptr(),
+            )
         };
         CStr::from_ptr(pointer).to_str().unwrap()
     };
@@ -248,7 +250,7 @@ fn call(
 }
 
 #[test]
-fn both_ffi_entries_accept_multiple_platform_inputs_for_one_reused_object() {
+fn default_and_explicit_json_platforms_accept_multiple_platform_inputs_for_one_reused_object() {
     for explicit in [false, true] {
         for mode in ["Sequential", "Parallel", "Broadcast"] {
             let runtime = Runtime::new();
@@ -292,7 +294,7 @@ fn blank_config_primary_keys_skip_creation_before_defaults_are_applied() {
         vec![""],
         vec!["  "],
         vec!["地址:"],
-        vec!["", TB_LV_TEST_PLATFORM, "Parallel"],
+        vec!["", "Parallel"],
     ];
     for config in &blanks {
         assert!(
@@ -326,3 +328,6 @@ fn blank_config_primary_keys_skip_creation_before_defaults_are_applied() {
         ["A:x:2"]
     );
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

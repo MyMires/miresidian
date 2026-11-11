@@ -13,21 +13,25 @@ const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "地址",
     definition: "地址:127.0.0.1",
     default_value: Some("127.0.0.1"),
+    enum_options: &[],
 }];
 const INIT_OUTPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "状态",
     definition: "状态",
     default_value: None,
+    enum_options: &[],
 }];
 const QUERY_INPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "发送数据",
     definition: "发送数据",
     default_value: None,
+    enum_options: &[],
 }];
 const QUERY_OUTPUTS: [ParameterDescriptor; 1] = [ParameterDescriptor {
     name: "接收数据",
     definition: "接收数据",
     default_value: None,
+    enum_options: &[],
 }];
 const OPERATIONS: [OperationDescriptor; 1] = [OperationDescriptor {
     name: "Query",
@@ -211,7 +215,7 @@ fn fixed_operations_publish_compatible_metadata() {
     assert!(
         functions
             .as_slice()
-            .contains(&"InitDevice(地址:127.0.0.1,平台适配:tb_lv_test_platform,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播)(状态)".to_owned())
+            .contains(&"InitDevice(地址:127.0.0.1,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播)(状态)".to_owned())
     );
     assert!(
         functions
@@ -236,7 +240,6 @@ fn fixed_operations_publish_compatible_metadata() {
         config.as_slice(),
         [
             "地址:127.0.0.1",
-            "平台适配:tb_lv_test_platform",
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
         ]
     );
@@ -432,7 +435,7 @@ fn invalid_or_blank_shared_execution_defaults_to_sequential() {
 }
 
 #[test]
-fn 注册平台可由普通调用的初始化_config_选择() {
+fn registered_platform_is_chosen_by_call_and_config_cannot_override_it() {
     let runtime = NodeRuntime::<MemoryNode>::with_platforms(
         PlatformRegistry::default().with_adapter(MockPlatformAdapter),
     );
@@ -442,22 +445,37 @@ fn 注册平台可由普通调用的初始化_config_选择() {
     assert!(
         metadata
             .as_slice()
-            .contains(&"平台适配:mock_platform/tb_lv_test_platform".to_owned())
+            .iter()
+            .all(|value| !value.contains("平台适配:"))
     );
-
+    assert!(
+        runtime
+            .invoke(&request(
+                INIT_DEVICE_OPERATION,
+                &["A", "mock_platform", "Sequential"],
+                &[]
+            ))
+            .is_err()
+    );
     let initialized = runtime
-        .invoke(&request(
-            INIT_DEVICE_OPERATION,
-            &["A", "mock_platform", "Sequential"],
-            &[],
-        ))
+        .invoke_with(
+            &MockPlatformAdapter,
+            request(INIT_DEVICE_OPERATION, &["A", "Sequential"], &[]),
+        )
         .unwrap();
     assert_eq!(initialized.as_slice(), ["mock", "已连接"]);
-
     let output = runtime
-        .invoke(&request("MockQuery", &["A"], &["ping"]))
+        .invoke_with(
+            &MockPlatformAdapter,
+            request("MockQuery", &["A"], &["ping"]),
+        )
         .unwrap();
     assert_eq!(output.as_slice(), ["mock", "A:ping"]);
+    assert!(
+        runtime
+            .invoke(&request("Query", &["A"], &["ping"]))
+            .is_err()
+    );
 }
 
 #[test]

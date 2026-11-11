@@ -45,7 +45,7 @@ fn bare_instances_orders_channels_and_keeps_one_object() {
             .invoke(&request("GetInitConfig", &[], &[]))
             .unwrap()
             .as_slice(),
-        ["名称:demo", "平台适配:tb_lv_test_platform"]
+        ["名称:demo"]
     );
     runtime.invoke(&request("InitDevice", &["A"], &[])).unwrap();
     let response = runtime

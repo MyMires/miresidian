@@ -67,7 +67,7 @@ fn default_metadata_never_publishes_handle_or_execution_selector() {
             .invoke(&request("GetInitConfig", &[], &[]))
             .unwrap()
             .as_slice(),
-        ["名称:default", "速度:1", "平台适配:tb_lv_test_platform"]
+        ["名称:default", "速度:1"]
     );
     assert!(
         runtime

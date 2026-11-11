@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-11
+
+- C ABI 升至 v10，唯一业务入口为 miresidian_invoke(const char *request_json)，删除旧三参数入口、invoke_with 及旧 invoke_request 名称。
+- 保留独立版本查询；platform 0/省略使用固定默认平台，MIRESIDIAN_PLATFORM_DEFAULT 替代运行时选择常量，Config 不再选择平台。
+- 头文件、元数据、Rust 常量、C 函数指针测试及迁移指导同步；响应 JSON、内存归属和稳定平台编号保持。
+
 ## [0.16.0] - 2026-11-10
 
 - C ABI 升至 v9，新增 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT = 0`：带平台入口的零值复用 Config 选择；非零平台、函数签名、响应结构与指针有效期保持。

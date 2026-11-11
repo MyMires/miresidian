@@ -1,6 +1,6 @@
 # 架构总览
 
-本检出 0.29.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
+本检出 0.30.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
 
 [文档中心](README.md) · [项目首页](../README.md)
 
@@ -124,6 +124,8 @@ classDiagram
         +platform()
         +identifier()
         +decode(request)
+        +format_parameter(parameter)
+        +normalize_parameter(parameter, value)
         +encode(response)
     }
     class TbLvTestPlatformAdapter["TB 平台适配器（TbLvTestPlatformAdapter）"]
@@ -142,6 +144,7 @@ classDiagram
         name
         definition
         default_value
+        enum_options
     }
     note for Node "节点与运行时之间的接口，由属性宏生成实现。"
     note for NodeRuntime "不同实例并行；同实例请求和整个多通道批次互斥。"
@@ -205,7 +208,7 @@ Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯�
 
 ## 一次业务调用的时序
 
-下图按编号展示已初始化通道上的成功调用：先解析请求与选择通道，再执行业务，最后编码响应。`miresidian_invoke_with` 额外选择已注册的平台；默认入口通过运行时配置选择平台。新增完整请求入口 `miresidian_invoke_request` 在私有解析模块校验 JSON 后，以 platform 字段是否提供复用这两条路径；省略时不自动补 1。三个入口在适配完成后进入同一调度链，共享实例状态和线程响应缓存。
+下图展示 ABI v10 的单 JSON 调用：宿主先核对版本，platform 在本次调用时指定，0/省略使用 DLL 固定默认平台，不从 Config 选型。唯一入口完成请求校验后，使用同一个实际适配器 decode、规范化枚举输入并渲染元数据，随后进入统一调度链。
 
 ```mermaid
 sequenceDiagram
@@ -219,12 +222,13 @@ sequenceDiagram
     participant Node as 宏生成的节点接口<br/>Node 实现
     participant Codec as 数据编解码<br/>miresidian_codec
     participant Target as 节点业务逻辑与目标资源
-    Host->>FFI: 提交函数名、配置数组与输入数组
-    Note over Host,FFI: function 为函数名；config_json 和 input_json 为 JSON 字符串数组
+    Host->>FFI: miresidian_invoke 提交单 JSON 请求
+    Note over Host,FFI: 请求含 function、config/input 字符串数组及 platform；先核对 ABI v10
     FFI->>FFI: 校验文本与 JSON，构造请求（Invocation）
-    FFI->>Runtime: 取得共享运行时并发起调用（invoke / invoke_with）
+    FFI->>Runtime: 取得共享运行时并发起调用（按请求平台调用 invoke_with）
     Runtime->>Adapter: 解析平台请求（decode）
     Adapter-->>Runtime: 返回结构化命令（RuntimeInvocation）
+    Runtime->>Adapter: 以类型候选规范化枚举输入（normalize_parameter）
     Runtime->>Instance: 短管理锁查找对象，释放后取得实例请求执行权
     Note over Runtime,Instance: 这里使用已初始化通道；框架保留配置不参与通道键
     opt Shared 分支
@@ -295,7 +299,7 @@ Shared 分支的 Node 位于唯一资源所有者中；图中省略 IPC 编解�
 ## 并行与异步执行
 
 0.15.0 的 `NodeRuntime` 使用共享内部状态；Clone 共享同一个实例登记表、平台绑定和并发限额。
-宏生成的三个同步 DLL 调用入口共用一个 OnceLock 运行时，不再以全局 Mutex 包围完整调用。
+宏生成的唯一 JSON DLL 调用入口使用一个 OnceLock 运行时，不再以全局 Mutex 包围完整调用。
 管理锁只保护登记和查找；生命周期事务单独协调；实例请求门禁保护整个请求；状态锁保护业务对象与故障状态。
 
 | 范围 | 执行规则 |
@@ -334,7 +338,7 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 执行器依赖选用 Tokio 1.53.3 LTS（MIT，MSRV 1.71，支持 Linux/Windows），锁定在 1.53 补丁系列；futures-util 用于安全组合与捕获 Future panic。
 依据 [Tokio 支持策略](https://docs.rs/crate/tokio/1.53.3) 与 [RUSTSEC-2026-0386 修复范围](https://rustsec.org/advisories/RUSTSEC-2026-0386.html) 选择已修复版本；本项目 MSRV 保持 1.89。
 
-并发测试采用开始/释放信号证明真实执行重叠，覆盖两个 DLL 入口、共享批次、关闭、初始化与全局关闭竞争、容量限制、排队取消、截止时间、原生异步 panic 及跨线程结果回收。
+并发测试采用开始/释放信号证明真实执行重叠，覆盖默认与显式平台 JSON 请求、共享批次、关闭、初始化与全局关闭竞争、容量限制、排队取消、截止时间、原生异步 panic 及跨线程结果回收。
 
 ## 后续演进计划
 
@@ -389,7 +393,7 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 | 当前契约 | 直接验收证据 |
 | --- | --- |
-| 不同实例可同时执行业务；C 入口仍同步返回 | concurrent_execution：两个既有 C 入口的执行开始信号必须重叠；同步返回不等于全 DLL 串行 |
+| 不同实例可同时执行业务；C 入口仍同步返回 | concurrent_execution：默认与显式平台 JSON 请求的执行开始信号必须重叠；同步返回不等于全 DLL 串行 |
 | 相同 Handle 指向同一对象，不同 Handle 可指向独立对象 | concurrent_handles：相同业务配置的两个 Handle 同时进入业务 |
 | 同实例整个多通道批次排斥其他请求 | concurrent_execution：批次业务轨迹之后才出现普通请求 |
 | Broadcast 的源是通道1，业务仅调用一次 | broadcast：输入 [10,20,空,30] 输出 [R,R,空,R]，随后查询实际业务计数为1 |

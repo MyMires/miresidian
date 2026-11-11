@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-11
+
+- 内嵌执行器先探测 ABI：v7-v9 采用旧三参数签名，v10 组装完整 JSON 调用单参数 miresidian_invoke；其他 ABI 调用前拒绝。
+- v10 请求固定 platform=0 使用 DLL 默认平台，响应复制和输入缓冲区释放保持；生成器/指导同步，不宣称已执行 Windows 原生加载。
+
 ## [0.12.0] - 2026-11-01
 
 - 增加 --help、--version 和 --check；生成 BAT 前检查 JSON 字符串参数、Delay 范围及基本配置/初始化顺序。

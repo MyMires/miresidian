@@ -101,59 +101,60 @@ impl PlatformAdapter for CAbiMockAdapter {
     }
 }
 
-fn call(function: &str, config_json: &str) -> serde_json::Value {
-    let runtime: OnceLock<Mutex<NodeRuntime<TestNode>>> = OnceLock::new();
-    let function = CString::new(function).expect("固定操作名不含 NUL");
-    let config_json = CString::new(config_json).expect("JSON 不含 NUL");
-    let output = unsafe {
-        miresidian::ffi_runtime::invoke(
-            &runtime,
-            function.as_ptr(),
-            config_json.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let output = unsafe { CStr::from_ptr(output) }
-        .to_str()
-        .expect("输出必须为 UTF-8");
-    serde_json::from_str(output).expect("输出必须为 JSON 响应对象")
+fn call_on<N: Node>(
+    runtime: &OnceLock<Mutex<NodeRuntime<N>>>,
+    request: serde_json::Value,
+) -> serde_json::Value {
+    let request = CString::new(request.to_string()).unwrap();
+    // SAFETY: JSON 请求在调用期间有效，立即复制 DLL 响应。
+    let output = unsafe { miresidian::ffi_runtime::invoke(runtime, request.as_ptr()) };
+    serde_json::from_str(unsafe { CStr::from_ptr(output) }.to_str().unwrap()).unwrap()
 }
 
-fn call_with(function: &str, config_json: &str) -> serde_json::Value {
-    let runtime: OnceLock<Mutex<NodeRuntime<TestNode>>> = OnceLock::new();
-    let function = CString::new(function).expect("固定操作名不含 NUL");
-    let config_json = CString::new(config_json).expect("JSON 不含 NUL");
-    let output = unsafe {
-        miresidian::ffi_runtime::invoke_with(
-            &runtime,
-            Platform::TbLvTestPlatform.as_u32(),
-            function.as_ptr(),
-            config_json.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let output = unsafe { CStr::from_ptr(output) }
-        .to_str()
-        .expect("输出必须为 UTF-8");
-    serde_json::from_str(output).expect("输出必须为 JSON 响应对象")
+fn call(function: &str, config: serde_json::Value) -> serde_json::Value {
+    call_on(
+        &OnceLock::<Mutex<NodeRuntime<TestNode>>>::new(),
+        serde_json::json!({"function":function,"config":config}),
+    )
 }
 
 #[test]
-fn 显式平台_c_abi_等价于_invoke_with() {
-    let metadata = call_with("GetInitConfig", "[]");
-    assert_eq!(metadata["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(metadata["output"], serde_json::json!([]));
-
-    let initialized = call_with("InitDevice", "[]");
-    assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
-
-    let duplicated_selector = call_with("InitDevice", r#"["tb_lv_test_platform"]"#);
+fn sole_json_entry_returns_metadata_without_platform_selector() {
     assert_eq!(
-        duplicated_selector["status"],
-        MIRESIDIAN_STATUS_INVALID_ARGUMENT
+        call("GetFunctions", serde_json::json!([]))["output"][0],
+        "GetFunctions()(函数列表)"
     );
+    let output = call("GetInitConfig", serde_json::json!([]));
+    assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
+    assert_eq!(output["output"], serde_json::json!([]));
+}
+
+#[test]
+fn json_platform_selects_registered_adapter_and_rejects_reserved_ids() {
+    let runtime = OnceLock::<Mutex<NodeRuntime<CAbiPlatformNode>>>::new();
+    let initialized = call_on(
+        &runtime,
+        serde_json::json!({"platform":65538,"function":"InitDevice"}),
+    );
+    assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
+    assert_eq!(initialized["output"], serde_json::json!(["c-abi-mock"]));
+    let invalid = call_on(
+        &runtime,
+        serde_json::json!({"platform":2,"function":"GetFunctions"}),
+    );
+    assert_eq!(invalid["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
+    assert_eq!(invalid["code"], "INVALID_PLATFORM_ID");
+}
+
+#[test]
+fn config_platform_selection_is_rejected() {
+    let output = call(
+        "InitDevice",
+        serde_json::json!(["平台适配:tb_lv_test_platform"]),
+    );
+    assert_eq!(output["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
     assert!(
-        duplicated_selector["message"]
+        output["message"]
             .as_str()
             .unwrap()
             .contains("不应在 Config 中重复选择")
@@ -161,120 +162,16 @@ fn 显式平台_c_abi_等价于_invoke_with() {
 }
 
 #[test]
-fn get_functions_直接返回_json_文本() {
-    let output = call("GetFunctions", "[]");
-    assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(output["message"], "");
-    assert_eq!(output["output"][0], "GetFunctions()(函数列表)");
-}
-
-#[test]
-fn get_init_config_无需调用方输出缓冲区() {
-    let output = call("GetInitConfig", "[]");
-    assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(output["message"], "");
+fn runtime_and_request_errors_preserve_status_categories() {
     assert_eq!(
-        output["output"],
-        serde_json::json!(["平台适配:tb_lv_test_platform"])
+        call("InitDevice", serde_json::json!(["unexpected", "extra"]))["status"],
+        MIRESIDIAN_STATUS_INVALID_ARGUMENT
     );
-}
-
-#[test]
-fn c_abi_可从节点注册表选择编译进_dll_的平台() {
-    let runtime: OnceLock<Mutex<NodeRuntime<CAbiPlatformNode>>> = OnceLock::new();
-    let function = CString::new("GetInitConfig").unwrap();
-    let config = CString::new("[]").unwrap();
-    let metadata = unsafe {
-        miresidian::ffi_runtime::invoke(
-            &runtime,
-            function.as_ptr(),
-            config.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let metadata: serde_json::Value =
-        serde_json::from_str(unsafe { CStr::from_ptr(metadata) }.to_str().unwrap()).unwrap();
-    assert!(
-        metadata["output"]
-            .as_array()
-            .unwrap()
-            .contains(&serde_json::json!(
-                "平台适配:c_abi_mock_platform/tb_lv_test_platform"
-            ))
+    assert_eq!(
+        call("UnknownOperation", serde_json::json!([]))["status"],
+        MIRESIDIAN_STATUS_OPERATION_FAILED
     );
-
-    let function = CString::new("InitDevice").unwrap();
-    let config = CString::new("[\"c_abi_mock_platform\"]").unwrap();
-    let initialized = unsafe {
-        miresidian::ffi_runtime::invoke(
-            &runtime,
-            function.as_ptr(),
-            config.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let initialized: serde_json::Value =
-        serde_json::from_str(unsafe { CStr::from_ptr(initialized) }.to_str().unwrap()).unwrap();
-    assert_eq!(initialized["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(initialized["output"], serde_json::json!(["c-abi-mock"]));
-}
-
-#[test]
-fn 数值平台_c_abi_可选择第三方适配器并拒绝保留值() {
-    let runtime: OnceLock<Mutex<NodeRuntime<CAbiPlatformNode>>> = OnceLock::new();
-    let function = CString::new("InitDevice").unwrap();
-    let config = CString::new("[]").unwrap();
-    let output = unsafe {
-        miresidian::ffi_runtime::invoke_with(
-            &runtime,
-            Platform::Custom(0x0001_0002).as_u32(),
-            function.as_ptr(),
-            config.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let output: serde_json::Value =
-        serde_json::from_str(unsafe { CStr::from_ptr(output) }.to_str().unwrap()).unwrap();
-    assert_eq!(output["status"], MIRESIDIAN_STATUS_OK);
-    assert_eq!(output["output"], serde_json::json!(["c-abi-mock"]));
-
-    let invalid = unsafe {
-        miresidian::ffi_runtime::invoke_with(
-            &OnceLock::<Mutex<NodeRuntime<TestNode>>>::new(),
-            2,
-            function.as_ptr(),
-            config.as_ptr(),
-            c"[]".as_ptr(),
-        )
-    };
-    let invalid: serde_json::Value =
-        serde_json::from_str(unsafe { CStr::from_ptr(invalid) }.to_str().unwrap()).unwrap();
-    assert_eq!(invalid["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
-}
-
-#[test]
-fn 运行时参数校验映射为无效参数状态码() {
-    let output = call("InitDevice", r#"["unexpected","extra"]"#);
+    let output = call("GetFunctions", serde_json::json!("not an array"));
     assert_eq!(output["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
-    assert!(output["message"].as_str().unwrap().contains("配置参数数量"));
-}
-
-#[test]
-fn 运行时执行失败映射为操作失败状态码() {
-    let output = call("UnknownOperation", "[]");
-    assert_eq!(output["status"], MIRESIDIAN_STATUS_OPERATION_FAILED);
-    assert!(output["message"].as_str().unwrap().contains("尚未初始化"));
-}
-
-#[test]
-fn 非法_json_返回状态与消息() {
-    let output = call("GetFunctions", "[");
-    assert_eq!(output["status"], MIRESIDIAN_STATUS_INVALID_ARGUMENT);
-    assert!(
-        output["message"]
-            .as_str()
-            .expect("错误信息必须是字符串")
-            .contains("config_json")
-    );
     assert_eq!(output["output"], serde_json::json!([]));
 }

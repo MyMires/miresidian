@@ -55,7 +55,7 @@ impl<N: Node> TaskService<N> {
     }
     /// 提交请求并返回本服务内不复用的任务 ID；容量满或服务已关闭时返回错误。
     ///
-    /// platform=None 使用默认平台路径，Some 使用显式平台路径及其 Config 布局。
+    /// platform=None 使用固定默认平台，Some 指定平台；Config 布局一致且不包含平台项。
     /// timeout 从上下文创建时计算并包含排队，None 不设置截止时间；提交成功不代表业务成功。
     pub fn submit(
         &self,

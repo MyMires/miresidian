@@ -12,10 +12,9 @@ use std::{
 use serde::Serialize;
 
 use crate::{
-    ErrorCategory, Invocation, MIRESIDIAN_PLATFORM_RUNTIME_SELECT,
-    MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
-    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus, Node, NodeRuntime,
-    Platform,
+    ErrorCategory, Invocation, MIRESIDIAN_PLATFORM_DEFAULT, MIRESIDIAN_STATUS_INTERNAL_ERROR,
+    MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED,
+    MiresidianError, MiresidianStatus, Node, NodeRuntime, Platform,
 };
 
 const INTERNAL_ERROR_RESPONSE: &str =
@@ -42,79 +41,27 @@ struct InvocationResponse {
     output: Vec<String>,
 }
 
-/// 使用默认平台选择流程调用 DLL 并返回 JSON C 字符串指针。
+/// 唯一 DLL 调用入口：完整 JSON 请求，平台由本次请求确定。
 ///
-/// 返回指针由 DLL 持有，在同一线程下一次调用任一 ABI 调用入口前有效。调用方应立即复制文本，且不得
-/// 释放该指针。JSON 始终包含 status、code、message 与 output。
-/// config_json 与 input_json 为 NULL 时按空数组处理。
+/// function 必填；config/input 缺省为空数组。platform 缺省或 0 使用 DLL 默认平台，
+/// 非零必须已注册。Config 不接受平台选择器。响应由 DLL 持有，在同线程下次调用前复制。
 ///
 /// # Safety
-/// 所有非空指针必须指向有效、以 NUL 结尾的 C 字符串缓冲区。NULL function、
-/// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
+/// 非 NULL request_json 必须指向调用期间有效、NUL 结尾的 UTF-8 C 字符串。
+/// NULL、非法 UTF-8/JSON 和字段错误通过响应返回；无效地址不可校验。
 pub unsafe fn invoke<N: Node>(
-    runtime: &impl crate::runtime::RuntimeSource<N>,
-    function: *const c_char,
-    config_json: *const c_char,
-    input_json: *const c_char,
-) -> *const c_char {
-    // SAFETY: 指针前置条件由此函数的调用契约保证，内部继续校验空指针与 UTF-8。
-    store_response(caught_response(|| unsafe {
-        dispatch(runtime, function, config_json, input_json)
-    }))
-}
-
-/// 按平台路由值调用 DLL，并返回 DLL 持有的 JSON C 字符串指针。
-///
-/// `platform` 为 `MIRESIDIAN_PLATFORM_RUNTIME_SELECT`（0）时与 [`invoke`] 等价：
-/// 查询发布 `平台适配` 选择器，`InitDevice` 通过 Config 选择，后续使用已选平台。
-/// 非零值必须是节点 DLL 已注册的平台枚举数值，对应 `NodeRuntime::invoke_with`：
-/// `InitDevice` 的 Config 不发布也不接受 `平台适配` 选择器。
-///
-/// # Safety
-/// 所有非空指针必须指向有效、以 NUL 结尾的 C 字符串缓冲区。NULL function、
-/// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
-/// platform 的合法性和注册状态由入口校验。
-pub unsafe fn invoke_with<N: Node>(
-    runtime: &impl crate::runtime::RuntimeSource<N>,
-    platform: u32,
-    function: *const c_char,
-    config_json: *const c_char,
-    input_json: *const c_char,
-) -> *const c_char {
-    // SAFETY: 字符串指针满足此函数的调用契约；dispatch_with 先处理 0 路由，再校验具体编号。
-    store_response(caught_response(|| unsafe {
-        dispatch_with(runtime, platform, function, config_json, input_json)
-    }))
-}
-
-/// 从完整 JSON 请求调用 DLL，返回 DLL 持有的 JSON 响应文本。
-///
-/// `function` 为必填非空字符串，`config`/`input` 为可省略的字符串数组（默认 `[]`）。
-/// 可选的 `platform` 必须为 u32 JSON 整数；省略或为 0 时沿用 [`invoke`] 的 Config
-/// 平台选择流程，非零时沿用 [`invoke_with`] 的显式平台规则，不隐式补平台编号。
-/// 拒绝显式 null、未知字段、重复字段及错误类型，参数错误返回统一 INVALID_ARGUMENT 响应。
-///
-/// 所有入口共用线程局部响应缓存；返回文本在同线程下一次调用任一入口、线程退出或
-/// DLL 卸载前有效（以最早发生者为准）。调用方应立即复制，不得修改或释放指针。
-///
-/// # Safety
-/// `request_json` 非空时必须指向本次调用期间可读、NUL 结尾的 C 字符串；内存归调用方。
-/// NULL、非法 UTF-8、非法 JSON 和无效请求通过错误响应报告。
-pub unsafe fn invoke_request<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     request_json: *const c_char,
 ) -> *const c_char {
     store_response(caught_response(|| {
-        // SAFETY: 非空指针的有效期和 NUL 终止由调用方保证，内部检查 NULL/UTF-8。
+        // SAFETY: 指针有效性由调用方保证，内部检查 NULL 与 UTF-8。
         let text = unsafe { copy_required_text(request_json, "request_json") }?;
         let request = super::request::parse(&text)?;
-        let invocation = Invocation::new(request.function, request.config, request.input);
-        match request.platform {
-            Some(platform) => dispatch_platform(runtime, platform, invocation),
-            None => invoke_runtime(runtime, N::platform_registry, |runtime| {
-                runtime.invoke(&invocation)
-            }),
-        }
+        dispatch_platform(
+            runtime,
+            request.platform.unwrap_or(MIRESIDIAN_PLATFORM_DEFAULT),
+            Invocation::new(request.function, request.config, request.input),
+        )
     }))
 }
 
@@ -156,66 +103,17 @@ fn caught_response(
     }
 }
 
-unsafe fn dispatch<N: Node>(
-    runtime: &impl crate::runtime::RuntimeSource<N>,
-    function: *const c_char,
-    config_json: *const c_char,
-    input_json: *const c_char,
-) -> crate::MiresidianResult<Vec<String>> {
-    // SAFETY: 调用方提供有效 C 字符串；这些函数检查空指针、UTF-8 和 JSON。
-    let operation = unsafe { copy_required_text(function, "function") }?;
-    // SAFETY: 同上，NULL JSON 指针按空数组处理。
-    let config = unsafe { parse_json_array(config_json, "config_json") }?;
-    // SAFETY: 同上。
-    let input = unsafe { parse_json_array(input_json, "input_json") }?;
-    invoke_runtime(runtime, N::platform_registry, |runtime| {
-        runtime.invoke(&Invocation::new(operation, config, input))
-    })
-}
-
-unsafe fn dispatch_with<N: Node>(
-    runtime: &impl crate::runtime::RuntimeSource<N>,
-    platform: u32,
-    function: *const c_char,
-    config_json: *const c_char,
-    input_json: *const c_char,
-) -> crate::MiresidianResult<Vec<String>> {
-    if platform == MIRESIDIAN_PLATFORM_RUNTIME_SELECT {
-        // SAFETY: 调用方保证输入 C 字符串有效，0 完全沿用默认入口的解析与选择流程。
-        return unsafe { dispatch(runtime, function, config_json, input_json) };
-    }
-    let platform =
-        Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?;
-    // SAFETY: 调用方提供有效 C 字符串；这些函数检查空指针、UTF-8 和 JSON。
-    let operation = unsafe { copy_required_text(function, "function") }?;
-    // SAFETY: 同上，NULL JSON 指针按空数组处理。
-    let config = unsafe { parse_json_array(config_json, "config_json") }?;
-    // SAFETY: 同上。
-    let input = unsafe { parse_json_array(input_json, "input_json") }?;
-    invoke_platform(runtime, platform, Invocation::new(operation, config, input))
-}
-
 fn dispatch_platform<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     invocation: Invocation,
 ) -> crate::MiresidianResult<Vec<String>> {
-    if platform == MIRESIDIAN_PLATFORM_RUNTIME_SELECT {
-        return invoke_runtime(runtime, N::platform_registry, |runtime| {
-            runtime.invoke(&invocation)
-        });
-    }
-    let platform =
-        Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?;
-    invoke_platform(runtime, platform, invocation)
-}
-
-fn invoke_platform<N: Node>(
-    runtime: &impl crate::runtime::RuntimeSource<N>,
-    platform: Platform,
-    invocation: Invocation,
-) -> crate::MiresidianResult<Vec<String>> {
     let platforms = N::platform_registry();
+    let platform = if platform == MIRESIDIAN_PLATFORM_DEFAULT {
+        platforms.default_platform()
+    } else {
+        Platform::from_abi(platform).ok_or(MiresidianError::InvalidPlatformId(platform))?
+    };
     let adapter = platforms
         .adapter(platform)
         .ok_or_else(|| MiresidianError::UnknownPlatformAdapter(platform.to_string()))?;
@@ -250,21 +148,6 @@ fn status_for_error(error: &MiresidianError) -> MiresidianStatus {
         ErrorCategory::OperationFailed => MIRESIDIAN_STATUS_OPERATION_FAILED,
         ErrorCategory::InternalError => MIRESIDIAN_STATUS_INTERNAL_ERROR,
     }
-}
-
-unsafe fn parse_json_array(
-    value: *const c_char,
-    field: &str,
-) -> crate::MiresidianResult<Vec<String>> {
-    if value.is_null() {
-        return Ok(Vec::new());
-    }
-    // SAFETY: 非空指针满足调用方 C 字符串契约。
-    let text = unsafe { copy_required_text(value, field) }?;
-    serde_json::from_str(&text).map_err(|_| MiresidianError::InvalidArgument {
-        field: field.to_owned(),
-        message: "必须是 JSON 字符串数组".to_owned(),
-    })
 }
 
 unsafe fn copy_required_text(value: *const c_char, field: &str) -> crate::MiresidianResult<String> {

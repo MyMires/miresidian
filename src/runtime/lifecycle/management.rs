@@ -13,10 +13,9 @@ impl<N: Node> NodeRuntime<N> {
     pub(super) fn channel_for_config(
         &self,
         config: &[String],
-        selector: bool,
         platform: Option<Platform>,
     ) -> MiresidianResult<Arc<Instance<N>>> {
-        let parsed = self.parse_config(config, selector, platform)?;
+        let parsed = self.parse_config(config, platform)?;
         let key = parsed.key::<N>(self.normalize_channel_config(parsed.node, true)?)?;
         let management = self.management();
         if management.objects.is_empty() && !matches!(key, super::routing::InstanceKey::Handle(_)) {
@@ -34,7 +33,6 @@ impl<N: Node> NodeRuntime<N> {
         config: &[String],
         input: &[String],
         adapter_identifier: Option<Platform>,
-        platform_selector_enabled: bool,
     ) -> MiresidianResult<InvocationOutput> {
         self.check_accepting()?;
         let _lifecycle = self
@@ -44,7 +42,7 @@ impl<N: Node> NodeRuntime<N> {
             .unwrap_or_else(|e| e.into_inner());
         self.check_accepting()?;
         crate::CallContext::current().check()?;
-        let parsed = self.parse_config(config, platform_selector_enabled, adapter_identifier)?;
+        let parsed = self.parse_config(config, adapter_identifier)?;
         if parsed.handle.as_deref() == Some("")
             || (N::descriptor().instances.mode == InstanceMode::Multiple
                 && parsed.handle.is_none()
@@ -59,14 +57,6 @@ impl<N: Node> NodeRuntime<N> {
             return Err(MiresidianError::InvalidArgument {
                 field: PLATFORM_ADAPTER_NAME.to_owned(),
                 message: format!("当前驱动运行时已使用 {active}，不能改为 {platform}"),
-            });
-        }
-        if let Some(adapter_identifier) = adapter_identifier
-            && adapter_identifier != platform
-        {
-            return Err(MiresidianError::InvalidArgument {
-                field: PLATFORM_ADAPTER_NAME.to_owned(),
-                message: format!("配置选择 {platform}，但本次调用使用 {adapter_identifier}"),
             });
         }
         let channel_config = self.normalize_channel_config(parsed.node, false)?;
@@ -152,7 +142,6 @@ impl<N: Node> NodeRuntime<N> {
         &self,
         config: &[String],
         input: &[String],
-        selector: bool,
         platform: Option<Platform>,
     ) -> MiresidianResult<InvocationOutput> {
         let _lifecycle = self
@@ -161,7 +150,7 @@ impl<N: Node> NodeRuntime<N> {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         crate::CallContext::current().check()?;
-        let parsed = self.parse_config(config, selector, platform)?;
+        let parsed = self.parse_config(config, platform)?;
         let key = parsed.key::<N>(self.normalize_channel_config(parsed.node, true)?)?;
         let channel = {
             let management = self.management();

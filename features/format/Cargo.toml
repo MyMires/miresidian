@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_format"
-version = "0.4.0"
+version = "0.4.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -9,4 +9,4 @@ description = "Miresidian 显式格式编解码增强。"
 readme = "README.md"
 
 [dependencies]
-miresidian_codec = { version = "=0.17.0", path = "../../codec" }
+miresidian_codec = { version = "=0.18.0", path = "../../codec" }

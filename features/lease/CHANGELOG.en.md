@@ -2,6 +2,10 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.17.3] - 2026-11-11
+
+- Update the exact codec dependency to 0.18.0. Lease/shared-resource APIs and protocols v2 remain unchanged; synchronize candidate-version guidance.
+
 ## [0.17.2] - 2026-11-11
 
 - Update the existing exact codec dependency to 0.17.0 for the framework public-type rename. Lease and shared-resource APIs and protocols v2 remain unchanged.

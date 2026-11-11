@@ -391,9 +391,21 @@ fn both_exported_sync_entries_share_identity_without_serializing_business() {
         // SAFETY: all input buffers are live C strings; response is copied before another call.
         let response = unsafe {
             let p = if explicit {
-                miresidian_invoke_with(1, operation.as_ptr(), config.as_ptr(), input.as_ptr())
+                ffi_support::request(
+                    |request| miresidian_invoke(request),
+                    Some(1),
+                    operation.as_ptr(),
+                    config.as_ptr(),
+                    input.as_ptr(),
+                )
             } else {
-                miresidian_invoke(operation.as_ptr(), config.as_ptr(), input.as_ptr())
+                ffi_support::request(
+                    |request| miresidian_invoke(request),
+                    None,
+                    operation.as_ptr(),
+                    config.as_ptr(),
+                    input.as_ptr(),
+                )
             };
             CStr::from_ptr(p).to_str().unwrap().to_owned()
         };
@@ -533,3 +545,6 @@ fn submitted_batches_keep_per_item_errors_and_result_positions() {
     assert_eq!(second["code"], "UNKNOWN_CHANNEL");
     service.shutdown().unwrap();
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

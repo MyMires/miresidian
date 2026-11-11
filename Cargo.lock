@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian"
-version = "0.29.0"
+version = "0.30.0"
 dependencies = [
  "futures-util",
  "inventory",
@@ -282,18 +282,18 @@ dependencies = [
 
 [[package]]
 name = "miresidian_abi"
-version = "0.16.0"
+version = "0.17.0"
 
 [[package]]
 name = "miresidian_batch"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "miresidian_codec",
 ]
 
 [[package]]
 name = "miresidian_cli"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "semver",
  "toml",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_codec"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -310,21 +310,21 @@ dependencies = [
 
 [[package]]
 name = "miresidian_format"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "miresidian_codec",
 ]
 
 [[package]]
 name = "miresidian_instances"
-version = "0.16.7"
+version = "0.16.8"
 dependencies = [
  "miresidian_codec",
 ]
 
 [[package]]
 name = "miresidian_lease"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "getrandom",
  "interprocess",
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_macro"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -356,7 +356,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_testflow_windows"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "base64",
  "cargo_metadata",

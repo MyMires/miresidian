@@ -72,13 +72,10 @@ fn selectable_lease_and_execution_are_published_after_handle_and_parsed_consiste
             definitions.last().unwrap(),
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播"
         );
-        assert_eq!(definitions.len(), if explicit { 5 } else { 6 });
+        assert_eq!(definitions.len(), 5);
         let resource = format!("handle-layout:{}:{explicit}", std::process::id());
         for (index, handle) in ["one", "two"].into_iter().enumerate() {
             let mut config = vec![resource.as_str(), "1", handle, "Lease"];
-            if !explicit {
-                config.push("tb_lv_test_platform");
-            }
             config.push("Parallel");
             call("InitDevice", &config).unwrap();
             assert_eq!(
@@ -138,7 +135,8 @@ fn reused_handle_preserves_state_and_rejects_lease_access_changes() {
 }
 
 #[test]
-fn blank_and_explicit_numeric_zero_share_one_configuration_and_lease_in_both_ffi_entries() {
+fn blank_and_explicit_numeric_zero_share_one_configuration_and_lease_in_default_and_explicit_json_platforms()
+ {
     use std::{
         ffi::{CStr, CString},
         sync::OnceLock,
@@ -156,16 +154,17 @@ fn blank_and_explicit_numeric_zero_share_one_configuration_and_lease_in_both_ffi
             // SAFETY: 输入有效且在调用期间存活；响应在下一次调用前立即解析。
             unsafe {
                 let pointer = if explicit {
-                    miresidian::ffi_runtime::invoke_with(
-                        &runtime,
-                        1,
+                    ffi_support::request(
+                        |request| miresidian::ffi_runtime::invoke(&runtime, request),
+                        Some(1),
                         op.as_ptr(),
                         config.as_ptr(),
                         input.as_ptr(),
                     )
                 } else {
-                    miresidian::ffi_runtime::invoke(
-                        &runtime,
+                    ffi_support::request(
+                        |request| miresidian::ffi_runtime::invoke(&runtime, request),
+                        None,
                         op.as_ptr(),
                         config.as_ptr(),
                         input.as_ptr(),
@@ -196,3 +195,6 @@ fn blank_and_explicit_numeric_zero_share_one_configuration_and_lease_in_both_ffi
         assert_eq!(call("CloseDevice", "0", "H2")["code"], "OK");
     }
 }
+
+#[path = "support/ffi_request.rs"]
+mod ffi_support;

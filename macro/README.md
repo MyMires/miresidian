@@ -1,6 +1,6 @@
 # miresidian_macro
 
-本源码 0.25.0 生成通用 `Node` 接口，并通过 `NodeInput::normalize_text` 处理配置身份；节点作者不手写接口实现。公开类型迁移见[0.29.0 说明](../docs/releases/0.29.0.md)。
+本源码 0.26.0 与根框架 0.30.0 配套；生成 Node 实现、NodeEnum 业务枚举 codec，以及 ABI v10 的唯一 JSON 调用入口。候选格式和输入表示归调用平台适配器，宏不固定 TB 语法。候选尚未发布。
 
 [文档中心](../docs/README.md) · [架构总览](../docs/architecture.md)
 
@@ -21,7 +21,7 @@ use miresidian::{config, input, node, operation, output};
 
 ## 0.24.0 feature 宏简写
 
-本源码候选未发布。节点从根框架 0.29.0 使用宏，不将未发布候选写入可直接安装示例。
+本源码候选未发布。节点从根框架 0.30.0 使用宏；0.24.0 引入的 feature 简写继续有效，不把候选写成可直接安装依赖。
 
 ```rust,ignore
 #[miresidian::node("设备", instances, lease)]
@@ -48,12 +48,20 @@ format 直接列出六种既有编码标识符；单格式固定，多格式首�
 
 ## 完整请求入口（0.23.0 起）
 
-`node` 自动生成 C ABI 的 `miresidian_invoke_request(const char *request_json)`，同时保留原有 `miresidian_invoke`、`miresidian_invoke_with` 及 ABI 版本查询。完整请求含 function、config、input 和可选数值 platform；省略 platform 沿用初始化 Config 的平台选择，非零数值沿用显式平台规则。ABI 版本由所依赖框架的常量决定；框架 0.27.0 / ABI v9 起，数值 0 同样进入 Config 选择流程，宿主从 GetInitConfig/GetFunctions 呈现选项，再在 InitDevice 中传入用户选择。宏生成逻辑与标注无需改变。三个调用入口共用同一个运行时，节点作者无需增加标注或手写导出。请求解析和响应生命周期自框架 0.26.0 起由根运行时统一实现，完整字段与迁移见 [C ABI](../docs/c-abi.md#完整请求入口v8)。
+`node` 仅生成 `miresidian_invoke(const char *request_json)` 和独立 ABI 版本查询。请求包括 function/config/input/platform；platform 非零显式选择，0/省略使用 DLL 默认平台，不添加平台 Config。旧分参数调用及旧完整请求名称已移除；先查询 ABI 10 再按新签名调用，见 [C ABI](../docs/c-abi.md)。
 
-0.23.0 已随框架 0.26.0 的后续授权阶段正式发布，见[发布验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)。本检出为尚未发布的 0.25.0，随根框架 0.29.0 生成 Node 实现并调用 NodeInput::normalize_text；不保留旧类型别名。0.24.0 的 feature 短写继续可用，运行时和 ABI 契约保持。独立节点仍采用已发布框架的精确依赖，不用本地覆盖替代发行。
+既有 0.23.0/v8 发布记录见[历史验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)；本检出为未发布 0.26.0/v10 配套源码，不能从历史记录推断本候选已可安装。
 
 Pack 0.13.2 及本次 0.13.4 源码的 `new/init` 模板仍只接受 ABI v7；创建时显式选择已发布的 v7 框架，见[命令](../tools/miresidian-pack/README.md#最小模板)。既有节点手动升级到已发布 v8 框架时，须按实际头文件更新交付说明。TestFlow 保留原同步入口调用方式，不因此自动采用完整请求入口。
 
 ## English
 
-Unpublished source 0.25.0 generates Node and NodeInput::normalize_text for framework 0.29.0, without old type aliases. Feature shorthand from 0.24.0 remains supported: bare instances selects single/sequential multi-channel mode, bare lease means required, and format(hex) or format(utf8, hex, selector = "Format") preserves existing encoding behavior. All previous long forms remain supported; feature gates, defaults in old declarations, runtime ownership and ABI are unchanged. Generated exports obtain the ABI version from the framework. With framework 0.27.0 / ABI v9, platform zero follows Config selection: query the choices, present them in the host, and pass the chosen identifier in InitDevice Config. Nonzero values retain explicit selection. Public Rust type references are renamed; normalized policies and runtime behavior remain equivalent to the old forms.
+Unpublished macro source 0.26.0 adds NodeEnum codecs and typed enum metadata for framework 0.30.0. Platforms render choices and normalize enum inputs as a pair. Generated DLLs expose only the single-JSON `miresidian_invoke` plus the ABI version query; ABI v10 removes the old call names/signatures and Config platform selector. Existing feature shorthand remains available.
+## NodeEnum 派生（0.26.0）
+
+```rust,ignore
+#[derive(miresidian::NodeEnum)]
+enum ReceiveMode { IdleTimeout, Terminator, Length }
+```
+
+一次生成输入、输出、纯规范化、集合实现和结构化候选；参数仍用原 input/config 标注，不重复成员。无非空描述时平台自动生成候选，已有默认/候选文本原样保留；具体格式和输入转换由同一个调用平台适配器负责。仅支持非空、无字段、无泛型枚举，成员 cfg 与原定义一致，实际值使用成员名而不是数字 discriminant。详见[节点用法](../docs/宏驱动开发.md#枚举自动转换与候选)。

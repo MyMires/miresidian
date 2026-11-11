@@ -2,7 +2,7 @@
 
 根框架 0.19.0 起提供可选 `format` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
-本目录源码候选为 **0.4.0**，精确依赖 codec **0.17.0**，由框架 **0.29.0** 接入。内部转换使用 NodeInput::parse_text、NodeOutput::into_output；FormatInput/FormatOutput、字节契约及框架格式选择器保持。
+本目录源码候选为 **0.4.1**，精确依赖 codec **0.18.0**，由框架 **0.30.0** 接入。内部转换使用 NodeInput::parse_text、NodeOutput::into_output；FormatInput/FormatOutput、字节契约及框架格式选择器保持。
 
 上述版本尚未发布；外部节点只采用 crates.io 已发布精确版本并启用根框架的 `format` feature。框架更新不自动修改、升级或重新打包已有节点。
 

@@ -77,7 +77,6 @@ fn 手动标注决定每个参数的外部来源通道() {
         [
             "设备地址",
             "超时毫秒",
-            "平台适配:macro_platform/tb_lv_test_platform",
             "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播",
         ]
     );
@@ -89,7 +88,7 @@ fn 手动标注决定每个参数的外部来源通道() {
         ))
         .unwrap();
     assert!(functions.as_slice().contains(
-        &"InitDevice(设备地址,超时毫秒,平台适配:macro_platform/tb_lv_test_platform,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播,初始化令牌)(返回值)".to_owned()
+        &"InitDevice(设备地址,超时毫秒,共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播,初始化令牌)(返回值)".to_owned()
     ));
 
     let initialized = runtime

@@ -49,7 +49,7 @@ fn blank_first_config_skips_even_if_other_business_or_framework_fields_are_nonem
         vec![],
         vec!["", "9600"],
         vec![" ", "invalid-speed"],
-        vec!["主键:", "9600", "tb_lv_test_platform"],
+        vec!["主键:", "9600"],
     ] {
         assert!(
             runtime

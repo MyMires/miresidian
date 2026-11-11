@@ -6,10 +6,10 @@
 use std::{ffi::c_char, ptr};
 
 /// 当前固定 C ABI 的版本号。新增 C 导出入口或改变既有 C 导出契约时递增。
-pub const MIRESIDIAN_ABI_VERSION: u32 = 9;
+pub const MIRESIDIAN_ABI_VERSION: u32 = 10;
 
-/// 由 InitDevice 的 Config 在运行时选择平台；此值不是具体适配器编号。
-pub const MIRESIDIAN_PLATFORM_RUNTIME_SELECT: u32 = 0;
+/// 在本次 DLL 调用中使用默认平台；此值不是具体适配器编号。
+pub const MIRESIDIAN_PLATFORM_DEFAULT: u32 = 0;
 
 /// C ABI 调用成功。
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
@@ -56,7 +56,7 @@ mod tests {
             "#define MIRESIDIAN_ABI_VERSION {MIRESIDIAN_ABI_VERSION}"
         )));
         assert!(header.contains(&format!(
-            "MIRESIDIAN_PLATFORM_RUNTIME_SELECT = {MIRESIDIAN_PLATFORM_RUNTIME_SELECT}"
+            "MIRESIDIAN_PLATFORM_DEFAULT = {MIRESIDIAN_PLATFORM_DEFAULT}"
         )));
         assert!(header.contains("MIRESIDIAN_PLATFORM_TB_LV_TEST_PLATFORM = 1"));
         assert!(header.contains("MIRESIDIAN_PLATFORM_CUSTOM_MIN = 65536"));
@@ -66,8 +66,8 @@ mod tests {
         assert!(header.contains("MIRESIDIAN_STATUS_INTERNAL_ERROR = 3"));
         assert!(header.contains("miresidian_abi_version(void)"));
         assert!(header.contains("miresidian_invoke("));
-        assert!(header.contains("miresidian_invoke_with("));
-        assert!(header.contains("miresidian_invoke_request("));
+        assert!(!header.contains("miresidian_invoke_with("));
+        assert!(!header.contains("miresidian_invoke_request("));
     }
 
     #[test]
