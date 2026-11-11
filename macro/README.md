@@ -1,6 +1,6 @@
 # miresidian_macro
 
-本源码 0.26.0 与根框架 0.30.0 配套；生成 Node 实现、NodeEnum 业务枚举 codec，以及 ABI v10 的唯一 JSON 调用入口。候选格式和输入表示归调用平台适配器，宏不固定 TB 语法。候选尚未发布。
+本源码 0.27.0 与根框架 0.31.0 配套；生成 Node 实现、NodeEnum 业务枚举 codec，以及 ABI v10 的唯一 JSON 调用入口。成员显示值支持长短标注，候选格式和输入表示归调用平台适配器，宏不固定 TB 语法。候选尚未发布。
 
 [文档中心](../docs/README.md) · [架构总览](../docs/architecture.md)
 
@@ -21,7 +21,7 @@ use miresidian::{config, input, node, operation, output};
 
 ## 0.24.0 feature 宏简写
 
-本源码候选未发布。节点从根框架 0.30.0 使用宏；0.24.0 引入的 feature 简写继续有效，不把候选写成可直接安装依赖。
+本源码候选未发布。节点从根框架 0.31.0 使用宏；0.24.0 引入的 feature 简写继续有效，不把候选写成可直接安装依赖。
 
 ```rust,ignore
 #[miresidian::node("设备", instances, lease)]
@@ -50,18 +50,27 @@ format 直接列出六种既有编码标识符；单格式固定，多格式首�
 
 `node` 仅生成 `miresidian_invoke(const char *request_json)` 和独立 ABI 版本查询。请求包括 function/config/input/platform；platform 非零显式选择，0/省略使用 DLL 默认平台，不添加平台 Config。旧分参数调用及旧完整请求名称已移除；先查询 ABI 10 再按新签名调用，见 [C ABI](../docs/c-abi.md)。
 
-既有 0.23.0/v8 发布记录见[历史验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)；本检出为未发布 0.26.0/v10 配套源码，不能从历史记录推断本候选已可安装。
+既有 0.23.0/v8 发布记录见[历史验收](../plans/2026-11-06-unified-abi-request.md#发布执行结果)；本检出为未发布 0.27.0/v10 配套源码，不能从历史记录推断本候选已可安装。
 
 Pack 0.13.2 及本次 0.13.4 源码的 `new/init` 模板仍只接受 ABI v7；创建时显式选择已发布的 v7 框架，见[命令](../tools/miresidian-pack/README.md#最小模板)。既有节点手动升级到已发布 v8 框架时，须按实际头文件更新交付说明。TestFlow 保留原同步入口调用方式，不因此自动采用完整请求入口。
 
 ## English
 
-Unpublished macro source 0.26.0 adds NodeEnum codecs and typed enum metadata for framework 0.30.0. Platforms render choices and normalize enum inputs as a pair. Generated DLLs expose only the single-JSON `miresidian_invoke` plus the ABI version query; ABI v10 removes the old call names/signatures and Config platform selector. Existing feature shorthand remains available.
-## NodeEnum 派生（0.26.0）
+Unpublished macro source 0.27.0 supports NodeEnum member display labels with either `#[node_enum(display = "label")]` or `#[node_enum("label")]`, integrated through framework 0.31.0. Omitted labels default to member names. Each member accepts one nonblank string; duplicate, mixed, unknown-key, wrong-type or enum-level annotations fail to compile. Direct codecs and outputs still use member names. Platforms render choices and normalize display inputs as a pair, applying their own syntax and ambiguity rules. Generated DLLs retain ABI v10's single-JSON invocation and separate version query.
+
+## NodeEnum 派生（0.27.0 成员显示值）
 
 ```rust,ignore
 #[derive(miresidian::NodeEnum)]
-enum ReceiveMode { IdleTimeout, Terminator, Length }
+enum ReceiveMode {
+    #[node_enum(display = "空闲超时")]
+    IdleTimeout,
+    #[node_enum("结束符")]
+    Terminator,
+    Length,
+}
 ```
 
 一次生成输入、输出、纯规范化、集合实现和结构化候选；参数仍用原 input/config 标注，不重复成员。无非空描述时平台自动生成候选，已有默认/候选文本原样保留；具体格式和输入转换由同一个调用平台适配器负责。仅支持非空、无字段、无泛型枚举，成员 cfg 与原定义一致，实际值使用成员名而不是数字 discriminant。详见[节点用法](../docs/宏驱动开发.md#枚举自动转换与候选)。
+
+两种成员标注等价，可带单个末尾逗号；未标注的 Length 显示值仍为 Length。每个成员仅允许一个非空白字符串，重复标注、长短混用、未知键、非字符串、多余参数和枚举级标注编译报错。TB 自动候选为 `接收方式:IdleTimeout-空闲超时/Terminator-结束符/Length`，输入显示值经平台转换，直接 codec 和输出仍使用实际成员名。TB 分隔符/首尾空白/歧义检查留在适配器，不限制其他平台的显示值格式。已有项目无需迁移；本次新标注需采用包含此能力的已发布框架后才能在独立 Node 中使用。

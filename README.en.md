@@ -74,7 +74,21 @@ Format remains a single-value encoding conversion. The macro combines the indepe
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-This checkout contains framework 0.30.2, macro 0.26.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
+This checkout contains framework 0.31.0, macro 0.27.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
+
+Version 0.31.0 adds equivalent member display annotations:
+
+```rust
+#[derive(miresidian::NodeEnum)]
+enum State {
+    #[node_enum(display = "空闲")]
+    Idle,
+    #[node_enum("运行中")]
+    Running,
+}
+```
+
+With only `#[miresidian::input("状态")]`, TB renders `状态:Idle-空闲/Running-运行中` and converts display inputs to member names. Direct codecs and outputs continue to use member names; unannotated members keep their name as their display text. Invalid or duplicate annotations fail to compile; platform syntax and ambiguity checks remain in each adapter. See [0.31.0 migration](docs/releases/0.31.0.md). These versions are source candidates, not installation instructions.
 
 CLI/toolset source is 0.3.5. Pack's existing new/init templates accept only ABI v7, so explicitly select a compatible published framework such as 0.25.2 when creating a project. Selecting 0.26.0/v8 writes the template but reports incomplete creation; it does not produce a validated v8 template. See the [CLI commands](tools/miresidian-cli/README.md) and migrate existing projects manually using the actual target ABI header.
 

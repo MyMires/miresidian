@@ -46,6 +46,21 @@
 //! }
 //! ```
 
+//! # 枚举成员显示值
+//!
+//! 显示值长短标注等价，由调用平台渲染候选并规范化输入；直接 codec 和输出使用成员名。
+//!
+//! ```
+//! #[derive(miresidian::NodeEnum)]
+//! enum State {
+//!     #[node_enum(display = "空闲")]
+//!     Idle,
+//!     #[node_enum("运行中")]
+//!     Running,
+//! }
+//! assert_eq!(<State as miresidian::NodeInput>::OPTIONS[0].display, "空闲");
+//! ```
+
 #[doc(hidden)]
 #[path = "macro_support.rs"]
 pub mod __private;

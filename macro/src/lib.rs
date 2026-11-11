@@ -13,8 +13,12 @@ use proc_macro::TokenStream;
 /// 为无字段业务枚举生成 NodeInput、NodeOutput、集合转换和结构化候选。
 ///
 /// 成员名作为实际值，不读取整数 discriminant；候选格式和输入表示由调用平台适配。
+/// 成员可用 `#[node_enum(display = "空闲")]` 或 `#[node_enum("空闲")]` 声明显示值，
+/// 省略时显示值与成员名相同。直接 codec 仍只解析和输出实际值。
+/// 重复标注、空白显示值、未知键、非字符串及枚举级标注在编译期报错；
+/// 分隔符与显示值歧义由具体平台校验，不在通用派生中施加 TB 语法限制。
 /// 不要求 Clone/Copy/Default；不支持带数据、空或泛型枚举。
-#[proc_macro_derive(NodeEnum)]
+#[proc_macro_derive(NodeEnum, attributes(node_enum))]
 pub fn node_enum(item: TokenStream) -> TokenStream {
     node_enum::expand(item)
 }

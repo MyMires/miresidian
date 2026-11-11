@@ -6,7 +6,9 @@ use miresidian::{
 
 #[derive(miresidian::NodeEnum)]
 enum State {
+    #[node_enum(display = "空闲")]
     Idle,
+    #[node_enum("运行中")]
     Running,
 }
 
@@ -23,7 +25,7 @@ impl PlatformAdapter for Alternate {
         if !parameter.has_auto_options() {
             return Ok(parameter.definition.to_owned());
         }
-        Ok(serde_json::json!({"name":parameter.name,"choices":parameter.enum_options.iter().map(|o| o.value).collect::<Vec<_>>(),"inputPrefix":"pick:"}).to_string())
+        Ok(serde_json::json!({"name":parameter.name,"choices":parameter.enum_options.iter().map(|o| serde_json::json!({"value":o.value,"label":o.display})).collect::<Vec<_>>(),"inputPrefix":"pick:"}).to_string())
     }
     fn normalize_parameter(
         &self,

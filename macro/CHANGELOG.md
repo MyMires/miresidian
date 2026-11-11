@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-11
+
+- NodeEnum 注册 node_enum 成员辅助属性，支持 `display = "显示值"` 与单字符串简写，允许末尾逗号；未标注仍以成员名显示。
+- 只生成 EnumOption.display，实际值及直接 codec 输入/输出保持；非法类型/位置、未知键、空白和重复/混用标注编译报错，平台语法与歧义仍由适配器校验。
+- 配套框架 0.31.0，更新 README、Rustdoc、集成/UI 测试及真实 DLL 示例；未发布候选。
+- English: Add equivalent named and shorthand NodeEnum member display labels, preserving actual values and codec behavior. Reject malformed or duplicate annotations at compile time; leave platform syntax checks to adapters. Integrate with framework 0.31.0 and synchronize guidance and tests. Unpublished source candidate.
+
 ## [0.26.0] - 2026-11-11
 
 - 新增 NodeEnum 派生，从无字段枚举生成输入、输出、规范化、集合和结构化候选；保留成员 cfg 和依赖重命名规则。

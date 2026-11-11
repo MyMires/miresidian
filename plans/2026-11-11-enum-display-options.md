@@ -1,5 +1,42 @@
 # 2026-11-11 枚举实例驱动的平台选项与输入解析
 
+## 2026-11-11 追加任务：枚举成员显示值长短标注（当前执行方案）
+
+本节针对前述版本完成后的新增需求，独立于下文已完成的发布工作。用户要求在 NodeEnum 枚举成员上声明显示值，并明确要求简写；据此实施、验证及按仓库规则本地提交/标签。本次不推送、不发布，不改独立 Node、skill 或工具版本。
+
+### 目标、设计与契约
+
+- `#[node_enum(display = "空闲")]` 与 `#[node_enum("空闲")]` 等价，只能标注无字段枚举成员，每个成员至多一个显示值；未标注时仍以去除 r# 的成员名同时作为实际值与显示值。允许单个末尾逗号。
+- 在 macro/src/lib.rs 注册 derive helper，在 macro/src/node_enum.rs 解析；只改变生成的 EnumOption.display。实际值、NodeInput 解析/规范化和 NodeOutput 输出仍使用成员名，数字 discriminant 不参与。无需新依赖，不读源码文件，不增加反射。
+- 空白显示值、未知键、非字符串、重复/混用长短写、多余参数和枚举级误用在编译期拒绝。显示值原文保留；TB 分隔符、首尾空白、重名或与其他实际值冲突仍由 TB 适配器在发布候选/规范化时校验，不把平台语法限制加进通用派生。成员 cfg/cfg_attr 继续按实际启用结果生成。
+- 参数仅写名称即可自动得到显示值候选；已有手写非空描述优先。TB 将显示值映射为实际值后再解析；其他平台使用相同结构化元数据决定自己的格式与输入。覆盖 Config、初始化/探测/业务 Input、Option/Vec、batch 和多通道槽位。直接 Rust codec 仍仅接收实际值。
+- 资源所有权、状态、并发、取消及生命周期不变；新增内容仅为编译期字符串元数据和既有平台转换链。C ABI v10、配置租约/资源代理 v2、MSRV 1.89 保持。
+
+### 文件与版本评估
+
+- 新增公开宏能力：根 miresidian 0.30.2 → 0.31.0，miresidian_macro 0.26.0 → 0.27.0。根精确依赖及 Cargo.lock 同步；其他组件没有实现/契约变化，不跟升。独立夹具和相邻 Node 锁文件仍依赖原已发布版本，不改写。
+- 实现：macro/src/lib.rs、macro/src/node_enum.rs。测试：新增 tests/enum_display.rs 与 tests/ui/node_enum_display_invalid.rs/.stderr，沿用现有 enum_codec/enum_platform/enum_manual_config 和 macro_compile_fail。
+- 示例及真实 ABI：更新内部 examples/enum_platform_dll.rs、tools/verify_enum_dll.py，将长短两种标注贯通 TB 与另一平台的显示值输入和实际值输出；该脚本是内部验证夹具，不是独立发布工具。
+- 指导与归档：根双语 README/CHANGELOG、macro README/CHANGELOG/Rustdoc、docs/宏驱动开发.md、docs/c-abi.md、docs/releases/0.31.0.md；同步实际新语法、边界、迁移和未发布源码状态。
+
+### 步骤与验收
+
+1. 方案落盘后先修改两个实际组件版本及根精确依赖，再实现 helper 解析和结构化显示值生成。
+2. 添加集成与 UI 回归：长短写/未标注等价元数据、直接 codec 实际值边界、TB/自定义 JSON 双平台候选和输入、同步/异步及 Config/Option/Vec/batch/多通道、非法语法诊断、cfg 成员与平台分隔符校验。
+3. 更新内部 DLL 示例和验证脚本、双语 README/日期 CHANGELOG、公开 Rustdoc、节点手册/平台契约/迁移说明，生成工作区锁文件并核对无第三方依赖漂移。
+4. 只做相关验证：根默认与全 features 的枚举集成测试、宏单元/UI 编译测试；根与宏相关目标严格 Clippy、Rustdoc/示例；一次内部 debug DLL 真实加载检查。复用无关运行时/租约已有验证，不做全工作区 Release 或其他操作系统/硬件验证。
+5. 格式、diff 和版本 base/staged 门禁通过后提交，核对根与宏独立不可移动标签及 require-tag；在本节记录实际证据，最终报告版本、提交、标签和检查结果。
+
+### 本次执行与验收证据
+
+- 实现完成：NodeEnum 注册 helper 并同时解析长写/简写，仅改变 display 元数据；默认成员、数字 discriminant、手写非空描述、条件编译和直接 codec 的实际值边界均保留。新增公开能力对应根 0.31.0、macro 0.27.0，Cargo.lock 仅这两个版本记录变化，其他锁文件及独立 Node 保持原依赖。
+- 默认与全 features 的 enum_display、enum_codec、enum_platform、enum_manual_config 各 10 项通过；补充 cfg_attr 显示名后对应两种配置的 enum_display 各 3 项再次通过。覆盖长短写、默认值、Config/初始化/探测/同步/异步 Input、Option/Vec/batch/多通道、双平台候选与显示值输入、手写描述优先和平台歧义/分隔符校验。
+- 宏单元测试 15 项通过，含长短写末尾逗号及平台文本原文保留；默认和全 features 宏 UI 集合通过，新增用例锁定 10 类非法显示值标注诊断。全 features 首次使用 TRYBUILD=overwrite 生成新快照，审查确认未改旧快照；默认配置不设置 overwrite 验证快照通过。追加 cfg_attr 用例时格式检查发现多余括号，修正后全部相关检查通过。
+- 宏 all-targets 与根相关 lib/四个枚举测试/UI 驱动/内部示例的全 features Clippy 均以 -D warnings 通过；根与宏全 features Rustdoc 以 -D warnings 通过；根 2 个 doctest 通过。
+- debug 内部 enum_platform_dll 已实际构建并由 tools/verify_enum_dll.py 加载通过：ABI v10 单 JSON 导出、默认/显式平台、长短标注生成的中文候选、TB/另一平台的显示值转实际值及错误请求均验证。不声称 Windows、其他架构或硬件验收。
+- 根双语 README/日期 CHANGELOG、宏 README/日期 CHANGELOG/Rustdoc、节点手册、平台契约、迁移说明和可运行示例同步；6 份变更指导的 118 个本地文档链接有效。版本 base 门禁、diff 检查通过；提交前再执行格式和 staged 门禁，提交后执行根/宏 require-tag，结果在交付回复报告。
+- 本次实现与上述验收已完成；不推送、不发布，不重复全工作区 Release、无关租约回归或独立 Node 构建。版本提交/标签的最终证据为本次 Git 提交及不可移动标签。
+
 状态：用户已明确授权 NodeEnum 派生宏，并要求平台由 DLL 调用确定。以下最新修订为唯一有效实施方案；更早草案和撤回记录保留，不作为执行依据。
 执行依据：用户最新明确选择 #[derive(miresidian::NodeEnum)]，并要求“转换要根据平台适配来进行，配套的，平台适配不该让用户在运行时决定，而是直接由在调用 dll 时就决定”。授权实施、验证及本地版本提交/标签；不推送、不发布。
 

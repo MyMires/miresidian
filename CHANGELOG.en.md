@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-11
+
+- Add equivalent NodeEnum member labels using `#[node_enum(display = "label")]` or `#[node_enum("label")]`; omitted labels retain member names. Invalid, duplicate and blank declarations fail to compile.
+- Carry display labels through structured metadata for paired platform rendering and input normalization. Actual values, direct codecs, business outputs and explicit-description precedence are unchanged.
+- Update macro to 0.27.0, its exact dependency and workspace lockfile; synchronize bilingual guidance, Rustdoc, examples and migration notes. ABI v10 and other components remain unchanged. Validation is recorded in the enum plan; no push or publication.
+
 ## [0.30.2] - 2026-11-11
 
 - Depend exactly on lease 0.17.4 to handle Windows named-pipe startup contention. Reuse succeeds only after connecting; failed attempts preserve the original creation error.

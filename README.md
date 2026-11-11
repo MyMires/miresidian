@@ -107,7 +107,21 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本检出对应框架 0.30.2、macro 0.26.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
+本检出对应框架 0.31.0、macro 0.27.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
+
+0.31.0 支持成员显示值的长写与简写，含义相同：
+
+```rust
+#[derive(miresidian::NodeEnum)]
+enum State {
+    #[node_enum(display = "空闲")]
+    Idle,
+    #[node_enum("运行中")]
+    Running,
+}
+```
+
+参数只声明 `#[miresidian::input("状态")]` 时，TB 自动发布 `状态:Idle-空闲/Running-运行中`。输入“空闲”经平台转换为 `Idle`，输出仍为成员名；未标注时显示值使用成员名。重复、空白或错误类型的标注编译报错，平台语法/歧义由对应适配器校验，详见[0.31.0 迁移](docs/releases/0.31.0.md)。本次仅为未发布源码候选，不作为可直接安装版本。
 
 已发布版本可查 [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) 与 [format API](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html)。本次未发布的新版本文档须在本检出执行 `cargo doc -p miresidian --all-features --no-deps --locked` 查看；源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。
 

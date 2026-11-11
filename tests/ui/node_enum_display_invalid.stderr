@@ -1,0 +1,59 @@
+error: node_enum 显示值只能标注在枚举成员上
+ --> tests/ui/node_enum_display_invalid.rs:2:1
+  |
+2 | #[node_enum("错误位置")]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: node_enum 显示值不能为空或全为空白
+ --> tests/ui/node_enum_display_invalid.rs:6:26
+  |
+6 | enum Empty { #[node_enum("")] Item }
+  |                          ^^
+
+error: node_enum 显示值不能为空或全为空白
+ --> tests/ui/node_enum_display_invalid.rs:9:36
+  |
+9 | enum Blank { #[node_enum(display = " \t")] Item }
+  |                                    ^^^^^
+
+error: node_enum 仅支持 display = "显示值" 或 "显示值" 简写
+  --> tests/ui/node_enum_display_invalid.rs:12:28
+   |
+12 | enum Unknown { #[node_enum(label = "显示")] Item }
+   |                            ^^^^^
+
+error: expected string literal
+  --> tests/ui/node_enum_display_invalid.rs:15:40
+   |
+15 | enum NonString { #[node_enum(display = 1)] Item }
+   |                                        ^
+
+error: 每个枚举成员只能标注一个 node_enum 显示值
+  --> tests/ui/node_enum_display_invalid.rs:18:36
+   |
+18 | enum Duplicate { #[node_enum("一")] #[node_enum(display = "二")] Item }
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: node_enum 只接受一个显示值，不可重复或混用长短写
+  --> tests/ui/node_enum_display_invalid.rs:21:47
+   |
+21 | enum RepeatedKey { #[node_enum(display = "一", display = "二")] Item }
+   |                                                ^^^^^^^
+
+error: node_enum 只接受一个显示值，不可重复或混用长短写
+  --> tests/ui/node_enum_display_invalid.rs:24:31
+   |
+24 | enum Mixed { #[node_enum("一", display = "二")] Item }
+   |                                ^^^^^^^
+
+error: node_enum 只接受一个显示值，不可重复或混用长短写
+  --> tests/ui/node_enum_display_invalid.rs:27:31
+   |
+27 | enum Extra { #[node_enum("一", "二")] Item }
+   |                                ^^^^
+
+error: unexpected end of input, expected identifier
+  --> tests/ui/node_enum_display_invalid.rs:30:28
+   |
+30 | enum Missing { #[node_enum()] Item }
+   |                            ^

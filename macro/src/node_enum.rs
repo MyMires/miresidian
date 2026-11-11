@@ -2,7 +2,9 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Error, Fields, LitStr, Result, parse_macro_input};
+use syn::{
+    Attribute, Data, DeriveInput, Error, Fields, Ident, LitStr, Result, Token, parse_macro_input,
+};
 
 pub(crate) fn expand(item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as DeriveInput);
@@ -13,6 +15,16 @@ pub(crate) fn expand(item: TokenStream) -> TokenStream {
 }
 
 fn generate(item: &DeriveInput) -> Result<proc_macro2::TokenStream> {
+    if let Some(attribute) = item
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("node_enum"))
+    {
+        return Err(Error::new_spanned(
+            attribute,
+            "node_enum 显示值只能标注在枚举成员上",
+        ));
+    }
     if !item.generics.params.is_empty() || item.generics.where_clause.is_some() {
         return Err(Error::new_spanned(
             &item.generics,
@@ -35,9 +47,10 @@ fn generate(item: &DeriveInput) -> Result<proc_macro2::TokenStream> {
         let ident = &variant.ident;
         let actual = ident.to_string();
         let actual = LitStr::new(actual.strip_prefix("r#").unwrap_or(&actual), ident.span());
+        let display = display_value(&variant.attrs)?.unwrap_or_else(|| actual.clone());
         let cfg = crate::framework::conditional_attributes(&variant.attrs);
         options
-            .push(quote!(#(#cfg)* ::miresidian::EnumOption { value: #actual, display: #actual }));
+            .push(quote!(#(#cfg)* ::miresidian::EnumOption { value: #actual, display: #display }));
         parse.push(quote!(#(#cfg)* #actual => Ok(Self::#ident),));
         names.push(quote!(#(#cfg)* Self::#ident => #actual,));
     }
@@ -89,4 +102,72 @@ fn generate(item: &DeriveInput) -> Result<proc_macro2::TokenStream> {
             }
         }
     })
+}
+
+/// 只读取平台无关显示文字；保留原文供各适配器执行自身语法和歧义校验。
+fn display_value(attributes: &[Attribute]) -> Result<Option<LitStr>> {
+    let mut display = None;
+    for attribute in attributes
+        .iter()
+        .filter(|attr| attr.path().is_ident("node_enum"))
+    {
+        if display.is_some() {
+            return Err(Error::new_spanned(
+                attribute,
+                "每个枚举成员只能标注一个 node_enum 显示值",
+            ));
+        }
+        let value = attribute.parse_args_with(|input: syn::parse::ParseStream<'_>| {
+            let value: LitStr = if input.peek(LitStr) {
+                input.parse()?
+            } else {
+                let key: Ident = input.parse()?;
+                if key != "display" {
+                    return Err(Error::new_spanned(
+                        key,
+                        "node_enum 仅支持 display = \"显示值\" 或 \"显示值\" 简写",
+                    ));
+                }
+                input.parse::<Token![=]>()?;
+                input.parse()?
+            };
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+            if !input.is_empty() {
+                return Err(input.error("node_enum 只接受一个显示值，不可重复或混用长短写"));
+            }
+            if value.value().trim().is_empty() {
+                return Err(Error::new_spanned(
+                    value,
+                    "node_enum 显示值不能为空或全为空白",
+                ));
+            }
+            Ok(value)
+        })?;
+        display = Some(value);
+    }
+    Ok(display)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse::Parser;
+
+    #[test]
+    fn display_forms_accept_trailing_comma_and_preserve_platform_text() {
+        for text in [
+            "#[node_enum(\" A/B \")]",
+            "#[node_enum(\" A/B \",)]",
+            "#[node_enum(display = \" A/B \")]",
+            "#[node_enum(display = \" A/B \",)]",
+        ] {
+            let attributes = Attribute::parse_outer.parse_str(text).unwrap();
+            assert_eq!(
+                display_value(&attributes).unwrap().unwrap().value(),
+                " A/B "
+            );
+        }
+    }
 }
