@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-11
+
+- Return a nonblank reason for unavailable or unsuccessful GetPortNO discovery. Preserve found addresses, Option<String> signatures and other errors; map NotSupported explanations to normal miss reasons.
+- Update macro to 0.28.0, exact dependency, lockfile, guidance and focused regression coverage. ABI v10 and other components are unchanged. No push or publication.
+
 ## [0.31.0] - 2026-11-11
 
 - Add equivalent NodeEnum member labels using `#[node_enum(display = "label")]` or `#[node_enum("label")]`; omitted labels retain member names. Invalid, duplicate and blank declarations fail to compile.

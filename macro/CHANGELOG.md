@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-11
+
+- 未实现 get_port_no 的缺省桥返回 NotSupported，框架 0.32.0 将平台输出固定为 `["0", "当前未实现端口发现能力"]`；原同步/async Option<String> 方法签名和生成调用保持。
+- English: Missing discovery methods report NotSupported for framework 0.32.0 to render a nonblank normal discovery reason. Existing synchronous/async method signatures remain unchanged. Unpublished candidate.
+
 ## [0.27.0] - 2026-11-11
 
 - NodeEnum 注册 node_enum 成员辅助属性，支持 `display = "显示值"` 与单字符串简写，允许末尾逗号；未标注仍以成员名显示。

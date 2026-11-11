@@ -35,6 +35,8 @@ def main():
         {'value': 'Running', 'label': '运行中'},
     ], 'inputPrefix': 'pick:'}
     assert call('GetInitConfig') == ['状态:Idle-空闲/Running-运行中']
+    for platform in (None, 0, 1, 65538):
+        assert call('GetPortNO', platform=platform) == ['0', '当前未实现端口发现能力']
     call('InitDevice', ['Idle', '平台适配:alternate_enum'], code='INVALID_ARGUMENT')
     call('InitDevice', ['空闲'], platform=1)
     assert call('Echo', ['Idle'], ['运行中'], platform=0) == ['Running']
@@ -47,7 +49,7 @@ def main():
     for raw in (None, b'[]', b'{', b'\xff', b'{"function":"GetFunctions","platform":null}'):
         response = json.loads(ctypes.string_at(invoke(raw)))
         assert response['code'] == 'INVALID_ARGUMENT', response
-    print('PASS: ABI v10 sole JSON export; removed symbols; default/explicit platforms; derived display labels and paired conversion')
+    print('PASS: ABI v10 sole JSON export; default/explicit platforms; derived labels; unimplemented port discovery reason')
 
 
 if __name__ == '__main__':

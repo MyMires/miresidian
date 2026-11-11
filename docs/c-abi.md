@@ -73,7 +73,7 @@ DLL 持有返回指针，宿主必须立即复制，不得修改或释放。同�
 
 固定操作为 GetFunctions、GetFrameworkVersion、GetProjectVersion、GetInitConfig、GetPortNO、InitDevice、CloseDevice、CloseAllDevices。
 
-版本、元数据和 GetPortNO 不要求已初始化；CloseAllDevices 幂等地尝试关闭全部对象。GetPortNO 找到时输出 ["1", "端口号"]，正常未找到或未实现时为 ["0", ""]；执行失败返回错误，不伪装成未找到。框架版本与项目版本分别查询，不用 ABI 版本替代语义版本。
+版本、元数据和 GetPortNO 不要求已初始化；CloseAllDevices 幂等地尝试关闭全部对象。GetPortNO 找到时输出 ["1", "端口号"]，未实现时固定为 ["0", "当前未实现端口发现能力"]，正常未找到（None）时为 ["0", "未找到匹配设备"]。NotSupported 的非空说明作为未找到原因，空白说明补上述未实现文本；其他执行失败仍返回错误和空 output。正常未找到保持 status=0、code=OK；第二项按第一项解释为地址或原因，GetFunctions 同步描述为“端口号或原因”。框架版本与项目版本分别查询，不用 ABI 版本替代语义版本。
 
 ### 异常隔离与恢复
 

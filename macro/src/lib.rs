@@ -44,6 +44,8 @@ pub fn node(attribute: TokenStream, item: TokenStream) -> TokenStream {
 /// 不带参数时，方法名会从 `snake_case` 自动转换为平台的 PascalCase；带一个字符串参数时，
 /// 该字符串就是平台可见操作名称。共享调用的执行方式由 `InitDevice` 的框架配置统一决定，
 /// 不在操作标注中重复声明。
+/// 可选 get_port_no 未实现时，平台返回 `["0", "当前未实现端口发现能力"]`；
+/// 原 `Option<String>` 签名保持，None 返回未找到原因，NotSupported 的说明进入第二项输出。
 #[proc_macro_attribute]
 pub fn operation(attribute: TokenStream, item: TokenStream) -> TokenStream {
     operation::expand(attribute, item)

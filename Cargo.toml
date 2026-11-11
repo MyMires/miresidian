@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.31.0"
+version = "0.32.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -41,7 +41,7 @@ license = "MIT OR Apache-2.0"
 miresidian_format = { version = "=0.4.1", path = "features/format", optional = true }
 miresidian_abi = { version = "=0.17.1", path = "abi" }
 miresidian_codec = { version = "=0.18.0", path = "codec" }
-miresidian_macro = { version = "=0.27.0", path = "macro" }
+miresidian_macro = { version = "=0.28.0", path = "macro" }
 miresidian_batch = { version = "=0.3.1", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"

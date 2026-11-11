@@ -239,10 +239,19 @@ impl<N: Node> NodeRuntime<N> {
     ) -> MiresidianResult<InvocationOutput> {
         let value = catch_node(crate::GET_PORT_NO_OPERATION, || {
             N::get_port_no(config, input)
-        })?;
+        });
         Ok(InvocationOutput::new(match value {
-            Some(port) => vec!["1".into(), port],
-            None => vec!["0".into(), String::new()],
+            Ok(Some(port)) => vec!["1".into(), port],
+            Ok(None) => vec!["0".into(), "未找到匹配设备".into()],
+            Err(MiresidianError::NotSupported(reason)) => vec![
+                "0".into(),
+                if reason.trim().is_empty() {
+                    "当前未实现端口发现能力".into()
+                } else {
+                    reason
+                },
+            ],
+            Err(error) => return Err(error),
         }))
     }
 }

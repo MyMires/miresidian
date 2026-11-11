@@ -174,7 +174,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
             fn get_port_no(config: &[::std::string::String], input: &[::std::string::String]) -> ::miresidian::MiresidianResult<::core::option::Option<::std::string::String>> {
                 match ::miresidian::__private::inventory::iter::<__MiresidianPortProbe>.into_iter().next() {
                     Some(probe) => (probe.call)(config, input),
-                    None => Ok(None),
+                    None => Err(::miresidian::MiresidianError::NotSupported("当前未实现端口发现能力".into())),
                 }
             }
         }

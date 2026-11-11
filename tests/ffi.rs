@@ -130,6 +130,19 @@ fn sole_json_entry_returns_metadata_without_platform_selector() {
 }
 
 #[test]
+fn default_node_probe_returns_exact_unsupported_reason() {
+    assert_eq!(
+        call("GetPortNO", serde_json::json!([])),
+        serde_json::json!({
+            "status": 0,
+            "code": "OK",
+            "message": "",
+            "output": ["0", "当前未实现端口发现能力"],
+        })
+    );
+}
+
+#[test]
 fn json_platform_selects_registered_adapter_and_rejects_reserved_ids() {
     let runtime = OnceLock::<Mutex<NodeRuntime<CAbiPlatformNode>>>::new();
     let initialized = call_on(

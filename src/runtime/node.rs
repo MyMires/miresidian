@@ -117,11 +117,14 @@ pub trait Node: Send + Sized + 'static {
     /// 未标注参数默认来自 `input`，也可以通过方法参数标注改从 `config` 读取。
     ///
     /// 节点宏方法是无 `self` 的关联函数，返回 `MiresidianResult<Option<String>>`。
-    /// `Ok(Some(address))` 产生平台输出 `["1", address]`，`Ok(None)` 产生 `["0", ""]`；
-    /// 后者表示正常完成但未找到设备。探测失败返回 `Err`，不得伪装为未找到。
-    /// 未声明探测方法时默认未找到；临时连接和后台任务均由探测实现释放。
+    /// `Ok(Some(address))` 产生平台输出 `["1", address]`，`Ok(None)` 产生 `["0", "未找到匹配设备"]`；
+    /// NotSupported 说明作为正常未找到的原因，空白说明补为“当前未实现端口发现能力”。
+    /// 未声明方法默认返回 NotSupported，平台固定输出 `["0", "当前未实现端口发现能力"]`。
+    /// 其他错误仍返回错误响应；临时连接和后台任务由探测实现释放。
     fn get_port_no(_config: &[String], _input: &[String]) -> MiresidianResult<Option<String>> {
-        Ok(None)
+        Err(crate::MiresidianError::NotSupported(
+            "当前未实现端口发现能力".into(),
+        ))
     }
 }
 

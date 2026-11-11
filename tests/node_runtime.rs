@@ -225,7 +225,7 @@ fn fixed_operations_publish_compatible_metadata() {
     assert!(
         functions
             .as_slice()
-            .contains(&"GetPortNO()(搜索结果,端口号)".to_owned())
+            .contains(&"GetPortNO()(搜索结果,端口号或原因)".to_owned())
     );
     assert!(
         functions

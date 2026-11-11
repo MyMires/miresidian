@@ -74,7 +74,9 @@ Format remains a single-value encoding conversion. The macro combines the indepe
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-This checkout contains framework 0.31.0, macro 0.27.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
+This checkout contains framework 0.32.0, macro 0.28.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
+
+Version 0.32.0 returns `["0", "当前未实现端口发现能力"]` for unimplemented GetPortNO, and `["0", "未找到匹配设备"]` for None. Found addresses and Option<String> signatures remain unchanged. NotSupported carries a normal miss reason; other errors remain errors. See [migration](docs/releases/0.32.0.md). Unpublished source candidate.
 
 Version 0.31.0 adds equivalent member display annotations:
 

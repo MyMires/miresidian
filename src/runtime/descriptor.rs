@@ -181,7 +181,7 @@ impl NodeDescriptor {
             "GetProjectVersion()(项目版本)".to_owned(),
             format!("GetInitConfig()({})", config.join(",")),
             format!(
-                "GetPortNO({})(搜索结果,端口号)",
+                "GetPortNO({})(搜索结果,端口号或原因)",
                 definitions_for(self.port_probe_inputs, adapter)?
             ),
             format!(
@@ -212,7 +212,7 @@ impl NodeDescriptor {
             self.init_config_definition()
         ));
         signatures.push(format!(
-            "GetPortNO({})(搜索结果,端口号)",
+            "GetPortNO({})(搜索结果,端口号或原因)",
             definitions(self.port_probe_inputs)
         ));
         signatures.push(format!(
