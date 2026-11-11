@@ -2,6 +2,11 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.17.2] - 2026-11-11
+
+- Update the existing exact codec dependency to 0.17.0 for the framework public-type rename. Lease and shared-resource APIs and protocols v2 remain unchanged.
+- Synchronize source-candidate dependency guidance without rewriting published-version documentation.
+
 ## [0.17.1] - 2026-11-06
 
 - Enable all features for docs.rs and provide the documentation URL so optional local_ipc/shared APIs, final-close callbacks, and proxy methods receive exact-version online docs.

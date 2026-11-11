@@ -1,10 +1,9 @@
 //! 整个多通道批次独占目标实例的请求执行权，各通道再通过同一状态锁访问对象。
 use super::lifecycle::Instance;
 use crate::{
-    CallContext, DeviceNode, ExecutionMode, MiresidianResult, MultiChannelResponse,
-    OperationDescriptor,
+    CallContext, ExecutionMode, MiresidianResult, MultiChannelResponse, Node, OperationDescriptor,
 };
-pub(super) async fn invoke_multi_channel<N: DeviceNode>(
+pub(super) async fn invoke_multi_channel<N: Node>(
     instance: &Instance<N>,
     operation: &str,
     slots: &[Option<Vec<String>>],

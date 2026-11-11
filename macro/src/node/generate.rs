@@ -101,7 +101,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
             }
         }
 
-        impl ::miresidian::DeviceNode for #identifier {
+        impl ::miresidian::Node for #identifier {
             fn descriptor() -> &'static ::miresidian::NodeDescriptor {
                 static OPERATIONS: ::std::sync::OnceLock<::std::vec::Vec<::miresidian::OperationDescriptor>> = ::std::sync::OnceLock::new();
                 static DESCRIPTOR: ::std::sync::OnceLock<::miresidian::NodeDescriptor> = ::std::sync::OnceLock::new();
@@ -167,7 +167,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
             }
             fn invoke_async<'a>(&'a mut self,operation:&'a str,config:&'a [::std::string::String],input:&'a [::std::string::String])->::miresidian::NodeFuture<'a> {
                 match Self::__miresidian_operations().iter().find(|entry|entry.descriptor.name==operation).and_then(|entry|entry.call_async) {
-                    Some(call)=>call(self,config,input),None=>Box::pin(async move {<Self as ::miresidian::DeviceNode>::invoke(self,operation,config,input)})
+                    Some(call)=>call(self,config,input),None=>Box::pin(async move {<Self as ::miresidian::Node>::invoke(self,operation,config,input)})
                 }
             }
 

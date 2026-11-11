@@ -3,20 +3,20 @@
 use super::super::instances::InstanceStore;
 use super::Instance;
 use crate::{
-    CallContext, DeviceNode, ExecutionLimits, InstanceMode, Invocation, InvocationOutput,
-    MiresidianError, MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
-    PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    CallContext, ExecutionLimits, InstanceMode, Invocation, InvocationOutput, MiresidianError,
+    MiresidianResult, Node, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter, PlatformRegistry,
+    RuntimeInvocation, RuntimeResponse,
 };
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 
-pub(super) struct Management<N: DeviceNode> {
+pub(super) struct Management<N: Node> {
     pub(super) objects: InstanceStore<Arc<Instance<N>>>,
     pub(super) active_platform: Option<Platform>,
 }
-pub(super) struct RuntimeState<N: DeviceNode> {
+pub(super) struct RuntimeState<N: Node> {
     pub(super) management: Mutex<Management<N>>,
     // 只串行化构造和移除事务；独立实例的业务仍可继续。
     pub(super) lifecycle: Mutex<()>,
@@ -31,11 +31,11 @@ pub(super) struct RuntimeState<N: DeviceNode> {
 /// Clone 共用登记表、容量和生命周期；同一实例的完整请求（含多通道批次）互斥，
 /// 不同实例可并行。Direct 持有本地对象，自动 Lease 持有唯一节点所有者的共享引用。
 /// 异步调用方使用 async 方法；同步桥在单线程异步执行器中返回能力错误。
-pub struct NodeRuntime<N: DeviceNode> {
+pub struct NodeRuntime<N: Node> {
     pub(super) core: Arc<RuntimeState<N>>,
     pub(super) platforms: PlatformRegistry,
 }
-impl<N: DeviceNode> Clone for NodeRuntime<N> {
+impl<N: Node> Clone for NodeRuntime<N> {
     fn clone(&self) -> Self {
         Self {
             core: self.core.clone(),
@@ -43,7 +43,7 @@ impl<N: DeviceNode> Clone for NodeRuntime<N> {
         }
     }
 }
-impl<N: DeviceNode> NodeRuntime<N> {
+impl<N: Node> NodeRuntime<N> {
     /// 创建默认平台注册表及容量的运行时；尚不构造设备，初始化须显式调用 InitDevice。
     pub fn new() -> Self {
         Self::with_platforms(PlatformRegistry::default())
@@ -431,12 +431,12 @@ impl<N: DeviceNode> NodeRuntime<N> {
         !self.management().objects.is_empty()
     }
 }
-impl<N: DeviceNode> Default for NodeRuntime<N> {
+impl<N: Node> Default for NodeRuntime<N> {
     fn default() -> Self {
         Self::new()
     }
 }
-impl<N: DeviceNode> Drop for RuntimeState<N> {
+impl<N: Node> Drop for RuntimeState<N> {
     fn drop(&mut self) {
         // 共享核心只在最后一个 Arc 释放时析构；请求持有核心，因此不会在业务运行中清理对象。
         // 即使多个句柄并发释放，以下实例清理也只执行一次。

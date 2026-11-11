@@ -157,33 +157,33 @@ fn panic_fault_is_shared_and_last_close_allows_fresh_initialization() {
 
 // 手写适配器仅用于制造不同的命名契约；复用原节点的资源键和配置编码。
 struct OtherContract(LeasedNode);
-impl miresidian::DeviceNode for OtherContract {
+impl miresidian::Node for OtherContract {
     fn descriptor() -> &'static miresidian::NodeDescriptor {
         static DESCRIPTOR: std::sync::OnceLock<miresidian::NodeDescriptor> =
             std::sync::OnceLock::new();
         DESCRIPTOR.get_or_init(|| miresidian::NodeDescriptor {
             name: "不兼容节点接口",
-            ..*<LeasedNode as miresidian::DeviceNode>::descriptor()
+            ..*<LeasedNode as miresidian::Node>::descriptor()
         })
     }
     fn init_device(
         config: &[String],
         input: &[String],
     ) -> miresidian::MiresidianResult<(Self, miresidian::InvocationOutput)> {
-        <LeasedNode as miresidian::DeviceNode>::init_device(config, input)
+        <LeasedNode as miresidian::Node>::init_device(config, input)
             .map(|(node, output)| (Self(node), output))
     }
     fn lease_request(
         config: &[String],
     ) -> miresidian::MiresidianResult<Option<miresidian::lease::LeaseRequest>> {
-        <LeasedNode as miresidian::DeviceNode>::lease_request(config)
+        <LeasedNode as miresidian::Node>::lease_request(config)
     }
     fn close_device(
         &mut self,
         config: &[String],
         input: &[String],
     ) -> miresidian::MiresidianResult<()> {
-        <LeasedNode as miresidian::DeviceNode>::close_device(&mut self.0, config, input)
+        <LeasedNode as miresidian::Node>::close_device(&mut self.0, config, input)
     }
     fn invoke(
         &mut self,
@@ -191,7 +191,7 @@ impl miresidian::DeviceNode for OtherContract {
         config: &[String],
         input: &[String],
     ) -> miresidian::MiresidianResult<miresidian::InvocationOutput> {
-        <LeasedNode as miresidian::DeviceNode>::invoke(&mut self.0, operation, config, input)
+        <LeasedNode as miresidian::Node>::invoke(&mut self.0, operation, config, input)
     }
 }
 #[test]

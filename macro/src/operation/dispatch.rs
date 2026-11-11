@@ -1,4 +1,4 @@
-//! 参数转换与 `DeviceNode` 调度分支的令牌生成。
+//! 参数转换与 `Node` 调度分支的令牌生成。
 
 use quote::{format_ident, quote};
 
@@ -48,11 +48,15 @@ pub(super) fn close(method: &FixedMethod) -> proc_macro2::TokenStream {
 
 /// 配置值已由运行时提取名称/显示值；按原 Rust 类型生成配置身份和租约共用回调。
 pub(super) fn normalize_config_value(method: &InitMethod) -> proc_macro2::TokenStream {
-    let arms = method.parameters.iter().filter(|p| p.source == ParameterSource::Config)
-        .enumerate().map(|(index, parameter)| {
+    let arms = method
+        .parameters
+        .iter()
+        .filter(|p| p.source == ParameterSource::Config)
+        .enumerate()
+        .map(|(index, parameter)| {
             let ty = &parameter.ty;
             let name = &parameter.name;
-            quote!(#index => <#ty as ::miresidian::DeviceInput>::normalize_device_text(value, #name),)
+            quote!(#index => <#ty as ::miresidian::NodeInput>::normalize_text(value, #name),)
         });
     quote! {
         match index {

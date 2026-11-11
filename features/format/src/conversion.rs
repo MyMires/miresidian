@@ -1,8 +1,6 @@
 //! 显式格式转换。字节保持原样；其余内置类型采用 UTF-8 规范文本作为中间表示。
-//! 本模块只在 format feature 下公开，不改变 DeviceInput / DeviceOutput 的默认规则。
-use miresidian_codec::{
-    ByteTextFormat, DeviceInput, DeviceOutput, MiresidianError, MiresidianResult,
-};
+//! 本模块只在 format feature 下公开，不改变 NodeInput / NodeOutput 的默认规则。
+use miresidian_codec::{ByteTextFormat, MiresidianError, MiresidianResult, NodeInput, NodeOutput};
 
 fn invalid(field: &str, message: &str) -> MiresidianError {
     MiresidianError::InvalidArgument {
@@ -52,11 +50,11 @@ macro_rules! text_types {
     ($($ty:ty),+ $(,)?) => {$(
         impl FormatInput for $ty {
             fn from_format_bytes(bytes: Vec<u8>, field: &str) -> MiresidianResult<Self> {
-                Self::parse_device_text(&String::from_format_bytes(bytes, field)?, field)
+                Self::parse_text(&String::from_format_bytes(bytes, field)?, field)
             }
         }
         impl FormatOutput for $ty {
-            fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> { Ok(self.into_device_output()?.into_values().join("").into_bytes()) }
+            fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> { Ok(self.into_output()?.into_values().join("").into_bytes()) }
         }
     )+};
 }
@@ -70,13 +68,13 @@ macro_rules! sequence_types {
         impl FormatInput for Vec<$ty> {
             fn from_format_bytes(bytes: Vec<u8>, field: &str) -> MiresidianResult<Self> {
                 String::from_format_bytes(bytes, field)?.split_whitespace()
-                    .map(|item| <$ty>::parse_device_text(item, field)).collect()
+                    .map(|item| <$ty>::parse_text(item, field)).collect()
             }
         }
         impl FormatOutput for Vec<$ty> {
             fn into_format_bytes(self) -> MiresidianResult<Vec<u8>> {
                 Ok(self.into_iter()
-                    .map(|value| value.into_device_output().map(|output| output.into_values().join("")))
+                    .map(|value| value.into_output().map(|output| output.into_values().join("")))
                     .collect::<MiresidianResult<Vec<_>>>()?.join(" ").into_bytes())
             }
         }
@@ -176,7 +174,7 @@ pub fn decode_formatted_batch<T: FormatInput>(
     let records = if value.is_empty() {
         vec![String::new()]
     } else {
-        <Vec<String>>::parse_device_text(value, field)?
+        <Vec<String>>::parse_text(value, field)?
     };
     records
         .into_iter()

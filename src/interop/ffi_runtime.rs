@@ -12,9 +12,10 @@ use std::{
 use serde::Serialize;
 
 use crate::{
-    DeviceNode, ErrorCategory, Invocation, MIRESIDIAN_PLATFORM_RUNTIME_SELECT,
+    ErrorCategory, Invocation, MIRESIDIAN_PLATFORM_RUNTIME_SELECT,
     MIRESIDIAN_STATUS_INTERNAL_ERROR, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
-    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus, NodeRuntime, Platform,
+    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianError, MiresidianStatus, Node, NodeRuntime,
+    Platform,
 };
 
 const INTERNAL_ERROR_RESPONSE: &str =
@@ -50,7 +51,7 @@ struct InvocationResponse {
 /// # Safety
 /// 所有非空指针必须指向有效、以 NUL 结尾的 C 字符串缓冲区。NULL function、
 /// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
-pub unsafe fn invoke<N: DeviceNode>(
+pub unsafe fn invoke<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     function: *const c_char,
     config_json: *const c_char,
@@ -73,7 +74,7 @@ pub unsafe fn invoke<N: DeviceNode>(
 /// 所有非空指针必须指向有效、以 NUL 结尾的 C 字符串缓冲区。NULL function、
 /// 非 UTF-8 文本和非法 JSON 均由入口返回参数错误。
 /// platform 的合法性和注册状态由入口校验。
-pub unsafe fn invoke_with<N: DeviceNode>(
+pub unsafe fn invoke_with<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     function: *const c_char,
@@ -99,7 +100,7 @@ pub unsafe fn invoke_with<N: DeviceNode>(
 /// # Safety
 /// `request_json` 非空时必须指向本次调用期间可读、NUL 结尾的 C 字符串；内存归调用方。
 /// NULL、非法 UTF-8、非法 JSON 和无效请求通过错误响应报告。
-pub unsafe fn invoke_request<N: DeviceNode>(
+pub unsafe fn invoke_request<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     request_json: *const c_char,
 ) -> *const c_char {
@@ -155,7 +156,7 @@ fn caught_response(
     }
 }
 
-unsafe fn dispatch<N: DeviceNode>(
+unsafe fn dispatch<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     function: *const c_char,
     config_json: *const c_char,
@@ -172,7 +173,7 @@ unsafe fn dispatch<N: DeviceNode>(
     })
 }
 
-unsafe fn dispatch_with<N: DeviceNode>(
+unsafe fn dispatch_with<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     function: *const c_char,
@@ -194,7 +195,7 @@ unsafe fn dispatch_with<N: DeviceNode>(
     invoke_platform(runtime, platform, Invocation::new(operation, config, input))
 }
 
-fn dispatch_platform<N: DeviceNode>(
+fn dispatch_platform<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: u32,
     invocation: Invocation,
@@ -209,7 +210,7 @@ fn dispatch_platform<N: DeviceNode>(
     invoke_platform(runtime, platform, invocation)
 }
 
-fn invoke_platform<N: DeviceNode>(
+fn invoke_platform<N: Node>(
     runtime: &impl crate::runtime::RuntimeSource<N>,
     platform: Platform,
     invocation: Invocation,
@@ -226,7 +227,7 @@ fn invoke_platform<N: DeviceNode>(
 }
 
 // 兼容旧 Mutex 容器时只在克隆运行时身份期间持锁；业务调用使用实例级门禁。
-fn invoke_runtime<N: DeviceNode>(
+fn invoke_runtime<N: Node>(
     source: &impl crate::runtime::RuntimeSource<N>,
     platforms: impl FnOnce() -> crate::PlatformRegistry,
     call: impl FnOnce(&NodeRuntime<N>) -> crate::MiresidianResult<crate::InvocationOutput>,

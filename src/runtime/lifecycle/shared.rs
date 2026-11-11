@@ -2,8 +2,7 @@
 mod wire;
 use super::{catch_node, cleanup_node};
 use crate::{
-    CallContext, DeviceNode, INIT_DEVICE_OPERATION, InvocationOutput, MiresidianError,
-    MiresidianResult,
+    CallContext, INIT_DEVICE_OPERATION, InvocationOutput, MiresidianError, MiresidianResult, Node,
     lease::{
         LeaseError, LeaseRequest,
         shared::{ResourceHandler, SharedResource},
@@ -18,7 +17,7 @@ pub(super) struct SharedNode {
     resource: SharedResource,
 }
 impl SharedNode {
-    pub(super) fn acquire<N: DeviceNode>(
+    pub(super) fn acquire<N: Node>(
         request: LeaseRequest,
         config: &[String],
         raw_config: &[String],
@@ -123,7 +122,7 @@ fn ipc_error(error: LeaseError) -> MiresidianError {
     MiresidianError::LeaseInvalidated(error.to_string())
 }
 
-fn contract<N: DeviceNode>() -> Vec<String> {
+fn contract<N: Node>() -> Vec<String> {
     let descriptor = N::descriptor();
     let mut operations = descriptor
         .operations
@@ -141,7 +140,7 @@ fn contract<N: DeviceNode>() -> Vec<String> {
     ]
 }
 
-struct Owner<N: DeviceNode> {
+struct Owner<N: Node> {
     node: Option<N>,
     fault: Option<MiresidianError>,
     output: Option<Vec<String>>,
@@ -150,7 +149,7 @@ struct Owner<N: DeviceNode> {
     raw_config: Vec<String>,
     input: Vec<String>,
 }
-impl<N: DeviceNode> Owner<N> {
+impl<N: Node> Owner<N> {
     fn execute(&mut self, request: Request) -> MiresidianResult<Vec<String>> {
         if let Some(error) = &self.fault {
             return Err(error.clone());
@@ -244,7 +243,7 @@ impl<N: DeviceNode> Owner<N> {
         Ok(Vec::new())
     }
 }
-impl<N: DeviceNode> ResourceHandler for Owner<N> {
+impl<N: Node> ResourceHandler for Owner<N> {
     fn transact(&mut self, bytes: &[u8]) -> Result<Vec<u8>, LeaseError> {
         let request = serde_json::from_slice(bytes)
             .map_err(|error| LeaseError::LocalIpc(error.to_string()))?;
@@ -261,7 +260,7 @@ impl<N: DeviceNode> ResourceHandler for Owner<N> {
         wire::encode(self.cleanup(&input))
     }
 }
-impl<N: DeviceNode> Drop for Owner<N> {
+impl<N: Node> Drop for Owner<N> {
     fn drop(&mut self) {
         let _ = self.cleanup(&[]);
     }

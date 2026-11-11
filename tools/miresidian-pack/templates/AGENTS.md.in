@@ -11,7 +11,7 @@
 
 - 框架仅使用 crates.io 已发布的精确版本，Cargo.lock 由 Cargo 生成；框架依赖禁止使用 path/git 或 patch/replace/paths 等本地覆盖，不伪造锁文件。仅在任务确需时升级框架或工具。
 - lib.rs 保持入口和模块声明职责；节点状态及标注方法放在同一模块。按业务需要拆分通信与协议职责，不使用 mod.rs。
-- 使用 node、operation 及参数/输出宏声明契约；不手写 DeviceNode、平台字符串分发、GetFunctions/GetInitConfig 或 C ABI 导出，不重复实现框架已有编解码。
+- 使用 node、operation 及参数/输出宏声明契约；不手写框架节点接口（名称以实际依赖版本为准）、平台字符串分发、GetFunctions/GetInitConfig 或 C ABI 导出，不重复实现框架已有编解码。
 - 明确 Config/Input/Output 的顺序、默认值、单位和错误条件。实例身份、资源身份和框架追加字段的声明与布局，以本项目实际框架版本的官方契约及元数据为准，不从参数位置猜测身份，不套用其他版本的主键规则。
 
 ## features、通信与生命周期

@@ -3,8 +3,8 @@
 use super::{NodeRuntime, catch_node};
 use crate::runtime::instances::ConfigLayout;
 use crate::{
-    DeviceNode, ExecutionMode, INIT_DEVICE_OPERATION, Invocation, LeaseAccess, MiresidianError,
-    MiresidianResult, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
+    ExecutionMode, INIT_DEVICE_OPERATION, Invocation, LeaseAccess, MiresidianError,
+    MiresidianResult, Node, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
 };
 use crate::{InstanceMode, normalize_value_with_definition};
 
@@ -33,7 +33,7 @@ pub(super) struct ParsedConfig<'a> {
 }
 
 impl ParsedConfig<'_> {
-    pub fn key<N: DeviceNode>(&self, normalized: Vec<String>) -> MiresidianResult<InstanceKey> {
+    pub fn key<N: Node>(&self, normalized: Vec<String>) -> MiresidianResult<InstanceKey> {
         match &self.handle {
             Some(handle) if handle.is_empty() => Err(MiresidianError::InvalidArgument {
                 field: "Handle".to_owned(),
@@ -54,12 +54,12 @@ impl ParsedConfig<'_> {
 }
 
 /// 只从业务 Config 选择实例键索引，与租约字段选择独立；框架附加字段不参与。
-fn instance_key_indices<N: DeviceNode>() -> impl Iterator<Item = usize> {
+fn instance_key_indices<N: Node>() -> impl Iterator<Item = usize> {
     (0..N::descriptor().init_config.len())
         .filter(|index| N::instance_config_indices().is_none_or(|keys| keys.contains(index)))
 }
 
-impl<N: DeviceNode> NodeRuntime<N> {
+impl<N: Node> NodeRuntime<N> {
     /// 提取稳定通道配置文本。业务参数缺参报错；该规则与宏生成参数解析保持一致，
     /// 因而参数名前缀、枚举显示值和实际值不会制造重复通道。
     pub(super) fn normalize_channel_config(

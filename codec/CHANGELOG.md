@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-11
+
+- 公开类型 DeviceInput/DeviceOutput/DeviceCollectionElement/DeviceScalar/DeviceValue 分别更名为 NodeInput/NodeOutput/NodeCollectionElement/NodeScalar/NodeValue，不保留别名。
+- 关联方法统一为 parse_text、normalize_text、into_output、parse_collection、format_collection；输入、输出、集合和规范化行为保持。
+- 同步 Rustdoc、README 自定义业务类型示例和组件回归；验证见根任务方案。
+
 ## [0.16.0] - 2026-11-05
 
 - DeviceInput 新增带默认实现的 normalize_device_text，内置数值、bool、格式、Option/Vec 提供规范文本；String 与自定义类型默认保留文本。

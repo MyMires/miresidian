@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-11
+
+- Rename public Rust types to Node, NodeInput, NodeOutput, NodeCollectionElement, NodeScalar and NodeValue, without old aliases. Rename codec trait methods to parse_text, normalize_text, into_output, parse_collection and format_collection.
+- Update re-exports, generated implementations, runtime bounds, feature crates, tests and current guidance. Lifecycle mappings, platform operation names, C ABI v9 and lease/shared-resource protocols v2 remain unchanged.
+- Independently version codec 0.17.0, macro 0.25.0, format 0.4.0 and batch 0.3.0; instances 0.16.7 and lease 0.17.2 update their exact codec dependency only. Pack 0.13.4 removes a hard-coded trait name from generated guidance; CLI/toolset 0.3.4 updates its backend requirement.
+- Synchronize exact dependencies, the workspace lockfile and migration guidance. Independent nodes and fixtures retain published dependencies. Validation is recorded in plans/2026-11-11-device-naming-audit.md; local source delivery only, without push or publication.
+
 ## [0.28.0] - 2026-11-11
 
 - Add bare and positional instances declarations. Bare instances selects single-object fixed sequential multi-channel execution; multiple requires config/handle and selectable keeps an explicit default. Omitting the annotation retains disabled multi-channel behavior.

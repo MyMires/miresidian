@@ -1,5 +1,7 @@
 # 架构总览
 
+本检出 0.29.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
+
 [文档中心](README.md) · [项目首页](../README.md)
 
 本文从依赖、核心类型和调用过程三个角度描述当前实现。图表使用 Mermaid，支持 Mermaid 的 Markdown 阅读器可直接渲染；纯文本环境可结合下方职责表和源码链接阅读。图表是人工维护的设计视图，省略辅助类型和次要方法；精确字段、泛型约束和签名以链接的源码及 Rustdoc 为准。图中使用中文说明职责，括号内保留源码标识符，便于搜索定位。
@@ -24,7 +26,7 @@ flowchart TB
     format --> codec
     runtime -->|batch feature| batch["miresidian_batch：记录解析与聚合"]
     batch --> codec
-    macros -.-> generated["编译期生成：元数据、DeviceNode 实现与 DLL 导出"]
+    macros -.-> generated["编译期生成：元数据、Node 实现与 DLL 导出"]
     generated -.-> node
     pack["miresidian_pack：开发工具"] -.-> dll["节点 DLL 与发布目录"]
     node -.-> dll
@@ -45,11 +47,11 @@ flowchart TB
 
 ## 核心类型关系（UML）
 
-图中 `NodeRuntime`、`Instance`、`InstanceState` 省略泛型参数，它们实际承载同一节点类型 `N: DeviceNode`。`ExampleNode` 表示任意由宏适配的业务节点，并非框架内置类型。
+图中 `NodeRuntime`、`Instance`、`InstanceState` 省略泛型参数，它们实际承载同一节点类型 `N: Node`。`ExampleNode` 表示任意由宏适配的业务节点，并非框架内置类型。
 
 ```mermaid
 classDiagram
-    class DeviceNode["节点接口（DeviceNode）"] {
+    class Node["节点接口（Node）"] {
         <<trait>>
         +descriptor()
         +platform_registry()
@@ -141,13 +143,13 @@ classDiagram
         definition
         default_value
     }
-    note for DeviceNode "节点与运行时之间的接口，由属性宏生成实现。"
+    note for Node "节点与运行时之间的接口，由属性宏生成实现。"
     note for NodeRuntime "不同实例并行；同实例请求和整个多通道批次互斥。"
     note for InstanceState "异步互斥锁保护可选对象状态；关闭时取走对象并完成清理。"
     note for NodeAccess "Direct 与 Shared 互斥；后者只持代理，不另构造本地 N。"
     note for Owner "所有者内构造一次 N；完整业务调用互斥，最后引用才关闭和析构。"
     note for PlatformAdapter "decode 解析平台请求；encode 编码平台输出。"
-    DeviceNode <|.. ExampleNode : 宏生成实现
+    Node <|.. ExampleNode : 宏生成实现
     NodeRuntime "1..*" o-- "1" RuntimeState : Clone 共享运行时身份
     RuntimeState "1" *-- "0..*" Instance : 默认最多一个；显式策略可多个
     Instance "1" *-- "0..1" InstanceState : Mutex 保护；关闭后取空
@@ -161,7 +163,7 @@ classDiagram
     NodeRuntime "1" *-- "1" PlatformRegistry : 持有已注册平台
     PlatformRegistry "1" o-- "1..*" PlatformAdapter : Arc 共享
     PlatformAdapter <|.. TbLvTestPlatformAdapter : 实现接口
-    DeviceNode ..> NodeDescriptor : 返回静态元数据
+    Node ..> NodeDescriptor : 返回静态元数据
     NodeDescriptor "1" o-- "0..*" OperationDescriptor : 静态切片
     NodeDescriptor "1" o-- "0..*" ParameterDescriptor : 初始化与探测参数
     OperationDescriptor "1" o-- "0..*" ParameterDescriptor : 输入与输出
@@ -177,7 +179,7 @@ classDiagram
 
 | 所属类型 | 成员名称与含义 |
 | --- | --- |
-| 节点接口 `DeviceNode` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭节点实例 |
+| 节点接口 `Node` | `descriptor` 查询节点描述；`platform_registry` 获取平台注册表；`init_device` 构造已初始化节点并返回业务输出；`validate_definition` 校验注册契约；`invoke` 执行业务操作；`close_device` 关闭节点实例 |
 | 运行时 `NodeRuntime` | `core` 共享运行时状态；`platforms` 平台注册表；管理状态保存 objects 与 active_platform |
 | 运行时调用方法 | `invoke` 按配置选择平台并调用；`invoke_with` 使用指定适配器调用；`invoke_with_platform` 按平台编号调用；`shutdown` 关闭全部通道 |
 | 对象 `Instance` / `InstanceState` | `key` 关联键；`config` 已保存业务配置；`execution` 对象执行方式；`state` 加锁状态；`node` 为 Direct/Shared 分支；`fault` 为本地故障原因 |
@@ -191,13 +193,13 @@ classDiagram
 
 Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯一 N，随后释放所有者配置租约。实例状态不再直接保存 LocalLease；引用侧租约由 SharedResource 持有，所有者后端另持保护物理资源的租约。共享节点的 panic/故障保存在所有者中，不能通过另一引用绕过。
 
-类型定义：[DeviceNode](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / NodeAccess / InstanceState](../src/runtime/lifecycle/instance.rs)、[SharedNode / Owner](../src/runtime/lifecycle/shared.rs)、[SharedResource](../features/lease/src/shared/client.rs)、[所有者后端](../features/lease/src/shared/server.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../features/lease/src/local_ipc/client.rs)。
+类型定义：[Node](../src/runtime/node.rs)、[NodeRuntime](../src/runtime/lifecycle/service.rs)、[Instance / NodeAccess / InstanceState](../src/runtime/lifecycle/instance.rs)、[SharedNode / Owner](../src/runtime/lifecycle/shared.rs)、[SharedResource](../features/lease/src/shared/client.rs)、[所有者后端](../features/lease/src/shared/server.rs)、[描述信息](../src/runtime/descriptor.rs)、[平台注册表与适配器](../src/platform.rs)、[LocalLease](../features/lease/src/local_ipc/client.rs)。
 
 ## 节点创建与方法汇总
 
 0.28.0 / macro 0.24.0 在编译期将新旧 feature 声明归一为同一策略：裸 instances 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。format 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instances/format 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[宏简写迁移](releases/0.28.0.md)。
 
-`node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、DeviceNode 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
+`node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、Node 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
 
 初始化不再依赖 Default：Direct 解析配置后本地构造；Lease 取得共享代理，由唯一所有者校验接口及完整初始化参数，首次请求才构造 N，后续请求复用初始化输出。取得节点或共享引用及输出后才登记通道。构造失败由构造函数回滚；返回 N 后的输出编码错误由框架关闭并析构该 N，共享所有者失败路径在清理后释放租约。端口探测是独立关联函数，不创建临时节点。
 
@@ -214,7 +216,7 @@ sequenceDiagram
     participant Adapter as 平台适配器<br/>PlatformAdapter
     participant Instance as 节点通道<br/>Instance
     participant Proxy as 可选共享代理<br/>SharedNode / SharedResource
-    participant Node as 宏生成的节点接口<br/>DeviceNode 实现
+    participant Node as 宏生成的节点接口<br/>Node 实现
     participant Codec as 数据编解码<br/>miresidian_codec
     participant Target as 节点业务逻辑与目标资源
     Host->>FFI: 提交函数名、配置数组与输入数组
@@ -369,7 +371,7 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 ### 待办：自定义结构体的平台契约自动生成（未实现，2026-11-03）
 
-当前自定义 struct 可通过手动实现 DeviceInput/DeviceOutput 或 FormatInput/FormatOutput 接入；输入侧按一个槽位整体解析，尚不能根据结构体字段自动展开多个平台槽位。现有 trait 实现不等于具备字段级自动映射能力。
+当前自定义 struct 可通过手动实现 NodeInput/NodeOutput 或 FormatInput/FormatOutput 接入；输入侧按一个槽位整体解析，尚不能根据结构体字段自动展开多个平台槽位。现有 trait 实现不等于具备字段级自动映射能力。
 
 - [ ] 设计结构体字段标注及 Input/Config 槽位展开，使框架从多个平台参数自动构造业务结构体，业务方法直接接收适合业务语义的类型。
 - [ ] 设计结构体返回值的字段级 Output 展开，明确字段顺序、名称、输出数量和元数据的一致性。

@@ -2,28 +2,28 @@
 
 use crate::{InvocationOutput, MiresidianResult};
 
-use super::{ByteTextFormat, DeviceInput, DeviceOutput, invalid};
+use super::{ByteTextFormat, NodeInput, NodeOutput, invalid};
 
-impl DeviceOutput for () {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for () {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::empty())
     }
 }
 
-impl DeviceInput for String {
-    fn parse_device_text(value: &str, _field: &str) -> MiresidianResult<Self> {
+impl NodeInput for String {
+    fn parse_text(value: &str, _field: &str) -> MiresidianResult<Self> {
         Ok(value.to_owned())
     }
 }
 
-impl DeviceOutput for String {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for String {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self]))
     }
 }
 
-impl DeviceInput for bool {
-    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+impl NodeInput for bool {
+    fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "true" | "1" | "是" | "真" => Ok(true),
             "false" | "0" | "否" | "假" => Ok(false),
@@ -31,19 +31,19 @@ impl DeviceInput for bool {
         }
     }
 
-    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
-        Ok(Self::parse_device_text(value, field)?.to_string())
+    fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
+        Ok(Self::parse_text(value, field)?.to_string())
     }
 }
 
-impl DeviceOutput for bool {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for bool {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }
 
-impl DeviceInput for char {
-    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+impl NodeInput for char {
+    fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
         let mut characters = value.chars();
         let Some(character) = characters.next() else {
             return Err(invalid(field, "必须是单个字符"));
@@ -55,8 +55,8 @@ impl DeviceInput for char {
     }
 }
 
-impl DeviceOutput for char {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for char {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }
@@ -86,8 +86,8 @@ fn parse_radix(value: &str, field: &str) -> MiresidianResult<Option<u128>> {
 
 macro_rules! integer {
     ($($type:ty),+ $(,)?) => {$(
-        impl DeviceInput for $type {
-            fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+        impl NodeInput for $type {
+            fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
                 if value.trim().is_empty() {
                     return Ok(0);
                 }
@@ -97,13 +97,13 @@ macro_rules! integer {
                 value.trim().parse::<$type>().map_err(|_| invalid(field, "数值格式错误"))
             }
 
-            fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
-                Ok(Self::parse_device_text(value, field)?.to_string())
+            fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
+                Ok(Self::parse_text(value, field)?.to_string())
             }
         }
 
-        impl DeviceOutput for $type {
-            fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+        impl NodeOutput for $type {
+            fn into_output(self) -> MiresidianResult<InvocationOutput> {
                 Ok(InvocationOutput::new(vec![self.to_string()]))
             }
         }
@@ -116,8 +116,8 @@ integer!(
 
 macro_rules! float {
     ($($type:ty),+ $(,)?) => {$(
-        impl DeviceInput for $type {
-            fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+        impl NodeInput for $type {
+            fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
                 if value.trim().is_empty() {
                     return Ok(0.0);
                 }
@@ -131,13 +131,13 @@ macro_rules! float {
                 Ok(value)
             }
 
-            fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
-                Ok(Self::parse_device_text(value, field)?.to_string())
+            fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
+                Ok(Self::parse_text(value, field)?.to_string())
             }
         }
 
-        impl DeviceOutput for $type {
-            fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+        impl NodeOutput for $type {
+            fn into_output(self) -> MiresidianResult<InvocationOutput> {
                 if !self.is_finite() {
                     return Err(invalid("输出", "浮点数必须是有限值"));
                 }
@@ -149,18 +149,18 @@ macro_rules! float {
 
 float!(f32, f64);
 
-impl DeviceInput for ByteTextFormat {
-    fn parse_device_text(value: &str, _field: &str) -> MiresidianResult<Self> {
+impl NodeInput for ByteTextFormat {
+    fn parse_text(value: &str, _field: &str) -> MiresidianResult<Self> {
         value.parse()
     }
 
-    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
-        Ok(Self::parse_device_text(value, field)?.to_string())
+    fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
+        Ok(Self::parse_text(value, field)?.to_string())
     }
 }
 
-impl DeviceOutput for ByteTextFormat {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for ByteTextFormat {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         Ok(InvocationOutput::new(vec![self.to_string()]))
     }
 }

@@ -1,4 +1,4 @@
-//! Miresidian 是供测试平台加载设备节点的运行时框架。
+//! Miresidian 是供宿主加载通用业务节点的运行时框架。
 //!
 //! 框架提供稳定调用契约、生命周期、属性宏与 C ABI，并在通道边界隔离可展开 panic。
 //!
@@ -97,7 +97,7 @@ pub const MIRESIDIAN_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// 编码规则。根 crate 同时保留同名重导出，以兼容已有 Rust 调用代码。
 pub mod codec {
     pub use miresidian_codec::{
-        ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, decode_text_to_bytes,
+        ByteTextFormat, NodeCollectionElement, NodeInput, NodeOutput, decode_text_to_bytes,
         decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
         normalize_value_with_definition, parse_byte_text_format, transcode_text,
     };
@@ -110,8 +110,8 @@ pub use miresidian_abi::{
     MiresidianStatus, MiresidianTextArray,
 };
 pub use miresidian_codec::{
-    ByteTextFormat, DeviceCollectionElement, DeviceInput, DeviceOutput, DeviceScalar, DeviceValue,
-    ErrorCategory, InvocationOutput, MiresidianError, MiresidianResult, decode_text_to_bytes,
+    ByteTextFormat, ErrorCategory, InvocationOutput, MiresidianError, MiresidianResult,
+    NodeCollectionElement, NodeInput, NodeOutput, NodeScalar, NodeValue, decode_text_to_bytes,
     decode_value, decode_value_with_definition, encode_bytes_to_text, encode_value,
     normalize_value_with_definition, parse_byte_text_format, transcode_text,
 };
@@ -126,10 +126,10 @@ pub use platform::{
 };
 pub use runtime::{
     CHANNEL_REUSED_MESSAGE, CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, CallContext,
-    DeviceNode, ExecutionLimits, ExecutionMode, ExecutionPolicy, GET_FRAMEWORK_VERSION_OPERATION,
+    ExecutionLimits, ExecutionMode, ExecutionPolicy, GET_FRAMEWORK_VERSION_OPERATION,
     GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
     GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, InstanceBinding, InstanceMode,
-    InstancePolicy, Invocation, LeaseAccess, LeaseActivation, NodeDescriptor, NodeFuture,
+    InstancePolicy, Invocation, LeaseAccess, LeaseActivation, Node, NodeDescriptor, NodeFuture,
     NodeRuntime, OperationDescriptor, PLATFORM_ADAPTER_DEFINITION, PLATFORM_ADAPTER_NAME,
     ParameterDescriptor, SHARED_INVOCATION_MARKER, TaskService, TaskSnapshot, TaskState,
     shutdown_executor,

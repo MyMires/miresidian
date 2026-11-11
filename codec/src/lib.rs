@@ -16,7 +16,7 @@ use std::{fmt, str::FromStr};
 
 pub use error::{ErrorCategory, MiresidianError, MiresidianResult};
 pub use output::InvocationOutput;
-pub use value::{DeviceScalar, DeviceValue};
+pub use value::{NodeScalar, NodeValue};
 
 /// 原始字节与平台文本之间使用的明确数据格式。
 ///
@@ -126,46 +126,46 @@ pub fn transcode_text(
 }
 
 /// 可由测试平台参数文本构造的输入或配置类型。
-pub trait DeviceInput: Sized {
+pub trait NodeInput: Sized {
     /// 从单个已完成名称与默认值处理的文本值构造目标类型。
-    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self>;
+    fn parse_text(value: &str, field: &str) -> MiresidianResult<Self>;
 
     /// 配置身份及租约编码使用的规范文本，不取得资源或执行设备操作。
     /// 默认保留原文；内置数值按解析后的值规范化，自定义类型可覆盖自身等价规则。
-    fn normalize_device_text(value: &str, _field: &str) -> MiresidianResult<String> {
+    fn normalize_text(value: &str, _field: &str) -> MiresidianResult<String> {
         Ok(value.to_owned())
     }
 }
 
 /// 可安全返回给测试平台的驱动方法结果类型。
-pub trait DeviceOutput {
+pub trait NodeOutput {
     /// 转换为有序的平台输出文本。
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput>;
+    fn into_output(self) -> MiresidianResult<InvocationOutput>;
 }
 
 /// 可作为一维平台数组元素的类型。
 ///
 /// 对标准类型已由框架实现。自定义业务类型若要使用 `Vec<T>` 参数或返回值，应实现本 trait，
 /// 以明确其数组文本的解析和格式化规则。
-pub trait DeviceCollectionElement: Sized {
+pub trait NodeCollectionElement: Sized {
     /// 将整个数组文本转换为有序元素。
-    fn parse_device_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>>;
+    fn parse_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>>;
 
     /// 将有序元素转换为可无损回传的平台数组文本。
-    fn format_device_collection(values: &[Self]) -> MiresidianResult<String>;
+    fn format_collection(values: &[Self]) -> MiresidianResult<String>;
 }
 
 /// 从一个平台参数通道解码强类型值；空白值优先回退到属性声明的默认值。
 ///
 /// `values` 可以是平台的 `Config[]` 或 `Input[]`。两者的文本规则完全相同，
 /// 通道选择和索引分配由属性宏负责。
-pub fn decode_value<T: DeviceInput>(
+pub fn decode_value<T: NodeInput>(
     values: &[String],
     index: usize,
     field: &str,
     default: Option<&str>,
 ) -> MiresidianResult<T> {
-    T::parse_device_text(&definition::value_at(values, index, field, default)?, field)
+    T::parse_text(&definition::value_at(values, index, field, default)?, field)
 }
 
 /// 从平台参数通道提取带完整定义的规范化文本。
@@ -187,95 +187,91 @@ pub fn normalize_value_with_definition(
 
 /// 从平台参数通道解码带完整平台描述的强类型值。
 ///
-/// 属性宏使用此入口，使选项描述中的显示值在进入 `DeviceInput` 前规范化为实际值。
-pub fn decode_value_with_definition<T: DeviceInput>(
+/// 属性宏使用此入口，使选项描述中的显示值在进入 `NodeInput` 前规范化为实际值。
+pub fn decode_value_with_definition<T: NodeInput>(
     values: &[String],
     index: usize,
     field: &str,
     definition: &str,
     default: Option<&str>,
 ) -> MiresidianResult<T> {
-    T::parse_device_text(
+    T::parse_text(
         &normalize_value_with_definition(values, index, field, definition, default)?,
         field,
     )
 }
 
 /// 将驱动方法的强类型返回值编码为平台 ABI 输出。
-pub fn encode_value<T: DeviceOutput>(value: T) -> MiresidianResult<InvocationOutput> {
-    value.into_device_output()
+pub fn encode_value<T: NodeOutput>(value: T) -> MiresidianResult<InvocationOutput> {
+    value.into_output()
 }
 
-impl<T: DeviceCollectionElement> DeviceInput for Vec<T> {
-    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
-        T::parse_device_collection(value, field)
+impl<T: NodeCollectionElement> NodeInput for Vec<T> {
+    fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
+        T::parse_collection(value, field)
     }
 
-    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
-        T::format_device_collection(&Self::parse_device_text(value, field)?)
-    }
-}
-
-impl<T: DeviceCollectionElement> DeviceOutput for Vec<T> {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
-        Ok(InvocationOutput::new(vec![T::format_device_collection(
-            &self,
-        )?]))
+    fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
+        T::format_collection(&Self::parse_text(value, field)?)
     }
 }
 
-impl<T: DeviceInput> DeviceInput for Option<T> {
-    fn parse_device_text(value: &str, field: &str) -> MiresidianResult<Self> {
+impl<T: NodeCollectionElement> NodeOutput for Vec<T> {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
+        Ok(InvocationOutput::new(vec![T::format_collection(&self)?]))
+    }
+}
+
+impl<T: NodeInput> NodeInput for Option<T> {
+    fn parse_text(value: &str, field: &str) -> MiresidianResult<Self> {
         if value.trim().is_empty() {
             Ok(None)
         } else {
-            T::parse_device_text(value, field).map(Some)
+            T::parse_text(value, field).map(Some)
         }
     }
 
-    fn normalize_device_text(value: &str, field: &str) -> MiresidianResult<String> {
+    fn normalize_text(value: &str, field: &str) -> MiresidianResult<String> {
         if value.trim().is_empty() {
             Ok(String::new())
         } else {
-            T::normalize_device_text(value, field)
+            T::normalize_text(value, field)
         }
     }
 }
 
-impl<T: DeviceOutput> DeviceOutput for Option<T> {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl<T: NodeOutput> NodeOutput for Option<T> {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         match self {
-            Some(value) => value.into_device_output(),
+            Some(value) => value.into_output(),
             None => Ok(InvocationOutput::new(vec![String::new()])),
         }
     }
 }
 
-impl<A: DeviceOutput, B: DeviceOutput> DeviceOutput for (A, B) {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
-        let mut values = self.0.into_device_output()?.into_values();
-        values.extend(self.1.into_device_output()?.into_values());
+impl<A: NodeOutput, B: NodeOutput> NodeOutput for (A, B) {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
+        let mut values = self.0.into_output()?.into_values();
+        values.extend(self.1.into_output()?.into_values());
         Ok(InvocationOutput::new(values))
     }
 }
 
-impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput> DeviceOutput for (A, B, C) {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
-        let mut values = self.0.into_device_output()?.into_values();
-        values.extend(self.1.into_device_output()?.into_values());
-        values.extend(self.2.into_device_output()?.into_values());
+impl<A: NodeOutput, B: NodeOutput, C: NodeOutput> NodeOutput for (A, B, C) {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
+        let mut values = self.0.into_output()?.into_values();
+        values.extend(self.1.into_output()?.into_values());
+        values.extend(self.2.into_output()?.into_values());
         Ok(InvocationOutput::new(values))
     }
 }
 
-impl<A: DeviceOutput, B: DeviceOutput, C: DeviceOutput, D: DeviceOutput> DeviceOutput
-    for (A, B, C, D)
-{
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
-        let mut values = self.0.into_device_output()?.into_values();
-        values.extend(self.1.into_device_output()?.into_values());
-        values.extend(self.2.into_device_output()?.into_values());
-        values.extend(self.3.into_device_output()?.into_values());
+impl<A: NodeOutput, B: NodeOutput, C: NodeOutput, D: NodeOutput> NodeOutput for (A, B, C, D) {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
+        let mut values = self.0.into_output()?.into_values();
+        values.extend(self.1.into_output()?.into_values());
+        values.extend(self.2.into_output()?.into_values());
+        values.extend(self.3.into_output()?.into_values());
         Ok(InvocationOutput::new(values))
     }
 }

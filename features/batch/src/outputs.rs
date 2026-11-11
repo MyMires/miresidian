@@ -1,5 +1,5 @@
 //! 将逐次调用结果按输出槽位聚合，复用可逆集合编码。
-use miresidian_codec::{DeviceOutput, InvocationOutput, MiresidianError, MiresidianResult};
+use miresidian_codec::{InvocationOutput, MiresidianError, MiresidianResult, NodeOutput};
 
 /// 将每次标量调用同位置的输出合并为可逆的竖线数组文本。
 pub fn batch_outputs(outputs: Vec<InvocationOutput>) -> MiresidianResult<InvocationOutput> {
@@ -22,7 +22,7 @@ pub fn batch_outputs(outputs: Vec<InvocationOutput>) -> MiresidianResult<Invocat
     }
     let mut values = Vec::with_capacity(width);
     for group in grouped {
-        let encoded = <Vec<String> as DeviceOutput>::into_device_output(group)?;
+        let encoded = <Vec<String> as NodeOutput>::into_output(group)?;
         values.push(
             encoded
                 .into_values()

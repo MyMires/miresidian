@@ -4,13 +4,13 @@ use std::sync::{Mutex, OnceLock};
 /// 为宏生成代码和旧 Rust FFI 容器取得共用运行时句柄。
 /// 首次调用通过 platforms 构造注册表，后续返回 Clone；旧锁污染时先清理运行时再恢复。
 #[doc(hidden)]
-pub trait RuntimeSource<N: crate::DeviceNode>: Sync {
+pub trait RuntimeSource<N: crate::Node>: Sync {
     fn runtime(
         &self,
         platforms: impl FnOnce() -> crate::PlatformRegistry,
     ) -> MiresidianResult<crate::NodeRuntime<N>>;
 }
-impl<N: crate::DeviceNode> RuntimeSource<N> for OnceLock<crate::NodeRuntime<N>> {
+impl<N: crate::Node> RuntimeSource<N> for OnceLock<crate::NodeRuntime<N>> {
     fn runtime(
         &self,
         platforms: impl FnOnce() -> crate::PlatformRegistry,
@@ -20,7 +20,7 @@ impl<N: crate::DeviceNode> RuntimeSource<N> for OnceLock<crate::NodeRuntime<N>> 
             .clone())
     }
 }
-impl<N: crate::DeviceNode> RuntimeSource<N> for OnceLock<Mutex<crate::NodeRuntime<N>>> {
+impl<N: crate::Node> RuntimeSource<N> for OnceLock<Mutex<crate::NodeRuntime<N>>> {
     fn runtime(
         &self,
         platforms: impl FnOnce() -> crate::PlatformRegistry,

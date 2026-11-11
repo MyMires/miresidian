@@ -1,12 +1,12 @@
 #![cfg(feature = "instances")]
 use miresidian::{
-    CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, DeviceNode,
-    GET_FRAMEWORK_VERSION_OPERATION, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION,
-    GET_PORT_NO_OPERATION, GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation,
-    InvocationOutput, MIRESIDIAN_VERSION, MiresidianError, MiresidianResult,
-    MultiChannelInvocation, NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor,
-    Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
-    TB_LV_TEST_PLATFORM, TbLvTestPlatformAdapter,
+    CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, GET_FRAMEWORK_VERSION_OPERATION,
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
+    GET_PROJECT_VERSION_OPERATION, INIT_DEVICE_OPERATION, Invocation, InvocationOutput,
+    MIRESIDIAN_VERSION, MiresidianError, MiresidianResult, MultiChannelInvocation, Node,
+    NodeDescriptor, NodeRuntime, OperationDescriptor, ParameterDescriptor, Platform,
+    PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse, TB_LV_TEST_PLATFORM,
+    TbLvTestPlatformAdapter,
 };
 
 const INIT_CONFIG: [ParameterDescriptor; 1] = [ParameterDescriptor {
@@ -54,7 +54,7 @@ struct MemoryNode {
     address: String,
 }
 
-impl DeviceNode for MemoryNode {
+impl Node for MemoryNode {
     fn descriptor() -> &'static NodeDescriptor {
         &DESCRIPTOR
     }

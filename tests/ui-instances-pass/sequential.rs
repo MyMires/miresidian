@@ -7,4 +7,4 @@ impl Example {
     #[operation]
     fn close_device(&mut self) -> MiresidianResult<()> { Ok(()) }
 }
-fn main() { assert_eq!(<Example as miresidian::DeviceNode>::descriptor().instances.execution, miresidian::ExecutionPolicy::Fixed(miresidian::ExecutionMode::Sequential)); }
+fn main() { assert_eq!(<Example as miresidian::Node>::descriptor().instances.execution, miresidian::ExecutionPolicy::Fixed(miresidian::ExecutionMode::Sequential)); }

@@ -2,7 +2,7 @@
 
 use crate::MiresidianResult;
 
-use super::{DeviceCollectionElement, DeviceInput, DeviceOutput, binary, invalid};
+use super::{NodeCollectionElement, NodeInput, NodeOutput, binary, invalid};
 
 /// 按竖线分隔元素，并识别 `\|` 与 `\\` 转义。
 pub(super) fn split_items(value: &str, field: &str) -> MiresidianResult<Vec<String>> {
@@ -42,19 +42,19 @@ pub(super) fn format_items(values: impl IntoIterator<Item = String>) -> String {
         .join("|")
 }
 
-fn parse_plain_collection<T: DeviceInput>(value: &str, field: &str) -> MiresidianResult<Vec<T>> {
+fn parse_plain_collection<T: NodeInput>(value: &str, field: &str) -> MiresidianResult<Vec<T>> {
     split_items(value, field)?
         .into_iter()
-        .map(|item| T::parse_device_text(&item, field))
+        .map(|item| T::parse_text(&item, field))
         .collect()
 }
 
-fn format_plain_collection<T: DeviceOutput + Clone>(values: &[T]) -> MiresidianResult<String> {
+fn format_plain_collection<T: NodeOutput + Clone>(values: &[T]) -> MiresidianResult<String> {
     values
         .iter()
         .cloned()
         .map(|value| {
-            let output = value.into_device_output()?;
+            let output = value.into_output()?;
             if output.as_slice().len() != 1 {
                 return Err(invalid("数组", "数组元素必须对应一个平台文本值"));
             }
@@ -129,12 +129,12 @@ fn parse_unsigned(value: &str, field: &str) -> MiresidianResult<u128> {
 
 macro_rules! plain_collection {
     ($($type:ty),+ $(,)?) => {$(
-        impl DeviceCollectionElement for $type {
-            fn parse_device_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
+        impl NodeCollectionElement for $type {
+            fn parse_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
                 parse_plain_collection(value, field)
             }
 
-            fn format_device_collection(values: &[Self]) -> MiresidianResult<String> {
+            fn format_collection(values: &[Self]) -> MiresidianResult<String> {
                 format_plain_collection(values)
             }
         }
@@ -143,12 +143,12 @@ macro_rules! plain_collection {
 
 macro_rules! integral_collection {
     ($($type:ty),+ $(,)?) => {$(
-        impl DeviceCollectionElement for $type {
-            fn parse_device_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
-                parse_integral_collection(value, field, <$type>::parse_device_text)
+        impl NodeCollectionElement for $type {
+            fn parse_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
+                parse_integral_collection(value, field, <$type>::parse_text)
             }
 
-            fn format_device_collection(values: &[Self]) -> MiresidianResult<String> {
+            fn format_collection(values: &[Self]) -> MiresidianResult<String> {
                 format_plain_collection(values)
             }
         }
@@ -158,8 +158,8 @@ macro_rules! integral_collection {
 plain_collection!(String, bool, char, f32, f64);
 integral_collection!(i8, i16, i32, i64, i128, isize, u16, u32, u64, u128, usize);
 
-impl DeviceCollectionElement for u8 {
-    fn parse_device_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
+impl NodeCollectionElement for u8 {
+    fn parse_collection(value: &str, field: &str) -> MiresidianResult<Vec<Self>> {
         if value
             .trim_start()
             .to_ascii_lowercase()
@@ -168,10 +168,10 @@ impl DeviceCollectionElement for u8 {
             return binary::decode_base64(value)
                 .map_err(|_| invalid(field, "Base64 字节数组格式错误"));
         }
-        parse_integral_collection(value, field, u8::parse_device_text)
+        parse_integral_collection(value, field, u8::parse_text)
     }
 
-    fn format_device_collection(values: &[Self]) -> MiresidianResult<String> {
+    fn format_collection(values: &[Self]) -> MiresidianResult<String> {
         Ok(binary::encode_base64(values))
     }
 }

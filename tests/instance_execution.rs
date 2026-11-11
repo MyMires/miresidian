@@ -2,8 +2,8 @@
 //! 固定策略、平台选择默认值与单实例多通道执行的运行时契约。
 
 use miresidian::{
-    DeviceNode, ExecutionMode, ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy,
-    Invocation, InvocationOutput, LeaseActivation, MiresidianResult, NodeDescriptor, NodeRuntime,
+    ExecutionMode, ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy, Invocation,
+    InvocationOutput, LeaseActivation, MiresidianResult, Node, NodeDescriptor, NodeRuntime,
     OperationDescriptor, ParameterDescriptor,
 };
 
@@ -50,7 +50,7 @@ struct PolicyNode<const POLICY: usize> {
     address: String,
     calls: usize,
 }
-impl<const POLICY: usize> DeviceNode for PolicyNode<POLICY> {
+impl<const POLICY: usize> Node for PolicyNode<POLICY> {
     fn descriptor() -> &'static NodeDescriptor {
         &DESCRIPTORS[POLICY]
     }

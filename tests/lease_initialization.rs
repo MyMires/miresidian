@@ -2,7 +2,7 @@
 //! 构造及初始化输出失败时，资源回收必须早于租约释放。
 use miresidian::lease::{LeaseError, LeaseParameter, LeaseRequest, local_ipc::LocalLease};
 use miresidian::{
-    DeviceOutput, Invocation, InvocationOutput, MiresidianError, MiresidianResult, NodeRuntime,
+    Invocation, InvocationOutput, MiresidianError, MiresidianResult, NodeOutput, NodeRuntime,
 };
 use std::sync::Mutex;
 
@@ -31,8 +31,8 @@ impl Drop for Resource {
     }
 }
 struct Status(String);
-impl DeviceOutput for Status {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for Status {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         if self.0 == "encoding" {
             return Err(MiresidianError::Failure("encoding failed".into()));
         }

@@ -1,9 +1,9 @@
 //! JSON 文本 ABI 的固定操作回归测试。
 
 use miresidian::{
-    DeviceNode, Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT,
-    MIRESIDIAN_STATUS_OK, MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianResult, NodeDescriptor,
-    NodeRuntime, Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
+    Invocation, InvocationOutput, MIRESIDIAN_STATUS_INVALID_ARGUMENT, MIRESIDIAN_STATUS_OK,
+    MIRESIDIAN_STATUS_OPERATION_FAILED, MiresidianResult, Node, NodeDescriptor, NodeRuntime,
+    Platform, PlatformAdapter, PlatformRegistry, RuntimeInvocation, RuntimeResponse,
 };
 use std::{
     ffi::{CStr, CString},
@@ -23,7 +23,7 @@ static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
 
 struct TestNode;
 
-impl DeviceNode for TestNode {
+impl Node for TestNode {
     fn descriptor() -> &'static NodeDescriptor {
         &DESCRIPTOR
     }
@@ -48,7 +48,7 @@ impl DeviceNode for TestNode {
 
 struct CAbiPlatformNode;
 
-impl DeviceNode for CAbiPlatformNode {
+impl Node for CAbiPlatformNode {
     fn descriptor() -> &'static NodeDescriptor {
         &DESCRIPTOR
     }

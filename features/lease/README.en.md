@@ -2,7 +2,7 @@
 
 [中文](README.md) · [English](README.en.md)
 
-`miresidian_lease` 0.17.1 provides device-independent configuration leases and shared physical resource proxies. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
+Source candidate `miresidian_lease` 0.17.2 updates its exact codec dependency to 0.17.0 for framework 0.29.0. Its configuration-lease and shared-resource APIs are unchanged. This candidate is unpublished; the dependency examples below retain preceding API versions and must be checked against the registry before use. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
 
 Node projects normally enable the capability through the root crate:
 

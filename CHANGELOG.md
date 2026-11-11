@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-11
+
+- 公开类型统一为 Node、NodeInput、NodeOutput、NodeCollectionElement、NodeScalar、NodeValue；编解码方法改为 parse_text、normalize_text、into_output、parse_collection、format_collection，不保留旧名称别名。
+- 同步根重导出、运行时泛型约束、宏生成实现、功能 crate、测试和当前技术指导；节点生命周期与平台固定操作、C ABI v9、租约/资源代理协议 v2 保持。
+- codec 0.17.0、macro 0.25.0、format 0.4.0、batch 0.3.0；instances 0.16.7、lease 0.17.2 仅同步 codec 精确依赖。Pack 0.13.4 移除模板指导中的旧 trait 硬编码，CLI/套件 0.3.4 同步后端版本。
+- 同步精确依赖、工作区锁文件、双语 README 和迁移说明；独立 Node/烟测夹具保持已发布依赖。验证记录见 plans/2026-11-11-device-naming-audit.md；仅本地源码交付，未推送、发布。
+
 ## [0.28.0] - 2026-11-11
 
 - 新增 instances 的裸标记和位置参数短写：裸标记默认 single/固定 sequential，多实例显式指定 multiple 与 config/handle，selectable 保留显式默认策略；未声明节点的单实例/禁用多通道默认保持。

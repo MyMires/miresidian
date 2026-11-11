@@ -1,5 +1,5 @@
 //! 业务描述仅透传；数值空白为零，缺参报错，字符串不推导默认值。
-use miresidian::{DeviceNode, Invocation, MiresidianError, MiresidianResult, NodeRuntime};
+use miresidian::{Invocation, MiresidianError, MiresidianResult, Node, NodeRuntime};
 
 #[cfg_attr(feature = "instances", miresidian::node("参数描述回归", instances(mode = multiple, binding = config, execution = sequential)))]
 #[cfg_attr(not(feature = "instances"), miresidian::node("参数描述回归"))]

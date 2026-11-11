@@ -2,14 +2,14 @@
 use super::{Instance, NodeRuntime, catch_node, instance};
 use crate::{CHANNEL_REUSED_MESSAGE, INIT_DEVICE_OPERATION};
 use crate::{
-    DeviceNode, InstanceMode, InvocationOutput, MiresidianError, MiresidianResult,
-    PLATFORM_ADAPTER_NAME, Platform,
+    InstanceMode, InvocationOutput, MiresidianError, MiresidianResult, Node, PLATFORM_ADAPTER_NAME,
+    Platform,
 };
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
-impl<N: DeviceNode> NodeRuntime<N> {
+impl<N: Node> NodeRuntime<N> {
     pub(super) fn channel_for_config(
         &self,
         config: &[String],

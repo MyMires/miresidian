@@ -1,8 +1,8 @@
 #![cfg(feature = "instances")]
 //! 裸标记归一到已有单对象顺序多通道策略，保持替换和关闭契约。
 use miresidian::{
-    DeviceNode, ExecutionMode, ExecutionPolicy, InstanceMode, Invocation, MiresidianResult,
-    MultiChannelInvocation, NodeRuntime, RuntimeInvocation, RuntimeResponse,
+    ExecutionMode, ExecutionPolicy, InstanceMode, Invocation, MiresidianResult,
+    MultiChannelInvocation, Node as _, NodeRuntime, RuntimeInvocation, RuntimeResponse,
 };
 
 #[miresidian::node("裸实例", instances)]

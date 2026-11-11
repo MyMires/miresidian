@@ -1,6 +1,6 @@
 #![cfg(feature = "instances")]
 //! Shared end-to-end assertions; each test binary exports exactly one node.
-use miresidian::{DeviceNode, Invocation, MiresidianError, NodeRuntime};
+use miresidian::{Invocation, MiresidianError, Node, NodeRuntime};
 
 pub fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
     Invocation::new(
@@ -36,7 +36,7 @@ macro_rules! fixture {
 }
 pub(crate) use fixture;
 
-pub fn default_keys<N: DeviceNode>() {
+pub fn default_keys<N: Node>() {
     let runtime = NodeRuntime::<N>::new();
     for config in [
         ["100", "host", "8000"],
@@ -84,7 +84,7 @@ pub fn default_keys<N: DeviceNode>() {
     );
 }
 
-pub async fn selected_keys<N: DeviceNode>() {
+pub async fn selected_keys<N: Node>() {
     let runtime = NodeRuntime::<N>::new();
     // The first Config is not an identity field; blank numeric values normalize to zero.
     for port in ["8000", "9000"] {

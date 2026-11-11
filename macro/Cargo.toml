@@ -1,9 +1,9 @@
 [package]
 name = "miresidian_macro"
-version = "0.24.0"
+version = "0.25.0"
 edition.workspace = true
 rust-version.workspace = true
-description = "Miresidian 的设备节点属性过程宏。"
+description = "Miresidian 的节点属性过程宏。"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/MyMires/miresidian"
 readme = "README.md"

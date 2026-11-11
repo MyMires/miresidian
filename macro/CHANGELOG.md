@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-11
+
+- 节点宏改为生成 Node 实现，配置规范化改为调用 NodeInput::normalize_text；不生成旧名称兼容实现。
+- 标注语法、生命周期方法、平台描述和 C ABI 生成契约保持；同步 Rustdoc、README 与 UI/业务集成验证。
+
 ## [0.24.0] - 2026-11-11
 
 - 节点入口接受裸 instances/lease；instances 位置项支持 single/multiple、config/handle 与固定/可选执行策略，默认仅应用于新短写。

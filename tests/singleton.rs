@@ -1,6 +1,6 @@
 //! 默认单实例约束在所有 feature 组合下保持不变。
 
-use miresidian::{DeviceNode, Invocation, MiresidianError, MiresidianResult, NodeRuntime};
+use miresidian::{Invocation, MiresidianError, MiresidianResult, Node, NodeRuntime};
 use std::sync::Mutex;
 
 static EVENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());

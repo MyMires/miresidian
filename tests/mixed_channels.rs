@@ -2,8 +2,9 @@
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
 use miresidian::{
-    DeviceNode, GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, InvocationOutput,
-    MiresidianResult, NodeRuntime, Platform, PlatformAdapter, RuntimeInvocation, RuntimeResponse,
+    GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, Invocation, InvocationOutput,
+    MiresidianResult, Node, NodeRuntime, Platform, PlatformAdapter, RuntimeInvocation,
+    RuntimeResponse,
 };
 
 #[derive(Clone, Copy, Default)]
@@ -61,7 +62,7 @@ impl MixedChannelNode {
 
 #[test]
 fn 手动标注决定每个参数的外部来源通道() {
-    let registry = <MixedChannelNode as DeviceNode>::platform_registry();
+    let registry = <MixedChannelNode as Node>::platform_registry();
     assert!(registry.adapter(Platform::Custom(0x0001_0001)).is_some());
     let runtime = NodeRuntime::<MixedChannelNode>::with_platforms(registry);
     let init_config = runtime

@@ -1,7 +1,6 @@
 //! 方法独立注册、构造式初始化和资源失败清理的公开契约回归。
 use miresidian::{
-    DeviceNode, DeviceOutput, Invocation, InvocationOutput, MiresidianError, MiresidianResult,
-    NodeRuntime,
+    Invocation, InvocationOutput, MiresidianError, MiresidianResult, Node, NodeOutput, NodeRuntime,
 };
 use std::sync::Mutex;
 
@@ -17,8 +16,8 @@ impl Drop for Resource {
 }
 
 struct InitOutput(String);
-impl DeviceOutput for InitOutput {
-    fn into_device_output(self) -> MiresidianResult<InvocationOutput> {
+impl NodeOutput for InitOutput {
+    fn into_output(self) -> MiresidianResult<InvocationOutput> {
         if self.0.starts_with("encoding-error") {
             return Err(MiresidianError::Failure("encoding failed".into()));
         }

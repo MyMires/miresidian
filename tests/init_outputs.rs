@@ -1,5 +1,5 @@
 //! 构造结果中的节点不进入平台输出，业务元组仍沿用原有 output 规则。
-use miresidian::{DeviceNode, Invocation, MiresidianResult, NodeRuntime};
+use miresidian::{Invocation, MiresidianResult, Node, NodeRuntime};
 
 #[miresidian::node("初始化多输出")]
 struct OutputNode;

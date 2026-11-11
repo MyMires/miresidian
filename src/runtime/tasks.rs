@@ -1,7 +1,7 @@
 //! 有界任务所有权与跨线程结果读取；任务和结果持续占容量直到显式释放。
 mod entry;
 use crate::{
-    CallContext, DeviceNode, Invocation, MiresidianError, MiresidianResult, NodeRuntime, Platform,
+    CallContext, Invocation, MiresidianError, MiresidianResult, Node, NodeRuntime, Platform,
 };
 use entry::TaskEntry;
 pub use entry::{TaskSnapshot, TaskState};
@@ -24,14 +24,14 @@ struct Table {
 /// 完成结果在显式 release 前仍占容量；取消仅发出协作信号，不强制终止业务。
 /// shutdown 永久停止本服务提交并等待任务、清理运行时；其他 Clone 共用该运行时。
 /// DLL 卸载前还须停止宿主并发入口并回收框架执行器，不能只丢弃服务或等待 Future。
-pub struct TaskService<N: DeviceNode> {
+pub struct TaskService<N: Node> {
     runtime: NodeRuntime<N>,
     table: Mutex<Table>,
     next: AtomicU64,
     capacity: usize,
     drain: tokio::sync::Mutex<()>,
 }
-impl<N: DeviceNode> TaskService<N> {
+impl<N: Node> TaskService<N> {
     /// 用给定运行时创建任务表；capacity 须在 1..=65536，否则返回 InvalidArgument。
     /// 容量同时计算运行中任务与未释放结果；创建服务不会初始化节点。
     pub fn new(runtime: NodeRuntime<N>, capacity: usize) -> MiresidianResult<Self> {

@@ -1,0 +1,17 @@
+error[E0432]: unresolved imports `miresidian::DeviceCollectionElement`, `miresidian::DeviceInput`, `miresidian::DeviceNode`, `miresidian::DeviceOutput`, `miresidian::DeviceScalar`, `miresidian::DeviceValue`
+ --> tests/ui/removed_device_type_names.rs:2:5
+  |
+2 |     DeviceCollectionElement, DeviceInput, DeviceNode, DeviceOutput, DeviceScalar, DeviceValue,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^ no `DeviceValue` in the root
+  |     |                        |            |           |             |
+  |     |                        |            |           |             no `DeviceScalar` in the root
+  |     |                        |            |           no `DeviceOutput` in the root
+  |     |                        |            no `DeviceNode` in the root
+  |     |                        no `DeviceInput` in the root
+  |     no `DeviceCollectionElement` in the root
+  |
+help: a similar name exists in the module
+  |
+2 -     DeviceCollectionElement, DeviceInput, DeviceNode, DeviceOutput, DeviceScalar, DeviceValue,
+2 +     NodeCollectionElement, DeviceInput, DeviceNode, DeviceOutput, DeviceScalar, DeviceValue,
+  |

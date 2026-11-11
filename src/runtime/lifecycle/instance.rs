@@ -15,8 +15,8 @@ use std::{
 #[cfg(feature = "lease")]
 use super::shared::SharedNode;
 use crate::{
-    CLOSE_DEVICE_OPERATION, DeviceNode, INIT_DEVICE_OPERATION, InvocationOutput, LeaseAccess,
-    MiresidianError, MiresidianResult,
+    CLOSE_DEVICE_OPERATION, INIT_DEVICE_OPERATION, InvocationOutput, LeaseAccess, MiresidianError,
+    MiresidianResult, Node,
 };
 
 pub(in crate::runtime) struct Instance<N> {
@@ -51,7 +51,7 @@ struct InstanceState<N> {
     fault: Option<MiresidianError>,
 }
 
-impl<N: DeviceNode> Instance<N> {
+impl<N: Node> Instance<N> {
     pub(super) fn initialize(
         key: InstanceKey,
         config: Vec<String>,
@@ -253,7 +253,7 @@ pub(in crate::runtime) fn catch_node<T>(
     })
 }
 
-pub(in crate::runtime) fn cleanup_node<N: DeviceNode>(
+pub(in crate::runtime) fn cleanup_node<N: Node>(
     mut node: N,
     config: &[String],
     input: &[String],

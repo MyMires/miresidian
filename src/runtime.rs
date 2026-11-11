@@ -27,7 +27,7 @@ pub use instances::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePoli
 pub use lifecycle::NodeRuntime;
 #[doc(hidden)]
 pub use node::validate_descriptor;
-pub use node::{DeviceNode, NodeFuture};
+pub use node::{Node, NodeFuture};
 
 #[doc(hidden)]
 pub use construction::finish_initialization;

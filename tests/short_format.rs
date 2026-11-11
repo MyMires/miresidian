@@ -1,6 +1,6 @@
 #![cfg(feature = "format")]
 //! 同一节点中的旧/新格式操作共享元数据和实际调用验收，避免重复 ABI 导出。
-use miresidian::{DeviceNode, Invocation, MiresidianResult, NodeRuntime};
+use miresidian::{Invocation, MiresidianResult, Node as _, NodeRuntime};
 
 #[miresidian::node("格式简写对照")]
 struct Node;

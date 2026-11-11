@@ -2,11 +2,9 @@
 
 根框架 0.19.0 起提供可选 `format` feature，实现位于本目录的 `miresidian_format` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
-```toml
-miresidian = { version = "=0.23.0", features = ["format"] }
-```
+本目录源码候选为 **0.4.0**，精确依赖 codec **0.17.0**，由框架 **0.29.0** 接入。内部转换使用 NodeInput::parse_text、NodeOutput::into_output；FormatInput/FormatOutput、字节契约及框架格式选择器保持。
 
-以上为源码候选示例；外部节点只采用 crates.io 已发布精确版本。框架更新不自动修改、升级或重新打包已有节点。
+上述版本尚未发布；外部节点只采用 crates.io 已发布精确版本并启用根框架的 `format` feature。框架更新不自动修改、升级或重新打包已有节点。
 
 format 与 batch 可分别使用：format 决定数据如何编解码，batch 决定业务方法是否按多条记录重复调用。启用 format 不会自动启用 batch，启用 batch 也不要求 format。
 

@@ -1,5 +1,5 @@
 #![cfg(feature = "lease")]
-use miresidian::{DeviceNode, Invocation, MiresidianResult, NodeRuntime};
+use miresidian::{Invocation, MiresidianResult, Node as _, NodeRuntime};
 
 #[miresidian::node("组合资源", lease)]
 struct Node;

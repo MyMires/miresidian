@@ -1,6 +1,6 @@
 #![cfg(feature = "lease")]
 
-use miresidian::{DeviceNode, MiresidianResult};
+use miresidian::{MiresidianResult, Node};
 mod key_only {
     use super::*;
     #[miresidian::node("无配置资源", lease(activation = required))]

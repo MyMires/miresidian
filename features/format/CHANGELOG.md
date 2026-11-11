@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.0] - 2026-11-11
+
+- 精确依赖 codec 0.17.0，内部转换改用 NodeInput::parse_text、NodeOutput::into_output。
+- FormatInput/FormatOutput、格式选择器、槽位和字节契约保持；同步源码适配版本与 README 指导。
+
 ## [0.3.2] - 2026-11-05
 
 - 精确依赖 codec 0.16.0，保持现有格式选择和转换接口。

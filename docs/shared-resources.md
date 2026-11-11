@@ -50,7 +50,7 @@ LocalLease 单独使用时仍只协调配置。节点 lease 标注自 0.25.0 自
 
 不同项目共用资源前，明确资源键规范、配置编码和事务协议三项共同契约。框架只传递有界字节，不自动识别设备、端口别名或仪器型号。例如同一串口可约定 serial:COM5，配置完整包含波特率、数据位、校验、停止位和流控；读取超时或设备站号是否属于连接配置，由提供者按真实兼容性决定。事务协议版本独立于配置租约 v2 和资源代理 v2。
 
-独立通信提供者直接由 SharedResource 管理配置租约，不再为同一资源声明自动节点 lease。迁移旧配置编码时，可用 LeaseRequest::from_parameters 构造请求；数值等先用原类型 DeviceInput::normalize_device_text 生成规范文本，字段名和顺序参与编码，不能假设任意 JSON/文本与宏编码相同。
+独立通信提供者直接由 SharedResource 管理配置租约，不再为同一资源声明自动节点 lease。迁移旧配置编码时，可用 LeaseRequest::from_parameters 构造请求；数值等先用原类型 NodeInput::normalize_text 生成规范文本，字段名和顺序参与编码，不能假设任意 JSON/文本与宏编码相同。
 
 ## 通信层接入
 

@@ -1,14 +1,14 @@
-//! 具体设备节点实现的扩展点。
+//! 业务节点实现的扩展点。
 
 use crate::{
     InvocationOutput, MiresidianResult, NodeDescriptor, PlatformRegistry, lease::LeaseRequest,
 };
 
-/// 由 `#[miresidian::node]` 和方法级 `#[miresidian::operation]` 为具体驱动生成的运行时适配器。
+/// 由 `#[miresidian::node]` 和方法级 `#[miresidian::operation]` 为业务节点生成的运行时适配器。
 ///
-/// 驱动作者不应手写此 trait。宏会从 `operation`、`config`、`input` 与 `output`
+/// 节点作者不应手写此 trait。宏会从 `operation`、`config`、`input` 与 `output`
 /// 标注生成实现、强类型转换和描述元数据。
-pub trait DeviceNode: Send + Sized + 'static {
+pub trait Node: Send + Sized + 'static {
     /// 返回此节点类型的只读静态元数据；宏生成实现会缓存已汇总的方法描述。
     fn descriptor() -> &'static NodeDescriptor;
 

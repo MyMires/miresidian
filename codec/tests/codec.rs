@@ -1,7 +1,7 @@
 //! 根框架数据编解码的跨模块回归测试。
 
 use miresidian_codec::{
-    ByteTextFormat, DeviceInput, DeviceOutput, decode_text_to_bytes, decode_value,
+    ByteTextFormat, NodeInput, NodeOutput, decode_text_to_bytes, decode_value,
     decode_value_with_definition, encode_bytes_to_text, transcode_text,
 };
 
@@ -97,23 +97,23 @@ fn 标量与数组规则可由宏生成调用复用() {
         10
     );
 
-    let array = Vec::<String>::parse_device_text("A\\|B|C\\\\D", "项目").expect("可逆数组");
+    let array = Vec::<String>::parse_text("A\\|B|C\\\\D", "项目").expect("可逆数组");
     assert_eq!(array, vec!["A|B", "C\\D"]);
     assert_eq!(
-        array.into_device_output().expect("数组输出").as_slice(),
+        array.into_output().expect("数组输出").as_slice(),
         ["A\\|B|C\\\\D"]
     );
 
-    let range = Vec::<u16>::parse_device_text("1-3|0x10", "通道").expect("整数范围");
+    let range = Vec::<u16>::parse_text("1-3|0x10", "通道").expect("整数范围");
     assert_eq!(range, vec![1, 2, 3, 16]);
 }
 
 #[test]
 fn 字节数组始终以_base64_输出() {
-    let bytes = Vec::<u8>::parse_device_text("base64:AP8K", "数据").expect("Base64 字节数组");
+    let bytes = Vec::<u8>::parse_text("base64:AP8K", "数据").expect("Base64 字节数组");
     assert_eq!(bytes, vec![0, 255, 10]);
     assert_eq!(
-        bytes.into_device_output().expect("字节输出").as_slice(),
+        bytes.into_output().expect("字节输出").as_slice(),
         ["base64:AP8K"]
     );
 }
@@ -187,10 +187,10 @@ fn 所有数值标量空白为零且缺参和非法输入报错() {
     macro_rules! check {
         ($($ty:ty),+ $(,)?) => {$(
             for value in ["", "  ", "\t\n"] {
-                assert_eq!(<$ty>::parse_device_text(value, "数值").unwrap(), 0 as $ty);
+                assert_eq!(<$ty>::parse_text(value, "数值").unwrap(), 0 as $ty);
             }
             for value in ["bad", "0x", "0b", "1/2"] {
-                assert!(<$ty>::parse_device_text(value, "数值").is_err());
+                assert!(<$ty>::parse_text(value, "数值").is_err());
             }
             assert!(decode_value::<$ty>(&[], 0, "数值", None).is_err());
         )+};
@@ -198,17 +198,13 @@ fn 所有数值标量空白为零且缺参和非法输入报错() {
     check!(
         i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
     );
-    assert!(u8::parse_device_text("256", "数值").is_err());
+    assert!(u8::parse_text("256", "数值").is_err());
     for value in ["NaN", "inf", "-inf"] {
-        assert!(f32::parse_device_text(value, "数值").is_err());
-        assert!(f64::parse_device_text(value, "数值").is_err());
+        assert!(f32::parse_text(value, "数值").is_err());
+        assert!(f64::parse_text(value, "数值").is_err());
     }
-    assert_eq!(Option::<u32>::parse_device_text(" ", "数值").unwrap(), None);
-    assert!(
-        Vec::<u32>::parse_device_text("", "数值")
-            .unwrap()
-            .is_empty()
-    );
+    assert_eq!(Option::<u32>::parse_text(" ", "数值").unwrap(), None);
+    assert!(Vec::<u32>::parse_text("", "数值").unwrap().is_empty());
 }
 
 #[test]
@@ -305,34 +301,21 @@ fn 配置规范文本按原类型保留等价值与可选值边界() {
     macro_rules! numeric {
         ($($ty:ty),+ $(,)?) => {$(
             for value in ["", " ", "0", "00", "0x0", "0b0"] {
-                assert_eq!(<$ty>::normalize_device_text(value, "数值").unwrap(), "0");
+                assert_eq!(<$ty>::normalize_text(value, "数值").unwrap(), "0");
             }
-            assert!(<$ty>::normalize_device_text("bad", "数值").is_err());
+            assert!(<$ty>::normalize_text("bad", "数值").is_err());
         )+};
     }
     numeric!(
         i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
     );
-    assert_eq!(f64::normalize_device_text("1e-3", "倍率").unwrap(), "0.001");
-    assert_eq!(String::normalize_device_text(" 0 ", "文本").unwrap(), " 0 ");
-    assert_eq!(
-        Option::<u32>::normalize_device_text(" ", "可选").unwrap(),
-        ""
-    );
-    assert_eq!(
-        Option::<u32>::normalize_device_text("0x0", "可选").unwrap(),
-        "0"
-    );
-    assert_eq!(bool::normalize_device_text("是", "布尔").unwrap(), "true");
-    assert_eq!(
-        Vec::<u32>::normalize_device_text("1-3", "数组").unwrap(),
-        "1|2|3"
-    );
-    assert!(
-        Vec::<u32>::normalize_device_text("", "数组")
-            .unwrap()
-            .is_empty()
-    );
+    assert_eq!(f64::normalize_text("1e-3", "倍率").unwrap(), "0.001");
+    assert_eq!(String::normalize_text(" 0 ", "文本").unwrap(), " 0 ");
+    assert_eq!(Option::<u32>::normalize_text(" ", "可选").unwrap(), "");
+    assert_eq!(Option::<u32>::normalize_text("0x0", "可选").unwrap(), "0");
+    assert_eq!(bool::normalize_text("是", "布尔").unwrap(), "true");
+    assert_eq!(Vec::<u32>::normalize_text("1-3", "数组").unwrap(), "1|2|3");
+    assert!(Vec::<u32>::normalize_text("", "数组").unwrap().is_empty());
 }
 
 #[test]

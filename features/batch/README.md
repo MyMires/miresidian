@@ -1,12 +1,8 @@
 # miresidian_batch
 
-设备类型无关的批量记录解析、长度对齐和输出聚合。节点通过根 crate 启用：
+通用业务类型的批量记录解析、长度对齐和输出聚合。本目录源码候选为 **0.3.0**，精确依赖 codec **0.17.0**，由框架 **0.29.0** 接入。
 
-```toml
-miresidian = { version = "=0.23.0", features = ["batch"] }
-```
-
-示例表示源码适配版本；独立节点须先确认该精确版本已发布，不用本地覆盖。
+上述版本尚未发布；独立节点采用已发布精确版本并启用根 crate 的 `batch` feature，不用本地覆盖。
 
 ## 按原方法类型解析
 
@@ -18,11 +14,11 @@ fn set(
     #[miresidian::input("开关", batch)] enabled: bool,
     #[miresidian::input("序号", batch)] index: u16,
 ) -> MiresidianResult<()> {
-    self.device.set(name, enabled, index)
+    self.workflow.set(name, enabled, index)
 }
 ```
 
-字符串和布尔直接支持 batch，无需 format。普通 batch 依赖参数类型的 DeviceInput、DeviceCollectionElement、Clone，类型别名和完整路径不影响判断；自定义类型须实现自己的集合语法，不自动构造任意嵌套集合协议。
+字符串和布尔直接支持 batch，无需 format。普通 batch 依赖参数类型的 NodeInput、NodeCollectionElement、Clone，类型别名和完整路径不影响判断；自定义类型须实现自己的集合语法，不自动构造任意嵌套集合协议。
 
 | 类型 | 输入形式 |
 | --- | --- |
