@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! User acceptance: input [10, 20, empty, 30] calls channel 1 exactly once,
 //! yielding [R, R, empty, R], for sync, native async and both C ABI entries.
 use miresidian::{
@@ -7,7 +7,7 @@ use miresidian::{
 };
 use std::ffi::{CStr, CString};
 
-#[miresidian::node("通道1广播验收", instances(multiple, config, broadcast))]
+#[miresidian::node("通道1广播验收", instance(multiple, config, broadcast))]
 struct BroadcastNode {
     calls: u32,
 }

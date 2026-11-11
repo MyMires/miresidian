@@ -15,8 +15,8 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
     );
     let self_type = syn::parse_quote!(#identifier);
     let exports = ffi::exports(&self_type, &runtime);
-    let instances = arguments
-        .instances
+    let instance = arguments
+        .instance
         .clone()
         .unwrap_or_else(|| quote!(::miresidian::InstancePolicy::DEFAULT));
     let activation = arguments
@@ -63,7 +63,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
     quote! {
         #item
         const _: () = {
-            let policy = #instances;
+            let policy = #instance;
             if matches!(policy.mode, ::miresidian::InstanceMode::Multiple)
                 && matches!(policy.binding, ::miresidian::InstanceBinding::Config)
             {
@@ -113,7 +113,7 @@ pub(super) fn expand(item: &ItemStruct, arguments: &NodeArguments) -> proc_macro
                     port_probe_inputs: ::miresidian::__private::inventory::iter::<__MiresidianPortProbe>.into_iter().next().map_or(&[], |probe| probe.inputs),
                     operations: OPERATIONS.get_or_init(|| Self::__miresidian_operations().iter().map(|entry| entry.descriptor).collect()),
                     lease_activation: #activation,
-                    instances: #instances,
+                    instance: #instance,
                 })
             }
 

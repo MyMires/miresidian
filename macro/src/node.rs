@@ -6,7 +6,7 @@
 mod arguments;
 mod ffi;
 mod generate;
-mod instances;
+mod instance;
 mod lease;
 
 use proc_macro::TokenStream;

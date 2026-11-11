@@ -3,6 +3,6 @@ miresidian_abi
 miresidian_batch
 miresidian_codec
 miresidian_format
-miresidian_instances
+miresidian_instance
 miresidian_lease
 miresidian_macro

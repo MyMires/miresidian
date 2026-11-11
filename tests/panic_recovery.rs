@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! 通过真实属性宏和 FFI 验证 panic 隔离、清理与恢复。
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime, ffi_runtime};
 use std::{
@@ -8,7 +8,7 @@ use std::{
 
 static CLEANUP: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-#[miresidian::node("异常恢复测试", instances(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
+#[miresidian::node("异常恢复测试", instance(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
 struct RecoveryNode {
     name: String,
     calls: usize,

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-12
+
+- Rename the instances Cargo feature and node group to instance, including NodeDescriptor.instance and the generated feature gate. Reject the old spelling without aliases.
+- Rename miresidian_instances 0.16.8 to miresidian_instance 0.17.0 under features/instance and update macro to 0.29.0, exact dependencies and the workspace lockfile. Preserve lifecycle, scheduling and ABI v10.
+- Synchronize guidance, examples, CI and diagnostics. Batch 0.3.2 updates composition guidance; Pack 0.13.5 and CLI/toolset 0.3.6 recognize the new package while preserving source checks for the old package.
+- Unpublished candidates; existing independent nodes retain published dependencies. No push or publication. Validation is recorded in the naming plan.
+
 ## [0.32.0] - 2026-11-11
 
 - Return a nonblank reason for unavailable or unsuccessful GetPortNO discovery. Preserve found addresses, Option<String> signatures and other errors; map NotSupported explanations to normal miss reasons.

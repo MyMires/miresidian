@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! Execution overlap and lifecycle tests use explicit start/release signals.
 use miresidian::{
     CallContext, ExecutionLimits, Invocation, MiresidianResult, NodeRuntime, PlatformRegistry,
@@ -62,7 +62,7 @@ fn probe(key: &str) -> Arc<Probe> {
         .clone()
 }
 
-#[miresidian::node("并发验证",instances(mode=multiple,binding=config,execution=selectable,default_execution=sequential))]
+#[miresidian::node("并发验证",instance(mode=multiple,binding=config,execution=selectable,default_execution=sequential))]
 struct ConcurrentNode {
     probe: Arc<Probe>,
     calls: usize,
@@ -138,7 +138,7 @@ fn start(
 }
 
 #[test]
-fn independent_instances_execute_while_another_is_blocked() {
+fn independent_instance_execute_while_another_is_blocked() {
     let runtime = NodeRuntime::new();
     init(&runtime, "overlap-a", "Sequential");
     init(&runtime, "overlap-b", "Sequential");

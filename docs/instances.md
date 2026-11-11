@@ -1,29 +1,34 @@
 # 实例管理与多通道执行
 
+0.33.0 / macro 0.29.0 将 Cargo feature 和节点宏入口统一为 `instance`，crate 改为 `miresidian_instance`；旧名不再作为新版本入口。迁移见[0.33.0 名称映射](releases/0.33.0.md)。本候选尚未发布，旧节点仍按原依赖版本使用对应名称。
+
 0.24.0 的参数组合键、默认规则及迁移见 [Config 组合身份与租约声明](config-identity.md)。
 
 [文档中心](README.md) · [宏驱动开发](宏驱动开发.md) · [平台调用契约](c-abi.md)
 
 ## 默认单实例
 
-未声明 `instances(...)` 的节点最多保留一个对象；只开启 Cargo feature 不改变此默认行为。同一份按原 Rust 参数类型规范化的业务 Config 初始化会复用当前对象；不同 Config 初始化先预解析参数，成功后关闭并析构旧对象、释放租约，再构造新对象。预解析失败保留旧对象；关闭失败阻止新构造；旧对象释放后构造失败保持未初始化。普通调用和关闭使用当前对象的完整业务 Config 校验目标，不会隐式切换目标资源。
+未声明 `instance(...)` 的节点最多保留一个对象；只开启 Cargo feature 不改变此默认行为。同一份按原 Rust 参数类型规范化的业务 Config 初始化会复用当前对象；不同 Config 初始化先预解析参数，成功后关闭并析构旧对象、释放租约，再构造新对象。预解析失败保留旧对象；关闭失败阻止新构造；旧对象释放后构造失败保持未初始化。普通调用和关闭使用当前对象的完整业务 Config 校验目标，不会隐式切换目标资源。
 
 无配置的单实例节点可用空 Config 初始化。默认节点不接受多通道请求，也不发布执行方式配置。
 
 ## 独立 crate 与 feature
 
-通用能力位于独立 `miresidian_instances` crate，依赖通用编解码 crate，不依赖根运行时、节点宏或通信实现。基础策略与单实例容器始终可用；根 feature `instances = ["miresidian_instances/runtime"]` 启用多实例容器及多通道调度。主框架只负责解析节点 Config、构造/关闭对象并将对象调用接入通用调度。
+通用能力位于独立 `miresidian_instance` crate，依赖通用编解码 crate，不依赖根运行时、节点宏或通信实现。基础策略与单实例容器始终可用；根 feature `instance = ["miresidian_instance/runtime"]` 启用多实例容器及多通道调度。主框架只负责解析节点 Config、构造/关闭对象并将对象调用接入通用调度。
 
 ## feature 与节点声明
 
+以下是发布后的迁移目标形态，0.33.0 尚未发布，当前不能直接安装；先核实 crates.io 和精确版本文档，再修改独立节点依赖。
+
 ```toml
+# 迁移目标示意；候选未发布时不可安装。
 [dependencies]
-miresidian = { version = "=0.24.0", features = ["instances"] }
+miresidian = { version = "=0.33.0", features = ["instance"] }
 ```
 
 ```rust,ignore
 // 单实例，允许多通道输入。
-#[miresidian::node("示例节点", instances(
+#[miresidian::node("示例节点", instance(
     mode = single,
     execution = selectable,
     default_execution = sequential
@@ -31,7 +36,7 @@ miresidian = { version = "=0.24.0", features = ["instances"] }
 struct ExampleNode;
 
 // 多实例，默认以全部业务 Config 为组合主键。
-#[miresidian::node("示例节点", instances(
+#[miresidian::node("示例节点", instance(
     mode = multiple,
     binding = config,
     execution = selectable,
@@ -40,7 +45,7 @@ struct ExampleNode;
 struct ExampleNode;
 
 // 多实例，以框架 Handle 为主键，固定顺序执行。
-#[miresidian::node("示例节点", instances(
+#[miresidian::node("示例节点", instance(
     mode = multiple,
     binding = handle,
     execution = sequential
@@ -57,24 +62,24 @@ struct ExampleNode;
 | `execution` | 必填，`sequential`、`parallel`、`broadcast` 或 `selectable` |
 | `default_execution` | `selectable` 必填，为三种具体方式之一；固定方式不接受 |
 
-声明 `instances(...)` 却未开启依赖的 feature 会编译失败。重复、未知、缺失或无效配置也会编译失败；节点 crate 自身同名 feature 不能代替框架依赖的 feature。
+声明 `instance(...)` 却未开启依赖的 feature 会编译失败。重复、未知、缺失或无效配置也会编译失败；节点 crate 自身同名 feature 不能代替框架依赖的 feature。
 
 ## feature 短写（0.28.0 起）
 
-旧完整声明继续支持。新短写按以下方式展开：
+名称替换后的完整长写继续支持。简写最初在 0.28.0 引入；0.33.0 起按下面的单数名称使用：
 
 | 短写 | 等价完整声明 |
 | --- | --- |
-| instances 或 instances() 或 instances(single) | mode = single, execution = sequential |
-| instances(parallel) | mode = single, execution = parallel |
-| instances(selectable(sequential)) | mode = single, execution = selectable, default_execution = sequential |
-| instances(multiple, config) | mode = multiple, binding = config, execution = sequential |
-| instances(multiple, handle) | mode = multiple, binding = handle, execution = sequential |
-| instances(multiple, handle, selectable(broadcast)) | mode = multiple, binding = handle, execution = selectable, default_execution = broadcast |
+| instance 或 instance() 或 instance(single) | mode = single, execution = sequential |
+| instance(parallel) | mode = single, execution = parallel |
+| instance(selectable(sequential)) | mode = single, execution = selectable, default_execution = sequential |
+| instance(multiple, config) | mode = multiple, binding = config, execution = sequential |
+| instance(multiple, handle) | mode = multiple, binding = handle, execution = sequential |
+| instance(multiple, handle, selectable(broadcast)) | mode = multiple, binding = handle, execution = selectable, default_execution = broadcast |
 
-新短写默认 single、固定 sequential，仅在显式出现 instances 时生效；未声明节点的默认策略不变。multiple 必须明确关联方式；不能仅写 config/handle 推断 multiple，single 不接受关联项。fixed 三种策略及 selectable 的三种默认项与旧声明一致；多通道仍定位一个对象，同对象调用仍互斥。
+新短写默认 single、固定 sequential，仅在显式出现 instance 时生效；未声明节点的默认策略不变。multiple 必须明确关联方式；不能仅写 config/handle 推断 multiple，single 不接受关联项。fixed 三种策略及 selectable 的三种默认项与旧声明一致；多通道仍定位一个对象，同对象调用仍互斥。
 
-旧 NameValue 长写继续要求 mode/execution 等必填项；不能与位置参数混用。新短写三类各至多一个，同义重复也拒绝，参数排列次序不改变解析。仍需开启依赖的 instances feature；固定 sequential 不新增平台执行选择项。源码候选状态和迁移边界见[0.28.0 说明](releases/0.28.0.md)。
+旧 NameValue 长写继续要求 mode/execution 等必填项；不能与位置参数混用。新短写三类各至多一个，同义重复也拒绝，参数排列次序不改变解析。仍需开启依赖的 instance feature；固定 sequential 不新增平台执行选择项。名称与发布迁移边界见[0.33.0 说明](releases/0.33.0.md)；简写起源见[0.28.0 历史](releases/0.28.0.md)。
 
 ## Config 组合主键
 

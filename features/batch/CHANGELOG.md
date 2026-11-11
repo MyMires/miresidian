@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-12
+
+- README 将与实例管理组合的能力名同步为 instance，标明配套框架 0.33.0；仅指导修订，批量解析、聚合、API 和依赖保持。未发布补丁。
+- English: Update composition guidance to the instance name for framework 0.33.0. No code or behavior change; unpublished documentation patch.
+
 ## [0.3.1] - 2026-11-11
 
 - codec 精确依赖同步至 0.18.0；支持其派生枚举集合契约，记录规则、长度对齐和调用语义保持。

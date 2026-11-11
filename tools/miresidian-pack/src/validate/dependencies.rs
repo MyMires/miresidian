@@ -6,8 +6,10 @@ use toml::Value;
 
 // 随 Pack 发布；版本门禁读取同一清单并核对工作区库集合。
 const FRAMEWORK: &str = include_str!("../../framework-crates.txt");
+// 兼容旧节点的包名；旧名同样不能通过本地覆盖绕过来源校验。
+const LEGACY_FRAMEWORK: &[&str] = &["miresidian_instances"];
 fn is_framework(name: &str) -> bool {
-    FRAMEWORK.lines().any(|component| component == name)
+    FRAMEWORK.lines().any(|component| component == name) || LEGACY_FRAMEWORK.contains(&name)
 }
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 
@@ -213,7 +215,7 @@ mod tests {
     }
     #[test]
     fn 每个框架组件及别名都必须使用精确_registry_来源() {
-        for name in FRAMEWORK.lines() {
+        for name in FRAMEWORK.lines().chain(LEGACY_FRAMEWORK.iter().copied()) {
             let valid: Value =
                 toml::from_str(&format!("[dependencies]\n{name} = \"=0.1.0\"")).unwrap();
             validate_document(&valid).unwrap();

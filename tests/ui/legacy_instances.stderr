@@ -1,0 +1,11 @@
+error: node 子配置仅支持 instance、lease 及其分组和 platforms(...)
+ --> tests/ui/legacy_instances.rs:2:32
+  |
+2 |     #[miresidian::node("旧裸标记", instances)]
+  |                                    ^^^^^^^^^
+
+error: node 子配置仅支持 instance、lease 及其分组和 platforms(...)
+ --> tests/ui/legacy_instances.rs:6:31
+  |
+6 |     #[miresidian::node("旧分组", instances(multiple, config))]
+  |                                  ^^^^^^^^^

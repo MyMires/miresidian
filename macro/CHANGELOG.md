@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-12
+
+- 节点级 instances/instances(...) 统一改为 instance/instance(...)，拒绝旧入口；参数级 instance(key/ignore) 与实例策略/默认值保持。
+- 生成 NodeDescriptor.instance 和 __require_instance_runtime；配套框架 0.33.0，更新 README、Rustdoc、UI 及长短写回归。未发布候选。
+- English: Rename the node group to instance and reject instances. Generate singular descriptor and feature-gate names; preserve parameter identity roles and policy behavior. Integrated with framework 0.33.0; unpublished.
+
 ## [0.28.0] - 2026-11-11
 
 - 未实现 get_port_no 的缺省桥返回 NotSupported，框架 0.32.0 将平台输出固定为 `["0", "当前未实现端口发现能力"]`；原同步/async Option<String> 方法签名和生成调用保持。

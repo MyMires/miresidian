@@ -7,7 +7,7 @@ use miresidian::MiresidianResult;
 
 #[miresidian::node(
     "宏简写回显",
-    instances(multiple, config, selectable(sequential)),
+    instance(multiple, config, selectable(sequential)),
     lease(selectable(required))
 )]
 struct EchoNode {

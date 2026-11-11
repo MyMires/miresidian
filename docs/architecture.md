@@ -18,8 +18,8 @@ flowchart TB
     runtime --> codec["miresidian_codec：解析、编解码与值模型"]
     runtime --> macros["miresidian_macro：过程宏"]
     runtime --> registry["inventory：内部方法注册与链接保留"]
-    runtime --> instances["miresidian_instances：实例模型、容器与可选多通道调度"]
-    instances --> codec
+    runtime --> instance["miresidian_instance：实例模型、容器与可选多通道调度"]
+    instance --> codec
     runtime --> lease["miresidian_lease：通用租约模型"]
     lease --> codec
     runtime -->|format feature| format["miresidian_format：显式格式转换"]
@@ -37,9 +37,9 @@ flowchart TB
     host["C / C# / Python / LabVIEW 宿主"] -.-> dll
 ```
 
-框架工作区包含八个库 crate（含根 crate、宏、ABI、codec、format、batch、instances、lease）和三个 Cargo 开发工具（CLI、Pack、TestFlow）；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。CLI 启动独立后端进程，开发工具不进入节点 DLL 的运行时依赖图。
+框架工作区包含八个库 crate（含根 crate、宏、ABI、codec、format、batch、instance、lease）和三个 Cargo 开发工具（CLI、Pack、TestFlow）；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。CLI 启动独立后端进程，开发工具不进入节点 DLL 的运行时依赖图。
 
-`instances` feature 与同名宏配置共同控制实例策略和多通道执行；未标注节点在任意 feature 组合下仍是单实例。根 crate 始终依赖独立 miresidian_instances 的通用模型及单实例容器，instances feature 开启其 runtime 后端；多实例容器和通用调度留在该 crate，根框架只适配节点生命周期。详见[实例管理](instances.md)。
+`instance` feature 与同名宏配置共同控制实例策略和多通道执行；未标注节点在任意 feature 组合下仍是单实例。根 crate 始终依赖独立 miresidian_instance 的通用模型及单实例容器，instance feature 开启其 runtime 后端；多实例容器和通用调度留在该 crate，根框架只适配节点生命周期。详见[实例管理](instances.md)。
 
 根 crate 始终依赖租约 crate 的通用模型；`lease` feature 控制的是 `miresidian_lease/local-ipc` 与运行时的租约接入。只有启用 feature 且声明租约的节点才走租约路径。平台适配器和 ABI 支撑位于根 crate，具体通信依赖保留在独立节点项目。
 
@@ -192,7 +192,7 @@ classDiagram
 | 节点与操作描述 | `name` 名称；`init_config` 初始化配置；`operations` 操作清单；`inputs` 输入参数；`outputs` 输出参数；`channel_inputs` 共享调用使用的输入参数 |
 | 参数描述 | `definition` 原样发布的描述文本；业务参数 `default_value` 为 None，格式选择器等框架项可有显式默认值 |
 
-运行时默认只保留一个对象；instances 策略支持按业务 Config 组合键或 Handle 定位多个对象。默认全部业务 Config 组成实例键，可用 instance(key/ignore) 调整；任一选中原始键为空则跳过初始化。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
+运行时默认只保留一个对象；instance 策略支持按业务 Config 组合键或 Handle 定位多个对象。默认全部业务 Config 组成实例键，可用 instance(key/ignore) 调整；任一选中原始键为空则跳过初始化。框架字段不进入业务配置。每个通道将节点状态与故障标记放在同一把锁中；业务 panic 使该通道进入仅可清理的状态。清理先关闭并析构节点，再释放租约。多通道调用同样以唯一一份 Config 定位一个对象，平台各通道输入均使用该对象；执行方式保存在各自对象上。`ExecutionMode` 只决定这些输入的调度方式，同一对象始终互斥执行；输入位置不关联对象创建顺序。具体输入与错误规则见[平台调用契约](c-abi.md#平台调用契约)。
 
 Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯一 N，随后释放所有者配置租约。实例状态不再直接保存 LocalLease；引用侧租约由 SharedResource 持有，所有者后端另持保护物理资源的租约。共享节点的 panic/故障保存在所有者中，不能通过另一引用绕过。
 
@@ -200,7 +200,7 @@ Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯�
 
 ## 节点创建与方法汇总
 
-0.28.0 / macro 0.24.0 在编译期将新旧 feature 声明归一为同一策略：裸 instances 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。format 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instances/format 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[宏简写迁移](releases/0.28.0.md)。
+0.33.0 / macro 0.29.0 将实例入口统一为 instance，沿用 0.28.0 / macro 0.24.0 引入的长短写归一策略：裸 instance 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。format 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instance/format 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[名称迁移](releases/0.33.0.md)和[宏简写历史](releases/0.28.0.md)。
 
 `node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、Node 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
 
@@ -276,7 +276,7 @@ Shared 分支的 Node 位于唯一资源所有者中；图中省略 IPC 编解�
 | 根 `src/` | 公开入口与重导出 | [lib.rs](../src/lib.rs) |
 | `src/runtime/` | 调用与描述模型、通道生命周期 | [contract.rs](../src/runtime/contract.rs)、[descriptor.rs](../src/runtime/descriptor.rs)、[service.rs](../src/runtime/lifecycle/service.rs) |
 | `src/runtime/lifecycle/` | 单通道隔离与清理、平台选择和配置解析 | [instance.rs](../src/runtime/lifecycle/instance.rs)、[routing.rs](../src/runtime/lifecycle/routing.rs) |
-| `features/instances/` | 通用实例策略、单/多实例容器和通用多通道调度 | [lib.rs](../features/instances/src/lib.rs) |
+| `features/instance/` | 通用实例策略、单/多实例容器和通用多通道调度 | [lib.rs](../features/instance/src/lib.rs) |
 | `src/runtime/multi_channel.rs` | 同一对象的平台多通道输入校验与顺序/并行/广播调度 | [multi_channel.rs](../src/runtime/multi_channel.rs) |
 | `src/platform/` | 平台专有输入输出映射 | [platform.rs](../src/platform.rs)、[TB 兼容适配器](../src/platform/tb_lv_test_platform.rs) |
 | `src/interop/` | C 字符串与 JSON 边界、异常兜底、响应内存 | [ffi_runtime.rs](../src/interop/ffi_runtime.rs) |
@@ -315,7 +315,7 @@ Shared 分支的 Node 位于唯一资源所有者中；图中省略 IPC 编解�
 pending 包含已开始和等待的请求，满容量直接返回错误；实例等待执行权时不占 running 预算。
 实例请求门禁和全局运行预算使用 FIFO 异步信号量/互斥锁；生命周期和业务池分离，避免关闭等待业务时耗尽业务工作线程。
 Parallel 多通道输入使用有界批次内的 Future 调度；每项仍通过状态锁，且全部已开始项结束后才返回错误。
-独立 instances crate 的通用同步 Parallel 分发最多 32 个工作线程。
+独立 instance crate 的通用同步 Parallel 分发最多 32 个工作线程。
 
 `invoke` 等同步 API 阻塞等待最终结果；`invoke_async`、`invoke_platform_async`、`invoke_command_async` 和 `invoke_batch_async` 供异步调用方等待。
 宿主原生异步线程应使用 async API。同步 API 在多线程 Tokio 环境通过 blocking bridge 兼容，在单线程异步执行器中返回能力错误。

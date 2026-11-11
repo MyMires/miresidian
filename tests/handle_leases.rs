@@ -1,11 +1,11 @@
-#![cfg(all(feature = "instances", feature = "lease"))]
+#![cfg(all(feature = "instance", feature = "lease"))]
 //! Handle、租约、平台、执行方式共用一套 Config 布局。
 
 use miresidian::{Invocation, MiresidianResult, NodeRuntime, TbLvTestPlatformAdapter};
 
 #[miresidian::node(
     "Handle 租约布局",
-    instances(multiple, handle, selectable(sequential)),
+    instance(multiple, handle, selectable(sequential)),
     lease(selectable(required))
 )]
 struct LeasedHandleNode {

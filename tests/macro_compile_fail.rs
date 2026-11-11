@@ -13,10 +13,10 @@ fn 非法节点声明会在编译期失败() {
     } else {
         cases.compile_fail("tests/ui-lease-feature/*.rs");
     }
-    if cfg!(feature = "instances") {
-        cases.compile_fail("tests/ui-instances-fail/*.rs");
-        cases.pass("tests/ui-instances-pass/*.rs");
+    if cfg!(feature = "instance") {
+        cases.compile_fail("tests/ui-instance-fail/*.rs");
+        cases.pass("tests/ui-instance-pass/*.rs");
     } else {
-        cases.compile_fail("tests/ui-instances-feature/*.rs");
+        cases.compile_fail("tests/ui-instance-feature/*.rs");
     }
 }

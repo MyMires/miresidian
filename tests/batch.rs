@@ -4,13 +4,13 @@
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
 
 #[cfg_attr(
-    feature = "instances",
+    feature = "instance",
     miresidian::node(
         "顺序批量",
-        instances(mode = multiple, binding = config, execution = sequential)
+        instance(mode = multiple, binding = config, execution = sequential)
     )
 )]
-#[cfg_attr(not(feature = "instances"), miresidian::node("顺序批量"))]
+#[cfg_attr(not(feature = "instance"), miresidian::node("顺序批量"))]
 struct BatchNode {
     calls: usize,
 }

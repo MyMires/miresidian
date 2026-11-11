@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! 平台多通道输入通过唯一 Config 共享同一有状态对象。
 
 use miresidian::{
@@ -10,7 +10,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-#[miresidian::node("共享对象回归", instances(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
+#[miresidian::node("共享对象回归", instance(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
 struct SharedNode {
     address: String,
     calls: usize,

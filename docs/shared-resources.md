@@ -21,7 +21,7 @@ Direct 模式保持独立构造。只有两端都升级并重建后，旧标签�
 使用现有宏标签、直接 open 的两份原生动态库验证：
 
 ```bash
-cargo build -p miresidian --example leased_resource_dll --example leased_other_dll --features lease,instances --locked
+cargo build -p miresidian --example leased_resource_dll --example leased_other_dll --features lease,instance --locked
 python3 tools/verify_leased_node_dll.py target/debug/examples/libleased_resource_dll.so target/debug/examples/libleased_other_dll.so
 ```
 
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 cargo test -p miresidian_lease --features local-ipc --locked --test shared_resource
-cargo build -p miresidian --example shared_resource_dll --example other_resource_dll --features lease,instances --locked
+cargo build -p miresidian --example shared_resource_dll --example other_resource_dll --features lease,instance --locked
 python3 tools/verify_shared_resource_dll.py target/debug/examples/libshared_resource_dll.so target/debug/examples/libother_resource_dll.so
 ```
 

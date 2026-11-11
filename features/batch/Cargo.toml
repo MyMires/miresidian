@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_batch"
-version = "0.3.1"
+version = "0.3.2"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 参数级顺序批量调用的对齐与输出聚合。"

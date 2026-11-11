@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 use miresidian::{
     CLOSE_ALL_DEVICES_OPERATION, CLOSE_DEVICE_OPERATION, GET_FRAMEWORK_VERSION_OPERATION,
     GET_FUNCTIONS_OPERATION, GET_INIT_CONFIG_OPERATION, GET_PORT_NO_OPERATION,
@@ -47,7 +47,7 @@ const DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     port_probe_inputs: &[],
     operations: &OPERATIONS,
     lease_activation: miresidian::LeaseActivation::Disabled,
-    instances: miresidian::InstancePolicy {
+    instance: miresidian::InstancePolicy {
         mode: miresidian::InstanceMode::Multiple,
         binding: miresidian::InstanceBinding::Config,
         execution: miresidian::ExecutionPolicy::Selectable(miresidian::ExecutionMode::Sequential),

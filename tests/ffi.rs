@@ -18,7 +18,7 @@ static DESCRIPTOR: NodeDescriptor = NodeDescriptor {
     port_probe_inputs: &[],
     operations: &[],
     lease_activation: miresidian::LeaseActivation::Disabled,
-    instances: miresidian::InstancePolicy::DEFAULT,
+    instance: miresidian::InstancePolicy::DEFAULT,
 };
 
 struct TestNode;

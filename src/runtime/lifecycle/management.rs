@@ -44,7 +44,7 @@ impl<N: Node> NodeRuntime<N> {
         crate::CallContext::current().check()?;
         let parsed = self.parse_config(config, adapter_identifier)?;
         if parsed.handle.as_deref() == Some("")
-            || (N::descriptor().instances.mode == InstanceMode::Multiple
+            || (N::descriptor().instance.mode == InstanceMode::Multiple
                 && parsed.handle.is_none()
                 && !self.has_business_key(parsed.node))
         {
@@ -105,7 +105,7 @@ impl<N: Node> NodeRuntime<N> {
         instance::catch_node(INIT_DEVICE_OPERATION, || {
             N::validate_init(parsed.node, input)
         })?;
-        if N::descriptor().instances.mode == InstanceMode::Single
+        if N::descriptor().instance.mode == InstanceMode::Single
             && !self.management().objects.is_empty()
         {
             self.cleanup_all()?;

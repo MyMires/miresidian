@@ -1,8 +1,8 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! 原类型及别名决定主键规范化；空身份仍先于类型解析跳过。
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 type NumericKey = u16;
-#[miresidian::node("数值主键",instances(mode = multiple,binding = config,execution = sequential))]
+#[miresidian::node("数值主键",instance(mode = multiple,binding = config,execution = sequential))]
 struct NumericNode {
     key: NumericKey,
 }

@@ -129,17 +129,17 @@ pub trait Node: Send + Sized + 'static {
 }
 
 /// 发布平台查询或执行业务前校验实例策略及汇总操作名。
-/// 重复或保留操作名、缺少 Config 实例键返回参数错误；缺少 instances feature 返回能力错误。
+/// 重复或保留操作名、缺少 Config 实例键返回参数错误；缺少 instance feature 返回能力错误。
 #[doc(hidden)]
 pub fn validate_descriptor(descriptor: &NodeDescriptor) -> MiresidianResult<()> {
-    descriptor.instances.validate()?;
-    if descriptor.instances.enabled() && !cfg!(feature = "instances") {
+    descriptor.instance.validate()?;
+    if descriptor.instance.enabled() && !cfg!(feature = "instance") {
         return Err(crate::MiresidianError::NotSupported(
-            "框架未启用 instances feature".to_owned(),
+            "框架未启用 instance feature".to_owned(),
         ));
     }
-    if descriptor.instances.mode == crate::InstanceMode::Multiple
-        && descriptor.instances.binding == crate::InstanceBinding::Config
+    if descriptor.instance.mode == crate::InstanceMode::Multiple
+        && descriptor.instance.binding == crate::InstanceBinding::Config
         && descriptor.init_config.is_empty()
     {
         return Err(crate::MiresidianError::InvalidArgument {

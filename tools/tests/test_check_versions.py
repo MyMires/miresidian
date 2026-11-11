@@ -145,6 +145,33 @@ checksum = "0000000000000000000000000000000000000000000000000000000000000000"
         lock.write_text(lock.read_text().replace('source = "registry+https://github.com/rust-lang/crates.io-index"\n', ''))
         self.assertNotEqual(self.check().returncode, 0)
 
+    def test_current_and_legacy_instance_packages_keep_registry_source_checks(self):
+        manifest = self.repo / "Cargo.toml"
+        lock = self.repo / "Cargo.lock"
+        original_manifest, original_lock = manifest.read_text(), lock.read_text()
+        for name in ("miresidian_instance", "miresidian_instances"):
+            with self.subTest(package=name):
+                valid_manifest = original_manifest + f'{name} = "=0.17.0"\n'
+                bare_lock = original_lock + f'\n[[package]]\nname = "{name}"\nversion = "0.17.0"\n'
+                valid_lock = bare_lock + 'source = "registry+https://github.com/rust-lang/crates.io-index"\nchecksum = "' + 'a' * 64 + '"\n'
+                manifest.write_text(valid_manifest)
+                lock.write_text(valid_lock)
+                self.assertEqual(self.check().returncode, 0)
+                for source in ('path = "../local"', 'git = "https://example.invalid/core"'):
+                    manifest.write_text(original_manifest + f'alias = {{ package = "{name}", version = "=0.17.0", {source} }}\n')
+                    result = self.check()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(name, result.stderr)
+                for override in (f'\n[patch.crates-io]\nalias = {{ package = "{name}", path = "../local" }}\n',
+                                 f'\n[replace]\n"{name}:0.17.0" = {{ path = "../local" }}\n'):
+                    manifest.write_text(valid_manifest + override)
+                    self.assertNotEqual(self.check().returncode, 0)
+                manifest.write_text(valid_manifest)
+                lock.write_text(bare_lock)
+                result = self.check()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(name, result.stderr)
+
     def test_node_cargo_paths_override_is_rejected(self):
         self.write(".cargo/config.toml", 'paths = ["../framework"]\n')
         self.assertNotEqual(self.check().returncode, 0)

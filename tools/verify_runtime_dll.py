@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Load the framework execution_dll example in a native host and prove overlap.
 
-Build: cargo build --example execution_dll --features instances --locked
+Build: cargo build --example execution_dll --features instance --locked
 Run: python3 tools/verify_runtime_dll.py target/debug/examples/libexecution_dll.so
 Windows accepts the corresponding x64/x86 execution_dll.dll in a matching host.
 """
@@ -41,7 +41,7 @@ def main():
     timings = {}
     with ThreadPoolExecutor(max_workers=2) as workers:
         for operation in ('Delay', 'DelayAsync'):
-            for label, keys in [('same_instance', ('a', 'a')), ('different_instances', ('a', 'b'))]:
+            for label, keys in [('same_instance', ('a', 'a')), ('different_instance', ('a', 'b'))]:
                 samples = []
                 for _ in range(5):
                     started = time.perf_counter()

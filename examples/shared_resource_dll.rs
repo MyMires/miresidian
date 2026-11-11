@@ -4,7 +4,7 @@ mod transport;
 
 use miresidian::{MiresidianResult, lease::shared::SharedResource};
 
-#[miresidian::node("共享资源节点 A", instances(mode = multiple, binding = handle, execution = sequential))]
+#[miresidian::node("共享资源节点 A", instance(mode = multiple, binding = handle, execution = sequential))]
 struct NodeA {
     resource: SharedResource,
     calls: usize,

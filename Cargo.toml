@@ -1,6 +1,6 @@
 [package]
 name = "miresidian"
-version = "0.32.0"
+version = "0.33.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "A Rust runtime for cross-language node plugins."
@@ -18,14 +18,14 @@ crate-type = ["rlib"]
 
 [workspace]
 # 具体节点是框架外的独立项目；工作区仅包含框架库与配套开发工具。
-members = ["abi", "codec", "features/format", "features/batch", "features/instances", "features/lease", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows", "tools/miresidian-cli"]
-default-members = [".", "codec", "features/format", "features/batch", "features/instances", "features/lease", "macro"]
+members = ["abi", "codec", "features/format", "features/batch", "features/instance", "features/lease", "macro", "tools/miresidian-pack", "tools/miresidian-testflow-windows", "tools/miresidian-cli"]
+default-members = [".", "codec", "features/format", "features/batch", "features/instance", "features/lease", "macro"]
 resolver = "3"
 
 [features]
 default = []
-# 节点通过 instances(...) 声明实例关联与多通道执行策略。
-instances = ["miresidian_instances/runtime"]
+# 节点通过 instance(...) 声明实例关联与多通道执行策略。
+instance = ["miresidian_instance/runtime"]
 # 跨 DLL 的通用本地 IPC 租约协调服务；节点只声明资源与配置字段。
 lease = ["miresidian_lease/local-ipc"]
 # 显式参数/输出格式转换；基础类型解析始终可用。
@@ -41,14 +41,14 @@ license = "MIT OR Apache-2.0"
 miresidian_format = { version = "=0.4.1", path = "features/format", optional = true }
 miresidian_abi = { version = "=0.17.1", path = "abi" }
 miresidian_codec = { version = "=0.18.0", path = "codec" }
-miresidian_macro = { version = "=0.28.0", path = "macro" }
-miresidian_batch = { version = "=0.3.1", path = "features/batch", optional = true }
+miresidian_macro = { version = "=0.29.0", path = "macro" }
+miresidian_batch = { version = "=0.3.2", path = "features/batch", optional = true }
 inventory = "=0.3.24"
 serde_json = "1.0"
 miresidian_lease = { version = "=0.17.4", path = "features/lease" }
 serde = { version = "1.0", features = ["derive"] }
 
-miresidian_instances = { version = "=0.16.8", path = "features/instances" }
+miresidian_instance = { version = "=0.17.0", path = "features/instance" }
 
 tokio = { version = "~1.53.3", features = ["rt-multi-thread", "sync", "time", "net", "io-util", "macros"] }
 futures-util = "=0.3.31"
@@ -63,7 +63,7 @@ trybuild = "1.0"
 name = "execution_dll"
 path = "examples/execution_dll.rs"
 crate-type = ["cdylib"]
-required-features = ["instances"]
+required-features = ["instance"]
 test = false
 
 # Internal loader validation fixture; its probe exports are not node C ABI.
@@ -77,7 +77,7 @@ test = false
 name = "shared_resource_dll"
 path = "examples/shared_resource_dll.rs"
 crate-type = ["cdylib"]
-required-features = ["lease", "instances"]
+required-features = ["lease", "instance"]
 test = false
 
 [[example]]
@@ -91,21 +91,21 @@ test = false
 name = "leased_resource_dll"
 path = "examples/leased_resource_dll.rs"
 crate-type = ["cdylib"]
-required-features = ["lease", "instances"]
+required-features = ["lease", "instance"]
 test = false
 
 [[example]]
 name = "leased_other_dll"
 path = "examples/leased_other_dll.rs"
 crate-type = ["cdylib"]
-required-features = ["lease", "instances"]
+required-features = ["lease", "instance"]
 test = false
 
 [[example]]
 name = "macro_shortcuts"
 path = "examples/macro_shortcuts.rs"
 crate-type = ["cdylib"]
-required-features = ["instances", "lease", "format", "batch"]
+required-features = ["instance", "lease", "format", "batch"]
 test = false
 
 [[example]]

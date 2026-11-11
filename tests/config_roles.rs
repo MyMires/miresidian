@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 #[path = "support/config_roles.rs"]
 #[allow(dead_code)]
 mod support;

@@ -1,7 +1,7 @@
-#![cfg(all(feature = "lease", feature = "instances"))]
+#![cfg(all(feature = "lease", feature = "instance"))]
 //! 资源键仍独立于实例键；自动节点共享拒绝不同初始化状态。
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
-#[miresidian::node("独立角色", instances(mode = multiple, binding = config, execution = sequential), lease(activation = required))]
+#[miresidian::node("独立角色", instance(mode = multiple, binding = config, execution = sequential), lease(activation = required))]
 struct Node {
     address: u8,
     calls: u32,

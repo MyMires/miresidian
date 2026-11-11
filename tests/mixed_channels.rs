@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! 验证手动标注可逐参数覆盖自动 Config/Input 来源。
 
 use miresidian::{
@@ -31,7 +31,7 @@ impl PlatformAdapter for MacroPlatformAdapter {
     }
 }
 
-#[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter), instances(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
+#[miresidian::node("双通道测试节点", platforms(MacroPlatformAdapter), instance(mode = multiple, binding = config, execution = selectable, default_execution = sequential))]
 struct MixedChannelNode;
 
 impl MixedChannelNode {

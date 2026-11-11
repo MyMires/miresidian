@@ -29,7 +29,8 @@ pub fn node_enum(item: TokenStream) -> TokenStream {
 /// 可选 `platforms(AdapterType, ...)` 将实现 `Default` 的平台适配器编译进该 DLL。
 /// 同模块的 `operation` 独立生成方法契约；本宏汇总注册项并生成节点接口与 C ABI。
 ///
-/// `instances` / `instances()` 默认单对象顺序多通道，`instances(multiple, config)`
+/// 0.29.0 将节点级 instances 统一改为 instance，不保留旧入口；参数级 instance(key/ignore) 保持。
+/// `instance` / `instance()` 默认单对象顺序多通道，`instance(multiple, config)`
 /// 明确多对象关联，可追加 `parallel` 或 `selectable(sequential)`。不声明时仍禁用多通道。
 /// `lease` / `lease(required)` 固定租约，`lease(disabled)` 固定直连，
 /// `lease(selectable(required))` 发布选择器且默认租约。旧长写继续支持。

@@ -100,7 +100,10 @@ def check_lock(repo, name, expected):
             raise VersionError(f"{name} 的 {package} 应锁定 {version}，实际为 {actual}")
 
 
-FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_format", "miresidian_lease", "miresidian_macro", "miresidian_instances"}
+FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_format", "miresidian_lease", "miresidian_macro", "miresidian_instance"}
+# 旧版独立节点及历史快照仍使用复数包名，必须继续执行同样的来源门禁。
+LEGACY_FRAMEWORK_CRATES = {"miresidian_instances"}
+KNOWN_FRAMEWORK_CRATES = FRAMEWORK_CRATES | LEGACY_FRAMEWORK_CRATES
 CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
 
@@ -113,7 +116,7 @@ def check_node_sources(repo, manifest, lock_name, prefix=""):
             return
         for name, value in table.items():
             package = value.get("package", name.split(":", 1)[0]) if isinstance(value, dict) else name
-            if package in FRAMEWORK_CRATES and isinstance(value, dict):
+            if package in KNOWN_FRAMEWORK_CRATES and isinstance(value, dict):
                 if any(key in value for key in ("path", "git")) or value.get("registry", "crates-io") != "crates-io":
                     raise VersionError(f"子节点 {prefix} 的 {package} 必须依赖 crates.io 已发布版本，禁止 path/git 或其他 registry")
             if isinstance(value, dict):
@@ -127,7 +130,7 @@ def check_node_sources(repo, manifest, lock_name, prefix=""):
                 raise VersionError("子节点禁止 Cargo paths 本地覆盖")
             walk(data)
     for item in repo.toml(lock_name).get("package", []):
-        if item["name"] in FRAMEWORK_CRATES:
+        if item["name"] in KNOWN_FRAMEWORK_CRATES:
             if item.get("source") != CRATES_IO_SOURCE or not re.fullmatch(r"[0-9a-f]{64}", item.get("checksum", "")):
                 raise VersionError(f"{lock_name} 的 {item['name']} 必须由 Cargo 从 crates.io 解析，不能使用本地框架或缺少 registry 校验和")
 
@@ -322,7 +325,10 @@ def validate(repo, base):
             listed = inventory.splitlines()
             libraries = {member["package"]["name"] for path, member in zip(manifests, members)
                          if not path.startswith("tools/")}
-            if len(listed) != len(set(listed)) or set(listed) != libraries or set(listed) != FRAMEWORK_CRATES:
+            expected_libraries = FRAMEWORK_CRATES
+            if "miresidian_instances" in libraries:
+                expected_libraries = (FRAMEWORK_CRATES - {"miresidian_instance"}) | LEGACY_FRAMEWORK_CRATES
+            if len(listed) != len(set(listed)) or set(listed) != libraries or set(listed) != expected_libraries:
                 raise VersionError("Pack、版本门禁与工作区框架库组件清单不一致")
     check_lock(repo, "Cargo.lock", expected)
     tag = f"{name}-v{version}"

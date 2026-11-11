@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-11-12
+
+- 框架库清单识别 miresidian_instance；继续对旧 miresidian_instances 执行精确依赖、crates.io 解析/锁来源及覆盖检查，旧节点无需迁移。
+- 更新 README 和新旧包名来源测试；模板 ABI v7、命令与打包行为保持。未发布补丁。
+- English: Recognize miresidian_instance while retaining all source checks for legacy miresidian_instances. Templates and packaging behavior remain unchanged; unpublished.
+
 ## [0.13.4] - 2026-11-11
 
 - 生成的 AGENTS 指导不再硬编码 DeviceNode，改为引用项目实际版本的框架节点接口名称。

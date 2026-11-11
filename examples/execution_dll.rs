@@ -7,7 +7,7 @@ use std::{
 };
 static SYNC_JOINED: AtomicUsize = AtomicUsize::new(0);
 static ASYNC_JOINED: AtomicUsize = AtomicUsize::new(0);
-#[miresidian::node("执行器验证",instances(mode=multiple,binding=config,execution=selectable,default_execution=sequential))]
+#[miresidian::node("执行器验证",instance(mode=multiple,binding=config,execution=selectable,default_execution=sequential))]
 struct ExecutionNode {
     calls: u32,
 }

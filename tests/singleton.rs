@@ -58,7 +58,7 @@ fn request(operation: &str, config: &[&str], input: &[&str]) -> Invocation {
 #[test]
 fn default_metadata_never_publishes_handle_or_execution_selector() {
     assert_eq!(
-        Singleton::descriptor().instances,
+        Singleton::descriptor().instance,
         miresidian::InstancePolicy::DEFAULT
     );
     let runtime = NodeRuntime::<Singleton>::new();

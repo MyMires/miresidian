@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.6] - 2026-11-12
+
+- CLI/套件清单同步 Pack 最低版本 0.13.5，确保新旧实例包名都执行来源检查；README 同步说明，路由、参数和 TestFlow 0.13.0 保持。未发布补丁。
+- English: Require Pack 0.13.5 for current and legacy instance package source validation. Routing and TestFlow remain unchanged; unpublished.
+
 ## [0.3.5] - 2026-11-11
 
 - CLI/套件清单同步 TestFlow 最低版本 0.13.0，以区分 ABI v10 单 JSON 与旧签名；Pack 0.13.4 及路由保持。

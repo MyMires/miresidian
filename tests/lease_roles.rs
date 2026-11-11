@@ -58,7 +58,7 @@ fn independent_runtimes_share_composite_identity_and_reject_conflicting_configur
     invoke(&other_port, config("9000", "4800", "100")).unwrap();
     let conflicting = NodeRuntime::<Node>::new();
     assert!(invoke(&conflicting, config("8000", "4800", "100")).is_err());
-    // Lease roles work without instances; ignored timeout never changes lease bytes.
+    // Lease roles work without instance; ignored timeout never changes lease bytes.
     let first = Node::lease_request(&config("8000", "9600", "100"))
         .unwrap()
         .unwrap();

@@ -30,9 +30,9 @@ impl PlatformAdapter for DiagnosticAdapter {
     }
 }
 
-#[cfg_attr(feature = "instances", miresidian::node("响应契约测试", platforms(DiagnosticAdapter), instances(mode = multiple, binding = config, execution = sequential)))]
+#[cfg_attr(feature = "instance", miresidian::node("响应契约测试", platforms(DiagnosticAdapter), instance(mode = multiple, binding = config, execution = sequential)))]
 #[cfg_attr(
-    not(feature = "instances"),
+    not(feature = "instance"),
     miresidian::node("响应契约测试", platforms(DiagnosticAdapter))
 )]
 struct ContractNode;
@@ -269,7 +269,7 @@ fn malformed_abi_inputs_keep_the_same_four_fields() {
 }
 
 #[test]
-#[cfg(feature = "instances")]
+#[cfg(feature = "instance")]
 fn shared_context_preserves_error_category_and_code() {
     let runtime = Runtime::new();
     expect(&call(&runtime, None, "InitDevice", &["A"], &[]), 0, "OK");

@@ -1,6 +1,6 @@
 //! 并发节点运行时；管理锁仅保护登记与查找，不覆盖业务代码或设备等待。
 
-use super::super::instances::InstanceStore;
+use super::super::instance::InstanceStore;
 use super::Instance;
 use crate::{
     CallContext, ExecutionLimits, InstanceMode, Invocation, InvocationOutput, MiresidianError,
@@ -62,8 +62,8 @@ impl<N: Node> NodeRuntime<N> {
     ) -> MiresidianResult<Self> {
         let limits = limits.validate()?;
         let mut objects = InstanceStore::default();
-        if cfg!(feature = "instances") || N::descriptor().instances.mode == InstanceMode::Single {
-            objects.set_mode(N::descriptor().instances.mode)?;
+        if cfg!(feature = "instance") || N::descriptor().instance.mode == InstanceMode::Single {
+            objects.set_mode(N::descriptor().instance.mode)?;
         }
         Ok(Self {
             platforms,
@@ -339,9 +339,9 @@ impl<N: Node> NodeRuntime<N> {
                 .await
                 .map(RuntimeResponse::Output),
             RuntimeInvocation::MultiChannel(request) => {
-                if !N::descriptor().instances.enabled() {
+                if !N::descriptor().instance.enabled() {
                     return Err(MiresidianError::NotSupported(
-                        "未声明 instances 多通道能力".into(),
+                        "未声明 instance 多通道能力".into(),
                     ));
                 }
                 if request.slots.len() > self.core.limits.max_batch {
@@ -350,7 +350,7 @@ impl<N: Node> NodeRuntime<N> {
                 let descriptor = self
                     .operation_descriptor(&operation)
                     .ok_or_else(|| MiresidianError::InvalidOperation(operation.clone()))?;
-                #[cfg(feature = "instances")]
+                #[cfg(feature = "instance")]
                 {
                     super::super::multi_channel::invoke_multi_channel(
                         &instance,
@@ -363,10 +363,10 @@ impl<N: Node> NodeRuntime<N> {
                     .await
                     .map(RuntimeResponse::MultiChannel)
                 }
-                #[cfg(not(feature = "instances"))]
+                #[cfg(not(feature = "instance"))]
                 {
                     let _ = descriptor;
-                    Err(MiresidianError::NotSupported("未启用 instances".into()))
+                    Err(MiresidianError::NotSupported("未启用 instance".into()))
                 }
             }
         }

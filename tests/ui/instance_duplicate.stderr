@@ -1,0 +1,5 @@
+error: instance 参数不能重复声明
+ --> tests/ui/instance_duplicate.rs:2:44
+  |
+2 | #[node("非法实例策略", instance(mode = multiple, mode = single, execution = sequential))]
+  |                                                  ^^^^^^^^^^^^^

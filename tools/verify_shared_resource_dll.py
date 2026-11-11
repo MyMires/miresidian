@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate renamed DLLs, distinct node types, per-node state and one exclusive resource.
 
-Build both framework examples with --features lease,instances. Run with paths to
+Build both framework examples with --features lease,instance. Run with paths to
 shared_resource_dll and other_resource_dll. Uses a real exclusive file lock, no hardware.
 """
 import argparse

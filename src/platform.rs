@@ -197,7 +197,7 @@ pub struct MultiChannelResponse {
 }
 
 impl MultiChannelResponse {
-    #[cfg(feature = "instances")]
+    #[cfg(feature = "instance")]
     pub(crate) fn new(slots: Vec<Option<InvocationOutput>>) -> Self {
         Self { slots }
     }

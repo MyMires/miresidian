@@ -16,7 +16,7 @@ pub(super) async fn invoke_multi_channel<N: Node>(
         .iter()
         .map(|p| p.default_value)
         .collect::<Vec<_>>();
-    let plans = miresidian_instances::plan_multi_channel(slots, &parameters, execution)?;
+    let plans = miresidian_instance::plan_multi_channel(slots, &parameters, execution)?;
     let execute = |index: usize, plan: Option<Vec<String>>| async move {
         match plan {
             None => Ok(None),

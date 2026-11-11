@@ -11,7 +11,7 @@ pub(super) struct NodeArguments {
     pub(super) name: LitStr,
     pub(super) lease: Option<LeaseDeclaration>,
     pub(super) platforms: Vec<Path>,
-    pub(super) instances: Option<proc_macro2::TokenStream>,
+    pub(super) instance: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for NodeArguments {
@@ -19,16 +19,16 @@ impl Parse for NodeArguments {
         let name = input.parse()?;
         let mut lease = None;
         let mut platforms = None;
-        let mut instances = None;
+        let mut instance = None;
         while !input.is_empty() {
             input.parse::<Token![,]>()?;
             let keyword: Ident = input.parse()?;
             match keyword.to_string().as_str() {
-                "instances" => {
-                    if instances.is_some() {
-                        return Err(Error::new_spanned(keyword, "instances 只能声明一次"));
+                "instance" => {
+                    if instance.is_some() {
+                        return Err(Error::new_spanned(keyword, "instance 只能声明一次"));
                     }
-                    instances = Some(super::instances::parse(
+                    instance = Some(super::instance::parse(
                         optional_group(input)?.unwrap_or_default(),
                     )?);
                 }
@@ -59,7 +59,7 @@ impl Parse for NodeArguments {
                 _ => {
                     return Err(Error::new_spanned(
                         keyword,
-                        "node 子配置仅支持 instances、lease 及其分组和 platforms(...)",
+                        "node 子配置仅支持 instance、lease 及其分组和 platforms(...)",
                     ));
                 }
             }
@@ -68,7 +68,7 @@ impl Parse for NodeArguments {
             name,
             lease,
             platforms: platforms.unwrap_or_default(),
-            instances,
+            instance,
         })
     }
 }
@@ -88,23 +88,35 @@ mod tests {
 
     #[test]
     fn bare_features_match_explicit_policies_and_omission_stays_disabled() {
-        let bare: NodeArguments = syn::parse_quote!("节点", instances, lease);
+        let bare: NodeArguments = syn::parse_quote!("节点", instance, lease);
         let long: NodeArguments = syn::parse_quote!(
             "节点",
-            instances(mode = single, execution = sequential),
+            instance(mode = single, execution = sequential),
             lease(activation = required)
         );
         assert_eq!(
-            bare.instances.unwrap().to_string(),
-            long.instances.unwrap().to_string()
+            bare.instance.unwrap().to_string(),
+            long.instance.unwrap().to_string()
         );
         assert_eq!(
             bare.lease.unwrap().activation.to_string(),
             long.lease.unwrap().activation.to_string()
         );
         let omitted: NodeArguments = syn::parse_quote!("节点");
-        assert!(omitted.instances.is_none());
+        assert!(omitted.instance.is_none());
         assert!(omitted.lease.is_none());
+    }
+
+    #[test]
+    fn legacy_plural_instance_groups_are_rejected() {
+        for source in [
+            "\"节点\", instances",
+            "\"节点\", instances()",
+            "\"节点\", instances(multiple, config)",
+        ] {
+            let error = syn::parse_str::<NodeArguments>(source).err().unwrap();
+            assert!(error.to_string().contains("仅支持 instance、lease"));
+        }
     }
 
     #[test]
@@ -113,22 +125,22 @@ mod tests {
             "节点",
             lease(selectable(required)),
             platforms(crate::Adapter),
-            instances(mode = multiple, binding = handle, execution = sequential)
+            instance(mode = multiple, binding = handle, execution = sequential)
         );
         assert_eq!(args.platforms.len(), 1);
-        assert!(args.instances.is_some());
+        assert!(args.instance.is_some());
         assert!(args.lease.is_some());
     }
 
     #[test]
     fn duplicate_features_and_unscoped_options_are_rejected() {
         for source in [
-            "\"节点\", instances, instances(single)",
-            "\"节点\", instances(), instances",
+            "\"节点\", instance, instance(single)",
+            "\"节点\", instance(), instance",
             "\"节点\", lease, lease(required)",
             "\"节点\", lease(activation = required), lease",
             "\"节点\", execution = sequential",
-            "\"节点\", instances = config",
+            "\"节点\", instance = config",
             "\"节点\", lease = required",
         ] {
             assert!(syn::parse_str::<NodeArguments>(source).is_err(), "{source}");

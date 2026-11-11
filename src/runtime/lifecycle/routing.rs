@@ -1,7 +1,7 @@
 //! 元数据共用布局下的 Config 解析与对象关联键。
 
 use super::{NodeRuntime, catch_node};
-use crate::runtime::instances::ConfigLayout;
+use crate::runtime::instance::ConfigLayout;
 use crate::{
     ExecutionMode, INIT_DEVICE_OPERATION, Invocation, LeaseAccess, MiresidianError,
     MiresidianResult, Node, PLATFORM_ADAPTER_NAME, Platform, PlatformAdapter,
@@ -67,7 +67,7 @@ impl<N: Node> NodeRuntime<N> {
         config: &[String],
         routing: bool,
     ) -> MiresidianResult<Vec<String>> {
-        let policy = N::descriptor().instances;
+        let policy = N::descriptor().instance;
 
         N::descriptor()
             .init_config
@@ -122,7 +122,7 @@ impl<N: Node> NodeRuntime<N> {
         let descriptor = N::descriptor();
         let layout = ConfigLayout::new(
             descriptor.init_config.len(),
-            descriptor.instances,
+            descriptor.instance,
             descriptor.lease_activation.has_platform_selector(),
         );
         let node = &config[..config.len().min(layout.business)];
@@ -175,14 +175,14 @@ impl<N: Node> NodeRuntime<N> {
                 .unwrap_or(value)
                 .trim()
         });
-        let execution = descriptor.instances.execution.resolve(value)?;
+        let execution = descriptor.instance.execution.resolve(value)?;
         Ok(ParsedConfig {
             node,
             access,
             platform,
             execution,
             handle,
-            mode: descriptor.instances.mode,
+            mode: descriptor.instance.mode,
         })
     }
 

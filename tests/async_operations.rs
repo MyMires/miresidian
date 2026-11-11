@@ -1,4 +1,4 @@
-//! Native asynchronous macro bridges work without the optional instances feature.
+//! Native asynchronous macro bridges work without the optional instance feature.
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 use std::time::Duration;
 #[miresidian::node("原生异步方法")]

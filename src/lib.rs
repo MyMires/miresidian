@@ -10,10 +10,10 @@
 //! `#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成 codec 与结构化候选；
 //! 参数没有非空描述时，由本次平台适配器渲染并配套规范化输入，不提供缺参首项默认值。
 //!
-//! 0.28.0 起支持 feature 短写：`instances` 默认单对象顺序多通道，
-//! `instances(multiple, config)` 显式多对象关联；裸 `lease` 等价于固定 required。
+//! 0.33.0 起实例能力统一名为 `instance`；裸标记默认单对象顺序多通道，
+//! `instance(multiple, config)` 显式多对象关联；裸 `lease` 等价于固定 required。
 //! `format(hex)` 与 `format(utf8, hex, selector = "格式")` 可用于普通业务 Input/Output，
-//! 仍与 `batch` 独立组合。旧完整标注、feature 门禁和平台槽位顺序保持兼容。
+//! 仍与 `batch` 独立组合。instance 的完整长写与短写等价；旧 instances 名称不再接受。
 //!
 //! # 节点声明示例
 //!
@@ -93,9 +93,9 @@ pub const fn __require_batch_feature() {}
 pub fn __lease_feature_required() {}
 
 /// 宏通过依赖内的符号检查 feature，避免误检查节点 crate 自身的同名 feature。
-#[cfg(feature = "instances")]
+#[cfg(feature = "instance")]
 #[doc(hidden)]
-pub const fn __require_instances_runtime() {}
+pub const fn __require_instance_runtime() {}
 
 /// 显式格式编解码增强；启用 Cargo feature `format` 后可用。
 #[cfg(feature = "format")]

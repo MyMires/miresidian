@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! Shared end-to-end assertions; each test binary exports exactly one node.
 use miresidian::{Invocation, MiresidianError, Node, NodeRuntime};
 
@@ -14,7 +14,7 @@ macro_rules! fixture {
     ($module:ident, [$($timeout:tt)*], [$($ip:tt)*], [$($port:tt)*]) => {
         mod $module {
             use miresidian::MiresidianResult;
-            #[miresidian::node("组合身份", instances(mode = multiple, binding = config, execution = sequential))]
+            #[miresidian::node("组合身份", instance(mode = multiple, binding = config, execution = sequential))]
             pub struct Node { timeout: u64, ip: String, port: u16, count: usize }
             impl Node {
                 #[miresidian::operation]

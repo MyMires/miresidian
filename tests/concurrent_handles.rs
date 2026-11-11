@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! Distinct handles preserve independent identity even with identical Config.
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 use std::{
@@ -7,7 +7,7 @@ use std::{
 };
 static STARTED: OnceLock<mpsc::Sender<()>> = OnceLock::new();
 static RELEASE: (Mutex<bool>, Condvar) = (Mutex::new(false), Condvar::new());
-#[miresidian::node("Handle 并行验证",instances(mode=multiple,binding=handle,execution=sequential))]
+#[miresidian::node("Handle 并行验证",instance(mode=multiple,binding=handle,execution=sequential))]
 struct HandleNode;
 impl HandleNode {
     #[miresidian::operation]

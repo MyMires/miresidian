@@ -1,4 +1,4 @@
-#![cfg(all(feature = "lease", feature = "instances"))]
+#![cfg(all(feature = "lease", feature = "instance"))]
 #[path = "../examples/support/leased_node.rs"]
 mod node;
 use miresidian::{Invocation, MiresidianError, NodeRuntime};

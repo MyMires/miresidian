@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-#[miresidian::node("自动租约资源", instances(mode = multiple, binding = handle, execution = sequential),
+#[miresidian::node("自动租约资源", instance(mode = multiple, binding = handle, execution = sequential),
     lease(activation = selectable, resource = "resource", configuration = ["setting"]))]
 pub struct LeasedNode {
     _file: File,

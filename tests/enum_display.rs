@@ -74,11 +74,11 @@ impl PlatformAdapter for JsonAdapter {
 }
 
 #[cfg_attr(
-    feature = "instances",
-    miresidian::node("成员显示名", platforms(JsonAdapter), instances)
+    feature = "instance",
+    miresidian::node("成员显示名", platforms(JsonAdapter), instance)
 )]
 #[cfg_attr(
-    not(feature = "instances"),
+    not(feature = "instance"),
     miresidian::node("成员显示名", platforms(JsonAdapter))
 )]
 struct Workflow;
@@ -279,7 +279,7 @@ fn both_platforms_render_labels_and_normalize_all_input_channels() {
                     .as_slice(),
                 ["Idle|Running"]
             );
-            #[cfg(feature = "instances")]
+            #[cfg(feature = "instance")]
             assert_eq!(
                 call("Echo", &["Idle"], &["共享", "空闲", "", "运行中"])
                     .unwrap()

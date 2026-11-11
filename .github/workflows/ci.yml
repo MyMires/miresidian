@@ -30,7 +30,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo test --workspace --all-targets --locked
       - run: cargo test --workspace --all-targets --all-features --locked
-      - run: cargo test -p miresidian --all-targets --features instances --locked
+      - run: cargo test -p miresidian --all-targets --features instance --locked
       - run: cargo test -p miresidian --all-targets --features lease --locked
       - name: 全特性公开 API 文档
         env:
@@ -53,7 +53,7 @@ jobs:
       - run: cargo check --workspace --all-targets --all-features --locked
       - run: cargo test -p miresidian_lease --all-targets --all-features --locked
       - run: cargo test -p miresidian --test panic_recovery --test lease_recovery --test response_contract --test method_registry --test init_outputs --test lease_initialization --test concurrent_execution --test concurrent_handles --test async_operations --test broadcast --all-features --locked
-      - run: cargo build --example execution_dll --features instances --locked
+      - run: cargo build --example execution_dll --features instance --locked
       - if: runner.os == 'Linux'
         run: python3 tools/verify_runtime_dll.py target/debug/examples/libexecution_dll.so
       - if: runner.os == 'Windows'

@@ -2,8 +2,8 @@
 
 use miresidian::{ByteTextFormat, Invocation, MiresidianResult, NodeRuntime, encode_bytes_to_text};
 
-#[cfg_attr(feature = "instances", miresidian::node("编解码宏测试节点", instances(mode = multiple, binding = config, execution = sequential)))]
-#[cfg_attr(not(feature = "instances"), miresidian::node("编解码宏测试节点"))]
+#[cfg_attr(feature = "instance", miresidian::node("编解码宏测试节点", instance(mode = multiple, binding = config, execution = sequential)))]
+#[cfg_attr(not(feature = "instance"), miresidian::node("编解码宏测试节点"))]
 struct CodecMacroNode {
     connection: String,
 }
@@ -111,7 +111,7 @@ fn 等价业务配置定位并复用同一通道() {
 }
 
 #[test]
-#[cfg(feature = "instances")]
+#[cfg(feature = "instance")]
 fn 共享调用同样使用枚举显示值和显式配置定位对象() {
     let runtime = NodeRuntime::<CodecMacroNode>::new();
     runtime

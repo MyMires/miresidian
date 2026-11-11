@@ -1,8 +1,8 @@
 //! 业务描述仅透传；数值空白为零，缺参报错，字符串不推导默认值。
 use miresidian::{Invocation, MiresidianError, MiresidianResult, Node, NodeRuntime};
 
-#[cfg_attr(feature = "instances", miresidian::node("参数描述回归", instances(mode = multiple, binding = config, execution = sequential)))]
-#[cfg_attr(not(feature = "instances"), miresidian::node("参数描述回归"))]
+#[cfg_attr(feature = "instance", miresidian::node("参数描述回归", instance(mode = multiple, binding = config, execution = sequential)))]
+#[cfg_attr(not(feature = "instance"), miresidian::node("参数描述回归"))]
 struct DescriptionNode {
     baud_rate: u32,
     parity: String,
@@ -67,7 +67,7 @@ fn descriptions_are_unchanged_and_do_not_supply_runtime_defaults() {
     let runtime = NodeRuntime::<DescriptionNode>::new();
     for config in [vec!["device".into()], vec!["device".into(), "None".into()]] {
         let result = runtime.invoke(&Invocation::new("InitDevice", config, vec![]));
-        if cfg!(feature = "instances") {
+        if cfg!(feature = "instance") {
             // Default full-config identity is incomplete: skip before parsing, without defaults.
             assert!(result.unwrap().as_slice().is_empty());
             assert!(!runtime.is_initialized());

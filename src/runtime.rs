@@ -6,9 +6,9 @@ mod construction;
 mod contract;
 mod descriptor;
 mod execution;
-mod instances;
+mod instance;
 mod lifecycle;
-#[cfg(feature = "instances")]
+#[cfg(feature = "instance")]
 mod multi_channel;
 mod node;
 mod tasks;
@@ -23,7 +23,7 @@ pub use descriptor::{
     ExecutionMode, LeaseAccess, LeaseActivation, NodeDescriptor, OperationDescriptor,
     PLATFORM_ADAPTER_NAME, ParameterDescriptor,
 };
-pub use instances::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};
+pub use instance::{ExecutionPolicy, InstanceBinding, InstanceMode, InstancePolicy};
 pub use lifecycle::NodeRuntime;
 #[doc(hidden)]
 pub use node::validate_descriptor;

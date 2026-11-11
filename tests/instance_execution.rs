@@ -1,4 +1,4 @@
-#![cfg(feature = "instances")]
+#![cfg(feature = "instance")]
 //! 固定策略、平台选择默认值与单实例多通道执行的运行时契约。
 
 use miresidian::{
@@ -34,7 +34,7 @@ const fn descriptor(execution: ExecutionPolicy) -> NodeDescriptor {
         port_probe_inputs: &[],
         operations: &OPERATIONS,
         lease_activation: LeaseActivation::Disabled,
-        instances: InstancePolicy {
+        instance: InstancePolicy {
             mode: InstanceMode::Single,
             binding: InstanceBinding::Config,
             execution,

@@ -1,8 +1,8 @@
 //! 节点与操作的编译期元数据。
 
-use super::instances::{ConfigLayout, HANDLE_DEFINITION, InstancePolicy};
+use super::instance::{ConfigLayout, HANDLE_DEFINITION, InstancePolicy};
 
-pub use miresidian_instances::ExecutionMode;
+pub use miresidian_instance::ExecutionMode;
 
 /// 框架自动追加到 `InitDevice` 的多通道调度配置描述。
 pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
@@ -145,8 +145,8 @@ pub struct NodeDescriptor {
     pub operations: &'static [OperationDescriptor],
     /// 租约启用策略；由 `#[node(..., lease(...))]` 声明。
     pub lease_activation: LeaseActivation,
-    /// 实例数量、关联键及执行策略；未标注节点使用 `InstancePolicy::DEFAULT`。
-    pub instances: InstancePolicy,
+    /// 实例数量、关联键及执行策略；由节点级 `instance(...)` 声明，未标注使用 `InstancePolicy::DEFAULT`。
+    pub instance: InstancePolicy,
 }
 
 impl NodeDescriptor {
@@ -234,7 +234,7 @@ impl NodeDescriptor {
     fn config_definitions(&self) -> Vec<String> {
         let layout = ConfigLayout::new(
             self.init_config.len(),
-            self.instances,
+            self.instance,
             self.lease_activation.has_platform_selector(),
         );
         let mut definitions = self

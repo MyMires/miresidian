@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-12
+
+- 统一实例能力名称：Cargo feature 和节点宏由 instances 改为 instance，公开 NodeDescriptor 策略字段与宏门禁入口同步；旧写法不保留兼容别名。
+- 实例包由 miresidian_instances 0.16.8 改为 miresidian_instance 0.17.0，目录为 features/instance；宏升至 0.29.0，内部精确依赖和锁文件同步。容器、身份、调度、租约及 ABI v10 保持。
+- 同步中英文 README、Rustdoc、手册、示例、CI、UI 诊断与迁移说明。batch 0.3.2 仅更新组合指导；Pack 0.13.5 及 CLI/套件 0.3.6 同步新包来源校验，继续约束旧包名。
+- 新版本均为未发布候选；独立节点仍使用其已发布框架依赖，本次不推送、不发布。验证证据见 plans/2026-11-12-instance-naming.md。
+
 ## [0.32.0] - 2026-11-11
 
 - GetPortNO 未实现时固定返回 `["0", "当前未实现端口发现能力"]`；None 返回未找到原因，NotSupported 说明作为原因，空白说明兜底，找到地址及其他错误保持。

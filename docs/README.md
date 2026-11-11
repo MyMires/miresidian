@@ -16,7 +16,7 @@
 | 宿主接入 | [平台接入与 C ABI](c-abi.md) | C 入口、响应与内存契约、TB 文本协议和平台适配器 |
 | 仓库维护 | [开发与维护规范](coding-standards.md) | 方案门禁、编码、验证、构建环境和交付组织 |
 | 仓库维护 | [版本管理](versioning.md) | 版本判断、依赖/锁文件、修订归档、提交门禁和发布标签 |
-| 历史记录 | [发行说明](releases/) · [维护历史与复盘](history/maintenance.md) · [任务方案](../plans/) | 版本迁移、历史背景、实施过程和验收证据，不作为第二套现行规范 |
+| 历史记录 | [0.33.0 名称迁移](releases/0.33.0.md) · [发行说明](releases/) · [维护历史与复盘](history/maintenance.md) · [任务方案](../plans/) | 版本迁移、历史背景、实施过程和验收证据，不作为第二套现行规范 |
 
 ## 按任务阅读
 
@@ -54,7 +54,7 @@
 | `miresidian_macro` | [过程宏 crate](../macro/README.md) |
 | `miresidian_format` | [格式选择、类型转换及 batch 组合](../features/format/README.md) |
 | `miresidian_batch` | [记录解析、长度对齐及输出聚合](../features/batch/README.md) |
-| `miresidian_instances` | [通用策略、容器及多通道调度](../features/instances/README.md) |
+| `miresidian_instance` | [通用策略、容器及多通道调度](../features/instance/README.md) |
 | `miresidian_lease` | [租约接入、v2 协议、配置锁与迁移](../features/lease/README.md) |
 | `miresidian_pack` | [安装、输入要求与交付目录](../tools/miresidian-pack/README.md) |
 | `miresidian_testflow_windows` | [安装、BAT 生成与执行边界](../tools/miresidian-testflow-windows/README.md) |
