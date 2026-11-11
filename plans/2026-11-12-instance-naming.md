@@ -73,3 +73,29 @@
 ### 提交与标签
 
 格式/差异、工作区与暂存门禁均已通过。交付提交包含本方案；提交后由 hooks 生成根标签，再用版本检查器逐个创建并核对独立组件标签，最终提交标识与实际标签核验结果在交付回复报告，避免在同一提交中写入自身哈希。不可移动标签清单：miresidian-v0.33.0、miresidian_macro-v0.29.0、miresidian_instance-v0.17.0、miresidian_batch-v0.3.2、miresidian_pack-v0.13.5、miresidian_cli-v0.3.6。
+
+
+## 2026-11-12 推送与正式发布阶段
+
+### 授权、版本与范围
+
+用户明确要求“那就推送和发布吧”，授权本次 master 与六个组件标签的推送，以及六个当前版本的 crates.io 正式发布及发行验收。本节取代原实施阶段“不推送、不发布”的执行边界；原候选描述保留其当时事实。不升级独立 serial/tcp_client/smoke-node，不发布无关或被取代版本，不创建 GitHub Release、工具归档或部署。
+
+- 发行源码固定为 5fb35784e14aca005868b39f6ba8858ba77de8b3；六个不可移动标签均已指向该提交。预检远端 master 为 8e63003fdc40cc160f332d65a1881a5f889d76c8，尚无本次六标签。
+- 正式清单：miresidian_macro 0.29.0、miresidian_instance 0.17.0、miresidian_batch 0.3.2、miresidian 0.33.0、miresidian_pack 0.13.5、miresidian_cli 0.3.6。
+- 复核 codec 0.18.0、ABI 0.17.1、format 0.4.1、lease 0.17.4 与 TestFlow 0.13.0 的实际 registry 可用性；已有可用版本不重复发布。官方 API 预检证据存 /tmp/instance-release-preflight.json；上传前确认目标状态，已存在版本必须先核对源码和 checksum，不能覆盖。
+- 此阶段仅更新本方案，版本影响：无；发布原有已验证标签快照，不修改产品/工具代码、交付指导、版本或锁文件，不因归档发行事实提升无关补丁，也不移动已有标签。包内候选措辞记录原实施阶段，正式发行事实由本节和精确 registry/docs.rs 验收记录提供。
+
+### 实现方式与执行步骤
+
+1. 先提交本阶段方案，提交说明明确纯方案版本影响为无；fetch 后确认远端 master 是本地祖先，逐个核对待推标签同指向。以显式 refspec 原子推送 master 和六标签，不 force、不使用全局 --tags，核对远端解引用。
+2. 在 /tmp/miresidian-publish-0.33.0 创建固定 5fb3578 的干净 detached worktree；逐组件执行 --require-tag，检查正式包文件清单及必要源码/README/CHANGELOG/迁移手册/模板/套件清单。复用本方案已有测试、静态检查、MSRV 与文档证据，发布阶段保留 Cargo 正式包编译验证；不重复等价 dry-run 或无关全量测试。
+3. 按宏 → 实例 → batch → 根框架 → Pack → CLI 的顺序执行 cargo publish -p <crate> --locked --all-features；每个新依赖已能由 crates.io 解析后再发布依赖方。不使用 --allow-dirty 或 --no-verify，不绕过 registry。凭据仅由 Cargo/Git 既有配置使用，不输出任何令牌。网络失败先核对实际上传状态，确认不存在后才重试。
+4. 检查此次 GitHub CI 结果；直接阻断发行的失败先查证并按原规则修复，若需源码变更则先修订方案、独立升版，不覆盖已发布包或移动旧标签。因本次未交付 DLL，不额外升级 Node 或执行硬件操作。
+5. 从官方 API 核对六版本均未撤回，下载各 .crate 并比对 SHA-256/checksum；.cargo_vcs_info.json 必须为 5fb3578 且非 dirty；README/CHANGELOG/关键源码与发行快照一致。检查规范化清单第一方精确依赖无 path/git，根 feature 仅 instance → miresidian_instance/runtime，宏与策略字段已改名；CLI 内嵌最低 Pack 0.13.5。
+6. 核对六个精确 GitHub 标签源码和 docs.rs README/源码入口；四个库核对精确 API，根额外核对 instance feature、NodeDescriptor.instance、NodeEnum 及 format 可选 API，新实例包核对 InstanceStore 和 runtime 调度入口。Pack/CLI 是二进制工具，按实际目标核对 README/源码/内嵌清单，不要求不存在的库 API。排队或失败按实际状态记录，有限复查，不用上传成功代替文档可访问。
+7. 将真实结果、来源提交、checksum、在线资料和剩余边界归档本方案，纯方案提交并推送 master，六个发行标签继续固定 5fb3578。最终报告发布版本、提交/标签、registry、文档及 CI 状态。
+
+### 发布验收
+
+完成条件：六个包正式 Cargo 验证/上传成功，官方精确版本和下载源码吻合，远端提交/标签正确，线上资料状态已分别确认，实际证据归档且工作区干净。尚未执行的上传、在线文档或 CI 不记作通过。发布执行结果待填。
