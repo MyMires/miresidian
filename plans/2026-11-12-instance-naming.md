@@ -98,4 +98,30 @@
 
 ### 发布验收
 
-完成条件：六个包正式 Cargo 验证/上传成功，官方精确版本和下载源码吻合，远端提交/标签正确，线上资料状态已分别确认，实际证据归档且工作区干净。尚未执行的上传、在线文档或 CI 不记作通过。发布执行结果待填。
+完成条件：六个包正式 Cargo 验证/上传成功，官方精确版本和下载源码吻合，远端提交/标签正确，线上资料状态已分别确认，实际证据归档且工作区干净。尚未执行的上传、在线文档或 CI 不记作通过。实际执行结果见下节。
+
+
+### 正式发布执行结果（2026-11-12）
+
+- master 与六个显式标签已原子推送，未使用 force 或全局 --tags；发布方案提交为 5b293ab5b45a3875ce78af62dcd877834d013a2f。逐个读取远端 annotated tag 解引用，六标签均固定在发行源码 5fb35784e14aca005868b39f6ba8858ba77de8b3；GitHub API 的精确标签清单 blob 与本地一致，未移动任何既有标签。
+- 六个精确版本均已正式注册到 crates.io，yanked=false，发布包均来自上述干净 detached worktree。各包保留正式 Packaging/Verifying 编译与 Uploading，不使用 --allow-dirty/--no-verify，也未重复发布已存在依赖。
+- macro 0.29.0 首次正式打包、编译通过后，上传响应出现网络超时；立即查询尚为 404，随后注册完成并返回 200。重试流程在实际再次上传前检测到已存在，下载并确认 checksum/来源一致后跳过，因此没有重复上传或覆盖版本。其余五包在保守 HTTP 设置下正式 cargo publish 返回成功。原始超时日志与后续来源校验分别保留，不将首次命令的失败返回值伪记为成功。
+
+| 组件 | 版本 | 不可移动标签 | 官方包 SHA-256 |
+| --- | --- | --- | --- |
+| [miresidian_macro](https://crates.io/crates/miresidian_macro/0.29.0) | 0.29.0 | `miresidian_macro-v0.29.0` | `84a27d5e4229803367db9981d441ee098083ce3aff17a47bbb93e35441bce655` |
+| [miresidian_instance](https://crates.io/crates/miresidian_instance/0.17.0) | 0.17.0 | `miresidian_instance-v0.17.0` | `9bcd230e01c11a9e556c76027554369dea3332a3ec9a1664e75f9d531ea5f029` |
+| [miresidian_batch](https://crates.io/crates/miresidian_batch/0.3.2) | 0.3.2 | `miresidian_batch-v0.3.2` | `5b9cfaf4802a87973f88178e3aa0d639cc70b49ef5df997d722c0d6c0c3414ed` |
+| [miresidian](https://crates.io/crates/miresidian/0.33.0) | 0.33.0 | `miresidian-v0.33.0` | `58e54f19205658a21400362b84a7936f675d47c5a34ff1ae8a1e5361a9234922` |
+| [miresidian_pack](https://crates.io/crates/miresidian_pack/0.13.5) | 0.13.5 | `miresidian_pack-v0.13.5` | `0d492db12bb342f6f2f05d36cb5a20391902290b28ae46728dc28f59ff883ef6` |
+| [miresidian_cli](https://crates.io/crates/miresidian_cli/0.3.6) | 0.3.6 | `miresidian_cli-v0.3.6` | `4d831623eb8f27150d323ed5810e160203434df819be6762dc75c84c969980d0` |
+
+- 逐包从官方 static.crates.io 下载 .crate，实际 SHA-256 均与官方 API checksum 一致；.cargo_vcs_info.json 的 sha1 为发行提交，dirty=false（或未设置），path_in_vcs 与各组件目录一致。逐字节核对 README、日期 CHANGELOG、Cargo.toml.orig 及全部包内能映射回快照的文件：macro 19、instance 7、batch 6、根 255、Pack 27、CLI 15 个文件，均一致。
+- 规范化清单第一方依赖为对应精确版本且无 path/git；根只声明 instance → miresidian_instance/runtime，不含旧 feature/旧 crate 依赖。NodeDescriptor.instance 与宏 __require_instance_runtime 均进入正式包，Pack 同时校验新旧包来源，CLI 内嵌套件 0.3.6 / 最低 Pack 0.13.5 正确。
+- 六个精确 README/源码页面、四个库 API，以及 NodeDescriptor.instance、NodeEnum、format 可选 API、InstanceStore、实例 runtime 调度源码共 21/21 处精确 docs.rs 页面均返回 200，URL 未回退到其他版本或将介绍页当 API。六份 README 均进一步核对实际正文与发行文件一致；早期 CLI 的短暂 404 已在最终检查中消除。runtime 调度按公开 feature 门禁及精确版本源码核对。关键入口：[根 API](https://docs.rs/miresidian/0.33.0/miresidian/)、[实例 API](https://docs.rs/miresidian_instance/0.17.0/miresidian_instance/)、[字段](https://docs.rs/miresidian/0.33.0/miresidian/struct.NodeDescriptor.html)、[可选 format](https://docs.rs/miresidian/0.33.0/miresidian/format/)、[实例调度源码](https://docs.rs/crate/miresidian_instance/0.17.0/source/src/dispatch.rs)。
+- 本次推送 5b293ab 的 [主 CI](https://github.com/MyMires/miresidian/actions/runs/43065635585) 和[独立工具套件 CI](https://github.com/MyMires/miresidian/actions/runs/43065635353) 均 completed/success。主 CI 的 framework、Windows 工具端到端、Rust 1.89/windows-latest、Rust 1.89/ubuntu-latest 全部成功；套件 Linux/Windows 构建、真实进程、registry 模板及套件验证通过。复用此前本地默认/单特性/全特性、Clippy、Rustdoc、MSRV 和版本门禁证据，无需对纯记录提交重复完整 CI。
+- 本次未修改独立 Node、smoke-node 或 skill，未发布无关组件/被取代的框架候选，未执行硬件操作或额外创建 GitHub Release。完整发布验收已完成，无待发布或文档排队项。
+
+临时证据：/tmp/instance-release-preflight.json、/tmp/instance-publish-attempt1-results.json、/tmp/instance-publish-results.json、/tmp/instance-release-artifacts.json、/tmp/instance-release-online.json、/tmp/instance-release-github-source.json、/tmp/instance-release-ci-main.json 和逐包发布日志。上述校验关键事实及完整 checksum 已在此方案持久归档；临时日志不作为唯一长期资料入口。
+
+本节以纯方案记录提交推送 master（版本影响：无），沿用已通过的源码 CI；只含发布验收记录的提交使用 [skip ci]，Git 版本门禁仍正常执行。最终记录提交 ID 与远端复核由本次交付回复报告，六个发行标签继续指向 5fb3578。
