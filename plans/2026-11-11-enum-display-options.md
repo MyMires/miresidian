@@ -318,3 +318,19 @@ fn choose(
 7. 在本方案归档真实结果，以纯方案提交推送；发行标签仍指向各自原提交，不移动。最终报告实际版本、发行提交/标签、registry 与文档验证以及任何未完成边界。
 
 发布结果待补充；本节不把预检记为已推送或已发布。
+
+## 2026-11-11 GitHub CI 失败修复（发布前调整）
+
+用户报告 GitHub 报错并授权修复。远端 master/标签已成功推送，失败为 CI 43000420396：Windows Rust 1.89 的 shared_resource::complete_transactions_are_serialized_across_independent_clients 在首个 SharedResource::acquire 返回 LocalIpc(os error 5)。Linux MSRV 被矩阵 fail-fast 取消；framework 与 Windows 工具任务通过。日志 /tmp/miresidian-ci-windows-msrv.log。
+
+原因：local_ipc/service.rs 在连接失败后竞争创建监听器，仅接受 AddrInUse。interprocess 2.4.6 使用 FILE_FLAG_FIRST_PIPE_INSTANCE；Microsoft CreateNamedPipeW 文档明确同名管道已存在时返回 ERROR_ACCESS_DENIED (5)，不会返回 Unix 的 AddrInUse。多个线程/进程同时首次连接会走到该路径。
+
+设计与文件范围：
+
+- 将既有连接快速路径后的创建/连接逻辑收为私有 start_and_connect；创建返回 AddrInUse 或 Windows 原生错误 5 时，仅把它视为可能已有监听器，继续既有有限次数连接。只有实际连接成功才返回成功；次数耗尽返回原创建错误，真正权限拒绝不被吞掉。其他创建错误立即返回，不扩大错误匹配。
+- 在该模块添加确定性回归：先启动/连接真实服务并保留连接，再直接进入 start_and_connect，强制触发同名监听器创建冲突，验证仍能连接。保留既有共享资源的并行/多进程回归；不序列化测试、不跳过 Windows、不放宽权限或修改管道独占标记。
+- 更新服务模块注释、lease 双语 README/日期 CHANGELOG、根双语 README/日期 CHANGELOG、docs/shared-resources.md 与 docs/releases/0.30.2.md。根 0.30.1 → 0.30.2、lease 0.17.3 → 0.17.4，根精确依赖和工作区锁文件同步；没有公开 API、C ABI v10 或租约/代理 v2 变化，其他组件和独立 Node 不改。
+- 先运行 lease 定向全特性测试、根 lease 回归、相关严格 Clippy/格式与版本门禁；推送后以 GitHub Windows/Linux Rust 1.89 真实检查为验收，不重复本地全工作区矩阵。
+- 新补丁提交及不可移动标签核对后推送。正式发行清单中的 root/lease 改为 0.30.2/0.17.4，并从新提交干净快照发布；不发布已被取代的 0.30.1/0.17.3，不移动先前标签。其他九个发行快照及正式包/registry/docs.rs 验收按前节执行。发布前先确认修复 CI。
+
+修复本地验收：lease 全特性 16 项通过（含确定性同名监听器分支和既有并行/多进程回归）；根 lease_initialization/lease_recovery 通过（子进程辅助入口仍按原约定忽略），lease 严格 Clippy、fmt/diff 与版本门禁通过。证据 /tmp/miresidian-ci-fix-{lease,runtime,clippy}.log。Windows 实测以本次推送后的 GitHub CI 结果为准，尚未将本地 Linux 结果当作 Windows 验收。

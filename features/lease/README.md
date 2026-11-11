@@ -66,7 +66,7 @@ impl CanNode {
 
 ## 物理资源共享
 
-本检出源码候选为 0.17.3，精确依赖 codec 0.18.0，由根框架 0.30.0 使用；自身 API、租约及资源代理协议 v2 保持。候选尚未发布，下文 0.17.0 示例保留旧版用法，采用前须核实该精确版本可用。
+本检出源码候选为 0.17.4，精确依赖 codec 0.18.0，由根框架 0.30.2 使用；自身 API、租约及资源代理协议 v2 保持。候选尚未发布，下文 0.17.0 示例保留旧版用法，采用前须核实该精确版本可用。
 
 根框架保留现有 lease 标注。Lease 模式由 SharedResource 自动持有唯一节点资源对象：第一个引用初始化，后续引用取得相同初始化输出并转发业务调用，最后引用调用 close_device、析构，再释放所有者租约。Direct 模式仍本地初始化。节点状态随资源对象一起共享，不能用此模式获得独立业务计数。
 
@@ -95,3 +95,7 @@ Windows 上使用 GetModuleHandleExW 的 PIN | FROM_ADDRESS，Unix 上保留实�
 ## 0.17.1 在线资料
 
 本补丁配置 docs.rs 启用全部 features，确保 local_ipc、SharedResource、ResourceHandler、close_with 和 transact_with_timeout 进入在线文档；它不改变默认启用能力或运行时行为。独立使用仍须显式启用 local-ipc，根框架使用 lease feature。精确入口：[完整 API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/)、[共享资源](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html)、[同版本源码与手册](https://github.com/MyMires/miresidian/tree/miresidian_lease-v0.17.1/features/lease)。发布后分别核实 registry 和文档构建状态，文档未生成时先查上述源码。
+
+## 0.17.4 并发启动修复
+
+Windows 命名管道同名监听器竞争会返回原生错误 5。首次获取租约时，客户端继续有界尝试连接已启动的服务，只有实际连接成功才复用；重试耗尽仍返回原创建错误，不忽略真实权限拒绝。Unix 的地址占用竞争处理保持。此行为只用于首次建立服务连接，已失效租约不自动重连或重放；配置租约和资源代理协议均保持 v2。采用时升级到包含本修复的已发布依赖并重新构建所有相关 DLL，无需更改业务参数。

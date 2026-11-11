@@ -34,10 +34,15 @@ pub(super) fn connect_or_start() -> Result<Stream, LeaseError> {
         return Ok(stream);
     }
 
+    start_and_connect()
+}
+
+// 快速连接失败后，允许其他线程或进程先创建服务，再连接到胜出者。
+fn start_and_connect() -> Result<Stream, LeaseError> {
     let name = service_name()
         .to_ns_name::<GenericNamespaced>()
         .map_err(io_error)?;
-    match ListenerOptions::new().name(name).create_sync() {
+    let startup_error = match ListenerOptions::new().name(name).create_sync() {
         Ok(listener) => {
             pin_service_module()?;
             let generation = LeaseId::random()?;
@@ -45,10 +50,11 @@ pub(super) fn connect_or_start() -> Result<Stream, LeaseError> {
                 .name("miresidian-lease-service".to_owned())
                 .spawn(move || serve(listener, generation))
                 .map_err(|error| LeaseError::LocalIpc(format!("无法启动本地租约服务：{error}")))?;
+            None
         }
-        Err(error) if error.kind() == io::ErrorKind::AddrInUse => {}
+        Err(error) if listener_may_exist(&error) => Some(error),
         Err(error) => return Err(io_error(error)),
-    }
+    };
 
     for _ in 0..50 {
         if let Ok(stream) = connect() {
@@ -56,9 +62,17 @@ pub(super) fn connect_or_start() -> Result<Stream, LeaseError> {
         }
         thread::sleep(Duration::from_millis(10));
     }
-    Err(LeaseError::LocalIpc(
-        "无法连接 Miresidian 本地租约服务".to_owned(),
-    ))
+    Err(startup_error
+        .map(io_error)
+        .unwrap_or_else(|| LeaseError::LocalIpc("无法连接 Miresidian 本地租约服务".to_owned())))
+}
+
+fn listener_may_exist(error: &io::Error) -> bool {
+    // interprocess 使用 FIRST_PIPE_INSTANCE；Windows 同名管道竞争返回错误 5。
+    // 只有之后实际连接成功才视为复用；真正权限拒绝仍在截止后返回原错误。
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    error.kind() == io::ErrorKind::AddrInUse
+        || (cfg!(windows) && error.raw_os_error() == Some(ERROR_ACCESS_DENIED))
 }
 
 fn connect() -> Result<Stream, LeaseError> {
@@ -177,4 +191,16 @@ fn release(registry: &Mutex<LeaseRegistry>, lease: LeaseId) -> Result<(), LeaseE
         .map_err(|_| LeaseError::Invalidated)?
         .release(lease)
         .map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn existing_listener_is_reused_after_a_startup_race() {
+        let _first = connect_or_start().unwrap();
+        // 强制跳过快速连接，确定性覆盖其他调用者已创建同名监听器的分支。
+        let _second = start_and_connect().unwrap();
+    }
 }

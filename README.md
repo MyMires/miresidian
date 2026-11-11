@@ -4,7 +4,7 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.30.1**，C ABI 为 **v10**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.30.2**，C ABI 为 **v10**，租约协议为 **v2**。
 
 **[0.30.0 枚举与单 JSON 入口](docs/releases/0.30.0.md)** · **[0.29.0 公开类型命名迁移](docs/releases/0.29.0.md)** · **[0.28.0 宏简写与兼容迁移](docs/releases/0.28.0.md)** · **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[运行时平台选择与 v9 迁移](docs/releases/0.27.0.md)**
 
@@ -42,7 +42,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.30.1** 是尚未发布的枚举派生与唯一 JSON ABI 源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
+以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.30.2** 是尚未发布的枚举派生与唯一 JSON ABI 源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
 
 ```toml
 [lib]
@@ -77,7 +77,7 @@ impl EchoNode {
 }
 ```
 
-本源码 0.30.1 / ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 业务调用入口和 `miresidian_abi_version()` 版本查询。请求如 `{"platform":1,"function":"GetFunctions"}`；platform 非零指定已注册平台，0/省略使用 DLL 固定默认平台。Config 不发布也不接受“平台适配”选择。先核对 ABI 10 再使用单参数签名，不能把上面已发布 0.26.0/v8 的调用方式与本候选混用。响应和指针复制要求见 [C ABI](docs/c-abi.md)。
+本源码 0.30.2 / ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 业务调用入口和 `miresidian_abi_version()` 版本查询。请求如 `{"platform":1,"function":"GetFunctions"}`；platform 非零指定已注册平台，0/省略使用 DLL 固定默认平台。Config 不发布也不接受“平台适配”选择。先核对 ABI 10 再使用单参数签名，不能把上面已发布 0.26.0/v8 的调用方式与本候选混用。响应和指针复制要求见 [C ABI](docs/c-abi.md)。
 
 子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
@@ -107,8 +107,10 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本检出对应框架 0.30.1、macro 0.26.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
+本检出对应框架 0.30.2、macro 0.26.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
 
 已发布版本可查 [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) 与 [format API](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html)。本次未发布的新版本文档须在本检出执行 `cargo doc -p miresidian --all-features --no-deps --locked` 查看；源码提交、本地标签、registry 发布与 docs.rs 可用性分别确认。配置租约 v2、资源代理 v2 和 MSRV 1.89 保持。
 
 0.30.1 仅补齐原始元数据与平台渲染的 Rustdoc、通用状态描述及规范查阅入口；NodeEnum 和 ABI v10 行为保持，详见[资料修正](docs/releases/0.30.1.md)。
+
+0.30.2 使用 lease 0.17.4，修复 Windows 命名管道并发启动的错误 5：竞争者仅在实际连接已有服务成功后复用，真正连接失败仍返回错误。已有失效会话不重连、不重放；协议无需迁移，详见[修复说明](docs/releases/0.30.2.md)。

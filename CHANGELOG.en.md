@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.30.2] - 2026-11-11
+
+- Depend exactly on lease 0.17.4 to handle Windows named-pipe startup contention. Reuse succeeds only after connecting; failed attempts preserve the original creation error.
+- Add deterministic existing-listener coverage and synchronize bilingual guidance, migration notes and the lockfile. Public APIs, C ABI v10 and both lease/resource protocols v2 are unchanged.
+
 ## [0.30.1] - 2026-11-11
 
 - Replace stale ABI details in coding standards with the actual-version contract reference; clarify raw versus platform-rendered metadata Rustdoc.

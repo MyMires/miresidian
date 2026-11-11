@@ -2,6 +2,11 @@
 
 [中文](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
+## [0.17.4] - 2026-11-11
+
+- Handle Windows error 5 from competing FILE_FLAG_FIRST_PIPE_INSTANCE listeners during initial service connection. Bound connection attempts and return the original creation error if they fail.
+- Add real existing-listener regression coverage and bilingual guidance. Public APIs and configuration-lease/resource-proxy protocols v2 remain unchanged.
+
 ## [0.17.3] - 2026-11-11
 
 - Update the exact codec dependency to 0.18.0. Lease/shared-resource APIs and protocols v2 remain unchanged; synchronize candidate-version guidance.

@@ -2,7 +2,7 @@
 
 [中文](README.md) · [English](README.en.md)
 
-Source candidate `miresidian_lease` 0.17.3 updates its exact codec dependency to 0.18.0 for framework 0.30.0. Its configuration-lease and shared-resource APIs are unchanged. This candidate is unpublished; the dependency examples below retain preceding API versions and must be checked against the registry before use. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
+Source candidate `miresidian_lease` 0.17.4 updates its exact codec dependency to 0.18.0 for framework 0.30.2. Its configuration-lease and shared-resource APIs are unchanged. This candidate is unpublished; the dependency examples below retain preceding API versions and must be checked against the registry before use. Rust MSRV is **1.89**. The configuration lease protocol remains **v2**; resource proxies use a separate **v2** protocol.
 
 Node projects normally enable the capability through the root crate:
 
@@ -53,3 +53,7 @@ ResourceHandler::close(request) runs only for the last session; errors and panic
 ## Exact-version documentation
 
 0.17.1 enables all features for docs.rs only. The default feature set, local-ipc opt-in, runtime behavior, and resource/configuration protocols are unchanged. See the [full API](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/), [SharedResource methods](https://docs.rs/miresidian_lease/0.17.1/miresidian_lease/shared/struct.SharedResource.html), and [matching source/manuals](https://github.com/MyMires/miresidian/tree/miresidian_lease-v0.17.1/features/lease). Verify registry publication and docs.rs completion separately; use matching source while documentation is pending.
+
+## 0.17.4 startup contention fix
+
+Windows reports native error 5 when another listener wins creation of the same named pipe. Initial lease acquisition makes bounded attempts to connect to that service, succeeding only on a real connection. Exhaustion returns the original creation error, preserving genuine permission failures. Unix address-in-use handling is retained. Invalidated sessions do not reconnect or replay; both protocols remain v2. Select a published dependency containing this fix and rebuild participating DLLs; business parameters require no changes.
