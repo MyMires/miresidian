@@ -334,3 +334,34 @@ fn choose(
 - 新补丁提交及不可移动标签核对后推送。正式发行清单中的 root/lease 改为 0.30.2/0.17.4，并从新提交干净快照发布；不发布已被取代的 0.30.1/0.17.3，不移动先前标签。其他九个发行快照及正式包/registry/docs.rs 验收按前节执行。发布前先确认修复 CI。
 
 修复本地验收：lease 全特性 16 项通过（含确定性同名监听器分支和既有并行/多进程回归）；根 lease_initialization/lease_recovery 通过（子进程辅助入口仍按原约定忽略），lease 严格 Clippy、fmt/diff 与版本门禁通过。证据 /tmp/miresidian-ci-fix-{lease,runtime,clippy}.log。Windows 实测以本次推送后的 GitHub CI 结果为准，尚未将本地 Linux 结果当作 Windows 验收。
+
+## 2026-11-11 正式发行与 GitHub 修复最终结果
+
+GitHub 原始失败已修复并推送：提交 8342cf1bb91e7dd3bac9953c23680203fdb0bfcc，框架 0.30.2、lease 0.17.4。不可移动标签 miresidian-v0.30.2、miresidian_lease-v0.17.4 均指向该提交。原失败为 Windows 并发启动命名管道的 CI 运行失败，Git 推送本身成功。
+
+- [CI 43013459307](https://github.com/MyMires/miresidian/actions/runs/43013459307) 全部成功：framework、Windows/Linux Rust 1.89、Windows 工具端到端；原失败的共享资源并发测试及新增确定性监听器回归在 Windows 真实运行通过。
+- [独立工具套件 43013459188](https://github.com/MyMires/miresidian/actions/runs/43013459188) 验证成功：Linux/Windows 两项套件构建、安装与真实进程验证均通过；仅手动分发触发的 draft-release 按既有条件跳过。复用既有工作流，未额外重复本地全工作区矩阵。证据 /tmp/miresidian-ci-fix-github.json、/tmp/miresidian-toolset-fix-github.json。
+- master 与本次历史范围内的 25 个明确版本标签已推送，逐一核对远端对象和解引用提交；没有 force、移动已有标签或推送无关标签。
+- 以下 11 个精确版本已正式发布至 crates.io，未撤回；逐包执行 cargo publish --locked --all-features，保留正式包编译验证，无 --allow-dirty/--no-verify。ABI 第一次上传 TLS 中断，确认精确版本仍 404 后重试成功，没有重复上传已存在版本。
+
+| 组件 | 已发布版本 | 发行提交 |
+| --- | --- | --- |
+| [miresidian_codec](https://crates.io/crates/miresidian_codec/0.18.0) | 0.18.0 | 24ef546 |
+| [miresidian_abi](https://crates.io/crates/miresidian_abi/0.17.1) | 0.17.1 | f21e8a1 |
+| [miresidian_macro](https://crates.io/crates/miresidian_macro/0.26.0) | 0.26.0 | 24ef546 |
+| [miresidian_instances](https://crates.io/crates/miresidian_instances/0.16.8) | 0.16.8 | 24ef546 |
+| [miresidian_lease](https://crates.io/crates/miresidian_lease/0.17.4) | 0.17.4 | 8342cf1 |
+| [miresidian_format](https://crates.io/crates/miresidian_format/0.4.1) | 0.4.1 | 24ef546 |
+| [miresidian_batch](https://crates.io/crates/miresidian_batch/0.3.1) | 0.3.1 | 24ef546 |
+| [miresidian](https://crates.io/crates/miresidian/0.30.2) | 0.30.2 | 8342cf1 |
+| [miresidian_pack](https://crates.io/crates/miresidian_pack/0.13.4) | 0.13.4 | 0698149 |
+| [miresidian_testflow_windows](https://crates.io/crates/miresidian_testflow_windows/0.13.0) | 0.13.0 | 24ef546 |
+| [miresidian_cli](https://crates.io/crates/miresidian_cli/0.3.5) | 0.3.5 | 24ef546 |
+
+每行的不可移动标签为 `<组件>-v<版本>`。框架/lease 最新修复快照为 8342cf1，ABI 为 f21e8a1，Pack 为 0698149，其余为 24ef546。全部从各自干净 detached worktree 发布，未把方案归档提交写入发行包 provenance。0.30.1 与 lease 0.17.3 被本次修复取代，保留原标签，不额外发布中间版本。
+
+逐包下载官方 .crate，SHA-256 与 registry checksum 一致，.cargo_vcs_info.json 的准确提交、组件路径及非 dirty 状态均与对应标签一致。README、日期 CHANGELOG 和关键源码与发行快照逐字节一致；规范化第一方依赖均为精确版本，无 path/git 覆盖。证据 /tmp/miresidian-release-publish-results.json，逐包日志 /tmp/miresidian-publish-<组件>-<版本>.log。
+
+在线资料验收 36/36 实际可访问：八个库各自精确版本 README/API/源码、三个工具 README/源码，以及根 NodeEnum、EnumOption、NodeInput、PlatformAdapter 成对方法、format 可选入口和 ABI 常量页面。拒绝把重定向到包介绍页计作 API 成功，早期缓存/排队状态在最终核对时消除。ABI 在线常量实为 10，下载头文件仅含 miresidian_invoke(request_json) 业务调用及独立版本查询。证据 /tmp/miresidian-release-docs-results.json；[根精确 API](https://docs.rs/miresidian/0.30.2/miresidian/)、[根源码与 README](https://docs.rs/crate/miresidian/0.30.2)、[ABI 精确 API](https://docs.rs/miresidian_abi/0.17.1/miresidian_abi/)。
+
+本阶段未升级独立 Node、未操作硬件、未修改 skill 或无关组件。最终归档仅修改本方案，版本影响：无；不更改产品契约或发行标签。归档提交保留本地版本门禁，使用 [skip ci] 避免对纯发行记录重复触发整套构建；有效执行验证对应实际发行源码 8342cf1。
