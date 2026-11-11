@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-11
+
+- 公共源码注释改用业务节点、资源及业务操作语义，不将通用状态限定为设备；类型、常量、函数签名与 ABI v10 行为保持。
+- 同步 README；不修改头文件或协议编号。
+
 ## [0.17.0] - 2026-11-11
 
 - C ABI 升至 v10，唯一业务入口为 miresidian_invoke(const char *request_json)，删除旧三参数入口、invoke_with 及旧 invoke_request 名称。

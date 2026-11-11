@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-11
+
+- Replace stale ABI details in coding standards with the actual-version contract reference; clarify raw versus platform-rendered metadata Rustdoc.
+- Update ABI dependency to 0.17.1 for generic public comments only. Skill remains version-independent; all five repository/installed files match. NodeEnum, runtime and ABI v10 behavior remain unchanged.
+
 ## [0.30.0] - 2026-11-11
 
 - Add NodeEnum codecs and structured choices for fieldless business enums. Missing descriptions use typed choices, explicit descriptions take precedence, and missing values never select the first choice.

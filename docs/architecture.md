@@ -1,6 +1,6 @@
 # 架构总览
 
-本检出 0.30.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
+本检出 0.30.1 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
 
 [文档中心](README.md) · [项目首页](../README.md)
 

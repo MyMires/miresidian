@@ -2,7 +2,7 @@
 
 [文档中心](../docs/README.md) · [C ABI 完整契约](../docs/c-abi.md)
 
-本检出为 **0.17.0 / ABI v10** 源码候选，尚未发布。节点通常通过根框架使用本 crate；宿主按实际 DLL 报告的 ABI 绑定函数，不从框架语义版本推断签名。
+本检出为 **0.17.1 / ABI v10** 源码候选，尚未发布。节点通常通过根框架使用本 crate；宿主按实际 DLL 报告的 ABI 绑定函数，不从框架语义版本推断签名。
 
 唯一业务调用为：
 
@@ -21,4 +21,6 @@ const char *miresidian_invoke(const char *request_json);
 
 ## English
 
-Source candidate 0.17.0 defines ABI v10 and is unpublished. Its only invocation export is `miresidian_invoke(const char *request_json)`; retain `miresidian_abi_version()` for checking the signature before invocation. Old split-argument exports and the old request-export name are removed. JSON platform zero or omission selects the DLL's fixed default; nonzero selects a registered adapter. Config never selects a platform. Hosts must migrate the function-pointer type and Config layout. Response ownership, field order, stable platform identifiers and immediate-copy requirements remain as documented in the header.
+Source candidate 0.17.1 defines ABI v10 and is unpublished. Its only invocation export is `miresidian_invoke(const char *request_json)`; retain `miresidian_abi_version()` for checking the signature before invocation. Old split-argument exports and the old request-export name are removed. JSON platform zero or omission selects the DLL's fixed default; nonzero selects a registered adapter. Config never selects a platform. Hosts must migrate the function-pointer type and Config layout. Response ownership, field order, stable platform identifiers and immediate-copy requirements remain as documented in the header.
+
+0.17.1 仅将公共源码说明统一为业务节点/资源语义，状态码、平台常量、C 头文件和 ABI v10 签名均保持。

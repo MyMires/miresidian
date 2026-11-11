@@ -1,7 +1,7 @@
 //! Miresidian C ABI 的公共类型。
 //!
 //! 实际导出函数由每个节点 crate 上的 `#[miresidian::node]` 生成；运行时 crate
-//! 本身不绑定任何具体设备，也不导出某个节点 DLL。
+//! 本身不绑定任何业务节点或资源，也不导出某个节点 DLL。
 
 use std::{ffi::c_char, ptr};
 
@@ -15,7 +15,7 @@ pub const MIRESIDIAN_PLATFORM_DEFAULT: u32 = 0;
 pub const MIRESIDIAN_STATUS_OK: MiresidianStatus = 0;
 /// C ABI 参数为空、格式错误或不是有效 UTF-8。
 pub const MIRESIDIAN_STATUS_INVALID_ARGUMENT: MiresidianStatus = 1;
-/// 设备操作、生命周期或通信失败。
+/// 业务操作、资源生命周期或通信失败。
 pub const MIRESIDIAN_STATUS_OPERATION_FAILED: MiresidianStatus = 2;
 /// Rust 内部发生了已捕获的 panic。
 pub const MIRESIDIAN_STATUS_INTERNAL_ERROR: MiresidianStatus = 3;

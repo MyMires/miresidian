@@ -8,7 +8,7 @@ pub use miresidian_instances::ExecutionMode;
 pub const SHARED_EXECUTION_MODE_DEFINITION: &str =
     "共享执行方式:Sequential-顺序/Parallel-并行/Broadcast-广播";
 
-/// 框架自动追加到 `InitDevice` 的平台适配器选择器名称。
+/// 历史平台选择参数名称，仅用于拒绝旧 Config 与诊断；不再发布为参数。
 pub const PLATFORM_ADAPTER_NAME: &str = "平台适配";
 
 /// 节点租约的激活策略。`Selectable` 由平台在初始化时选择访问路径。
@@ -58,7 +58,7 @@ pub const RESOURCE_ACCESS_DEFINITION: &str = "资源访问方式:Lease-租约/Di
 pub struct ParameterDescriptor {
     /// 供错误诊断使用的参数名称。
     pub name: &'static str,
-    /// 原样发布给平台的完整参数描述。
+    /// 原始参数声明；显式非空描述保留，自动候选由 definition_for 按平台渲染。
     pub definition: &'static str,
     /// 明确指定的框架选择器或手写契约默认值；业务参数宏不从描述推导此值。
     pub default_value: Option<&'static str>,
@@ -117,7 +117,7 @@ impl OperationDescriptor {
         ))
     }
 
-    /// 生成兼容签名：`名称(输入...)(输出...)`。
+    /// 生成原始声明签名，不展开自动候选；面向宿主发布时使用 signature_for。
     pub fn signature(&self) -> String {
         format!(
             "{}({})({})",
@@ -201,7 +201,7 @@ impl NodeDescriptor {
         Ok(values)
     }
 
-    /// 返回固定操作和节点自定义操作的全部签名。
+    /// 返回全部操作的原始声明签名，不展开自动候选；宿主查询使用 function_signatures_for。
     pub fn function_signatures(&self) -> Vec<String> {
         let mut signatures = Vec::with_capacity(self.operations.len() + 8);
         signatures.push(format!("GetFunctions()({})", "函数列表"));
@@ -226,7 +226,7 @@ impl NodeDescriptor {
         signatures
     }
 
-    /// 返回 `GetInitConfig` 所使用的初始化配置元数据。
+    /// 返回原始初始化配置声明，不展开自动候选；宿主查询使用 init_config_definitions_for。
     pub fn init_config_definitions(&self) -> Vec<String> {
         self.config_definitions()
     }
