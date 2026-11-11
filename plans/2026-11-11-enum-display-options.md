@@ -295,3 +295,26 @@ fn choose(
 - 验收仅做注释对应实际实现、当前文档残留和本地链接、两组件严格 Rustdoc、fmt/diff 与 base/staged 版本门禁；核对运行时代码 token 不变、锁文件仅两组件版本变化。完成后提交并核对 root/ABI 不可移动标签，不推送、不发布，不重复编译测试和硬件验证。
 
 复查补齐结果：两条旧规范及元数据/ABI 注释已修正；root 0.30.1、ABI crate 0.17.1（协议仍 v10）。完整 skill 5 文件与安装副本字节一致，无修改。两组件严格 Rustdoc、196 处本地链接/锚点、fmt/diff/base 检查通过；两个 Rust 文件移除 Rustdoc 后与前版完全一致，锁文件仅 root/ABI 两版本变化。未重复功能测试，复用前次已通过结果；未推送、未发布。
+
+## 2026-11-11 推送与正式发布阶段
+
+用户明确授权“推送和发布”，本节覆盖此前仅本地交付边界，授权本任务相关分支/标签推送、当前组件正式发布及实际发行验收；不授权独立 Node 升级、硬件操作或部署。
+
+### 预检与版本影响
+
+- 工作区干净，发行根/ABI 快照为 f21e8a1（框架 0.30.1、ABI 0.17.1/v10）；远端 master 为 677e833，待推送历史包括本任务及先前 Node skill/feature 简写提交。非强制快进，不覆盖远端修改。
+- crates.io API 精确查询确认当前 11 个版本均 404：root 0.30.1、ABI 0.17.1、codec 0.18.0、macro 0.26.0、format 0.4.1、batch 0.3.1、instances 0.16.8、lease 0.17.3、Pack 0.13.4、TestFlow 0.13.0、CLI 0.3.5。预检证据 /tmp/miresidian-release-registry-preflight.json；上传前再核对失败/重试状态，避免重复发布。
+- 按各组件不可移动标签发布：root/ABI 为 f21e8a1，Pack 0.13.4 为 0698149，其余当前组件为 24ef546。三个干净 detached worktree 固定发行提交，不用当前纯方案提交作为包 provenance。
+- 本阶段仅更新方案与实际发行记录，版本影响无；不再修改产品版本、依赖、README 或已有标签。候选 README 是发行快照原实施状态，正式发布事实记录在本阶段，不为更改候选措辞反复升补丁。
+
+### 步骤与验收
+
+1. 先提交本方案，再 fetch 并核对远端分支与新提交的祖先关系；检查相关标签若远端已存在则必须完全同指向。仅原子推送 master 及待推送提交范围内明确列出的版本标签，不 force、不执行全局 --tags；核对远端解引用结果。
+2. 为 f21e8a1、24ef546、0698149 建立 /tmp 下三个干净快照；复用既有功能验证，逐组件 require-tag 并检查包必需文件（README、CHANGELOG、源码、根技术手册/skill、ABI 头文件、宏派生实现、工具内嵌模板/执行器/套件清单）。
+3. 正式发布每个当前版本，顺序为 codec、ABI、macro、instances、lease、format、batch、root、Pack、TestFlow、CLI；依赖 registry 可用后再发布依赖方。对有可选能力的库使用 --all-features，均保留 --locked 与 Cargo 正式 Packaging/Verifying/Uploading，不使用 --allow-dirty、--no-verify，不重复等价 dry-run/全量测试。
+4. Cargo 发布失败先确认 crates.io 精确版本状态；已经成功则不重传，网络/索引未传播仅在证据支持后重试。凭据由既有 Cargo/Git 配置使用，不读取或输出凭据。
+5. 发布后分别核对每个精确版本未撤回、官方 checksum、真实下载包 SHA-256、.cargo_vcs_info.json 的准确 tag 提交与非 dirty、规范化精确依赖/无 path/git、README/日期归档和关键源码；核对远端不可移动标签。
+6. 分别检查 docs.rs 精确版本 README/API/源码，根额外核对 NodeEnum、EnumOption、NodeInput、PlatformAdapter 成对方法和 format 可选入口，ABI 核对 v10/单入口；文档排队或失败按实际报告，不用上传成功代替可访问文档。
+7. 在本方案归档真实结果，以纯方案提交推送；发行标签仍指向各自原提交，不移动。最终报告实际版本、发行提交/标签、registry 与文档验证以及任何未完成边界。
+
+发布结果待补充；本节不把预检记为已推送或已发布。
