@@ -1,0 +1,15 @@
+error[E0425]: cannot find function `__lease_feature_required` in crate `::miresidian`
+ --> tests/ui-lease-feature/bare_lease_feature.rs:2:1
+  |
+2 | #[node("租约短写", lease)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in `::miresidian`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  | #[cfg(feature = "lease")]
+  |       ----------------- the item is gated behind the `lease` feature
+  | #[doc(hidden)]
+  | pub fn __lease_feature_required() {}
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `node` (in Nightly builds, run with -Z macro-backtrace for more info)

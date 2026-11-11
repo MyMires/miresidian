@@ -9,6 +9,9 @@ fn 非法节点声明会在编译期失败() {
     cases.pass("tests/ui-pass/*.rs");
     if cfg!(feature = "lease") {
         cases.compile_fail("tests/ui-lease-fail/*.rs");
+        cases.pass("tests/ui-lease-pass/*.rs");
+    } else {
+        cases.compile_fail("tests/ui-lease-feature/*.rs");
     }
     if cfg!(feature = "instances") {
         cases.compile_fail("tests/ui-instances-fail/*.rs");

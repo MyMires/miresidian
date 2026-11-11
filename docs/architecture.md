@@ -195,6 +195,8 @@ Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯�
 
 ## 节点创建与方法汇总
 
+0.28.0 / macro 0.24.0 在编译期将新旧 feature 声明归一为同一策略：裸 instances 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。format 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instances/format 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[宏简写迁移](releases/0.28.0.md)。
+
 `node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、DeviceNode 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
 
 初始化不再依赖 Default：Direct 解析配置后本地构造；Lease 取得共享代理，由唯一所有者校验接口及完整初始化参数，首次请求才构造 N，后续请求复用初始化输出。取得节点或共享引用及输出后才登记通道。构造失败由构造函数回滚；返回 N 后的输出编码错误由框架关闭并析构该 N，共享所有者失败路径在清理后释放租约。端口探测是独立关联函数，不创建临时节点。

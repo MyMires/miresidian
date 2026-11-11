@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: 参数租约至少需要一个 lease(key)
+ --> tests/ui-lease-fail/short_missing_key.rs:2:1
+  |
+2 | #[node("租约短写", lease)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

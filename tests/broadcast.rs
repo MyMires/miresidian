@@ -7,7 +7,7 @@ use miresidian::{
 };
 use std::ffi::{CStr, CString};
 
-#[miresidian::node("通道1广播验收",instances(mode=multiple,binding=config,execution=broadcast))]
+#[miresidian::node("通道1广播验收", instances(multiple, config, broadcast))]
 struct BroadcastNode {
     calls: u32,
 }

@@ -6,6 +6,15 @@
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-11
+
+- 新增 instances 的裸标记和位置参数短写：裸标记默认 single/固定 sequential，多实例显式指定 multiple 与 config/handle，selectable 保留显式默认策略；未声明节点的单实例/禁用多通道默认保持。
+- 新增 lease、lease(required/disabled)、lease(selectable(required))，与既有固定/可选租约策略归一；资源键、配置比较、共享对象及最后关闭不变，不增加默认 Direct。
+- format 支持 format(hex) 和 format(utf8, hex, base64, selector = "数据格式")，保留旧 formats 数组、首项默认及选择器布局；继续与 batch、async 独立组合。
+- 宏独立升至 0.24.0，精确依赖与工作区锁文件同步。其他运行库/工具、独立 Node/夹具锁文件、C ABI v9、租约/资源代理协议 v2 与 MSRV 1.89 不变。
+- 同步双语 README、宏 Rustdoc、开发/实例/身份/架构手册、迁移说明及四 feature 内存示例。验证记录见 plans/2026-11-11-macro-label-simplification.md；仅本地源码交付，未推送或发布。
+
+
 ## Node 构建 features 选择规范 - 2026-11-11
 
 - Node skill 要求在新建、整体构建或调整 feature 组合前，按项目实际版本展示支持项、用途、默认与当前启用状态、关联配置、组合约束及交付影响，提出建议并由用户选择；已有有效选择可复用，无可选项时明确说明。

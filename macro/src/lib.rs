@@ -14,6 +14,12 @@ use proc_macro::TokenStream;
 /// 参数必须以节点在测试平台中的展示名称开始，例如 `#[miresidian::node("串口通信")]`。
 /// 可选 `platforms(AdapterType, ...)` 将实现 `Default` 的平台适配器编译进该 DLL。
 /// 同模块的 `operation` 独立生成方法契约；本宏汇总注册项并生成节点接口与 C ABI。
+///
+/// `instances` / `instances()` 默认单对象顺序多通道，`instances(multiple, config)`
+/// 明确多对象关联，可追加 `parallel` 或 `selectable(sequential)`。不声明时仍禁用多通道。
+/// `lease` / `lease(required)` 固定租约，`lease(disabled)` 固定直连，
+/// `lease(selectable(required))` 发布选择器且默认租约。旧长写继续支持。
+/// 所需 Cargo feature 必须开启；重复、缺关联、非法策略或同组混用长短写会编译报错。
 #[proc_macro_attribute]
 pub fn node(attribute: TokenStream, item: TokenStream) -> TokenStream {
     node::expand(attribute, item)
@@ -43,13 +49,16 @@ pub fn config(_attribute: TokenStream, item: TokenStream) -> TokenStream {
 /// 标记节点方法输入参数；由 `operation` 消费。
 ///
 /// 用法与 `config` 相同，但应用于 `close_device`、`get_port_no` 和 `operation` 方法的
-/// 非 `self` 参数。
+/// 非 `self` 参数。普通业务参数可用 `batch`、`format(hex)` 或
+/// `format(utf8, hex, selector = "数据格式")`，旧 `format(formats = [...])` 仍有效。
+/// 单格式禁止 selector、多格式必须 selector 且首项默认；重复格式、未知格式或混用语法会报错。
+/// 格式转换只用于普通业务 Input/Output，仍须显式开启对应 feature。
 #[proc_macro_attribute]
 pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-/// 已废弃：租约必须写为 `#[node("名称", lease(...))]` 子配置。
+/// 已废弃：节点租约使用 `#[node("名称", lease)]` 或 `lease(...)` 子配置，参数角色由 config 消费。
 #[proc_macro_attribute]
 pub fn lease(_attribute: TokenStream, _item: TokenStream) -> TokenStream {
     syn::Error::new(
@@ -63,7 +72,8 @@ pub fn lease(_attribute: TokenStream, _item: TokenStream) -> TokenStream {
 /// 标记节点方法输出；由 `operation` 消费。
 ///
 /// 此标注写在方法上，参数为一个或多个输出名称。未标注且返回值不是 `MiresidianResult<()>` 时，
-/// 自动生成名为“返回值”的单个输出。
+/// 自动生成名为“返回值”的单个输出。可使用与 Input 相同的 `format(hex)` 或
+/// 多格式分组；选择器追加在方法输入末尾。旧 formats 数组语法和属性先后顺序保持兼容。
 #[proc_macro_attribute]
 pub fn output(attribute: TokenStream, item: TokenStream) -> TokenStream {
     operation::expand_output(attribute, item)

@@ -35,7 +35,9 @@ single 仍按完整配置复用或替换唯一对象；multiple/handle 仍以框
 
 ## 租约资源键与配置
 
-节点整体策略仍在结构体上，参数角色与实例键独立：
+节点整体策略仍在结构体上，参数角色与实例键独立。0.28.0 起增加 `lease`（固定 required）、`lease(required)`、`lease(disabled)` 和 `lease(selectable(required))` 等价短写；旧 `lease(activation = ...)` 保留。裸标记不发布访问方式选择器，只有 selectable 形式才发布且默认租约；不改变参数角色要求，也不支持默认 Direct。新语法仍须显式启用 Cargo lease feature，独立节点采用前须核实该版本已发布。
+
+参数级 `lease(key/ignore)` 写法保持：
 
 ```rust
 #[miresidian::node("串口节点", lease(activation = selectable))]

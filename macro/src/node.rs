@@ -7,6 +7,7 @@ mod arguments;
 mod ffi;
 mod generate;
 mod instances;
+mod lease;
 
 use proc_macro::TokenStream;
 use syn::{Error, ItemStruct, parse_macro_input};

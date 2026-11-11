@@ -2,10 +2,15 @@
 //!
 //! 框架提供稳定调用契约、生命周期、属性宏与 C ABI，并在通道边界隔离可展开 panic。
 //!
-//! 完整请求入口 `miresidian_invoke_request`（C ABI v8）由宏与两个既有调用入口一起生成。
+//! 完整请求入口 `miresidian_invoke_request` 自 C ABI v8 提供，当前保持 v9，由宏与两个既有入口一起生成。
 //! 请求含必填非空 `function`、可省略的字符串数组 `config`/`input`（默认 `[]`），以及
-//! 可选 u32 数值 `platform`；省略平台字段沿用初始化 Config 的平台选择，提供则显式选型。
+//! 可选 u32 数值 `platform`；省略或为 0 沿用初始化 Config 的平台选择，非零则显式选型。
 //! 三个入口共用运行时和线程响应缓存，调用方应在下一次调用前复制返回文本，不得释放。
+//!
+//! 0.28.0 起支持 feature 短写：`instances` 默认单对象顺序多通道，
+//! `instances(multiple, config)` 显式多对象关联；裸 `lease` 等价于固定 required。
+//! `format(hex)` 与 `format(utf8, hex, selector = "格式")` 可用于普通业务 Input/Output，
+//! 仍与 `batch` 独立组合。旧完整标注、feature 门禁和平台槽位顺序保持兼容。
 //!
 //! # 节点声明示例
 //!

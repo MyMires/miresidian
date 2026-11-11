@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-11
+
+- Add bare and positional instances declarations. Bare instances selects single-object fixed sequential multi-channel execution; multiple requires config/handle and selectable keeps an explicit default. Omitting the annotation retains disabled multi-channel behavior.
+- Add lease, lease(required/disabled), and lease(selectable(required)), preserving existing resource identity, shared ownership and final-close behavior. No default-Direct extension.
+- Accept format(hex) and positional encoding lists with an explicit selector. Preserve old arrays, default ordering, slot layout, batch alignment and async conversion.
+- Upgrade macro independently to 0.24.0 and align the exact internal dependency and workspace lockfile. Other libraries/tools, independent node/fixture lockfiles, ABI v9, protocols v2 and Rust 1.89 remain unchanged.
+- Update bilingual READMEs, macro Rustdoc, technical guides, migration notes and a four-feature in-memory example. Validation is recorded in plans/2026-11-11-macro-label-simplification.md. Local source delivery only; no push or publication.
+
+
 ## Node build feature selection workflow - 2026-11-11
 
 - Before creating or fully building a Node, or changing its feature combination, show the options supported by its actual versions, their purpose, default and active state, related configuration, combination constraints and delivery impact. Recommend a combination and let the user choose; reuse applicable prior choices and state when no options exist.

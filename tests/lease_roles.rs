@@ -1,7 +1,7 @@
 #![cfg(feature = "lease")]
 use miresidian::{DeviceNode, Invocation, MiresidianResult, NodeRuntime};
 
-#[miresidian::node("组合资源", lease(activation = required))]
+#[miresidian::node("组合资源", lease)]
 struct Node;
 impl Node {
     #[miresidian::operation]
@@ -30,6 +30,22 @@ fn config(port: &str, rate: &str, timeout: &str) -> Vec<String> {
 #[test]
 fn independent_runtimes_share_composite_identity_and_reject_conflicting_configuration() {
     let a = NodeRuntime::<Node>::new();
+    assert_eq!(
+        Node::descriptor().lease_activation,
+        miresidian::LeaseActivation::Required
+    );
+    assert_eq!(
+        a.invoke(&Invocation::new("GetInitConfig", vec![], vec![]))
+            .unwrap()
+            .as_slice(),
+        [
+            "地址",
+            "端口:",
+            "速率:",
+            "超时:",
+            "平台适配:tb_lv_test_platform"
+        ]
+    );
     let b = NodeRuntime::<Node>::new();
     let other_port = NodeRuntime::<Node>::new();
     let invoke = |runtime: &NodeRuntime<Node>, config| {

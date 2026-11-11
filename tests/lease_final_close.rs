@@ -1,7 +1,7 @@
 #![cfg(feature = "lease")]
 use miresidian::{Invocation, MiresidianError, NodeRuntime};
 static CLOSED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
-#[miresidian::node("最后关闭参数", lease(activation = required))]
+#[miresidian::node("最后关闭参数", lease(required))]
 struct CloseNode;
 impl CloseNode {
     #[miresidian::operation]

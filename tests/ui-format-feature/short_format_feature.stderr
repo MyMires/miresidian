@@ -1,0 +1,30 @@
+error[E0433]: cannot find `format` in `miresidian`
+ --> tests/ui-format-feature/short_format_feature.rs:8:5
+  |
+8 |     #[miresidian::operation]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^ could not find `format` in `miresidian`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  | #[cfg(feature = "format")]
+  |       ------------------ the item is gated behind the `format` feature
+  | pub mod format {
+  |         ^^^^^^
+  = note: this error originates in the attribute macro `miresidian::operation` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0425]: cannot find function `__require_format_feature` in crate `::miresidian`
+ --> tests/ui-format-feature/short_format_feature.rs:8:5
+  |
+8 |     #[miresidian::operation]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^ not found in `::miresidian`
+  |
+note: found an item that was configured out
+ --> src/lib.rs
+  |
+  | #[cfg(feature = "format")]
+  |       ------------------ the item is gated behind the `format` feature
+  | #[doc(hidden)]
+  | pub const fn __require_format_feature() {}
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `miresidian::operation` (in Nightly builds, run with -Z macro-backtrace for more info)

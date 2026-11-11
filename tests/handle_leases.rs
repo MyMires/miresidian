@@ -3,9 +3,10 @@
 
 use miresidian::{Invocation, MiresidianResult, NodeRuntime, TbLvTestPlatformAdapter};
 
-#[miresidian::node("Handle 租约布局",
-    instances(mode = multiple, binding = handle, execution = selectable, default_execution = sequential),
-    lease(activation = selectable, resource = "resource", configuration = ["setting"])
+#[miresidian::node(
+    "Handle 租约布局",
+    instances(multiple, handle, selectable(sequential)),
+    lease(selectable(required))
 )]
 struct LeasedHandleNode {
     setting: u32,
@@ -15,7 +16,7 @@ struct LeasedHandleNode {
 impl LeasedHandleNode {
     #[miresidian::operation]
     fn init_device(
-        #[miresidian::config("资源")] resource: String,
+        #[miresidian::config("资源", lease(key))] resource: String,
         #[miresidian::config("配置")] setting: u32,
     ) -> MiresidianResult<Self> {
         let _ = resource;

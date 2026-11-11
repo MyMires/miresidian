@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-11
+
+- 节点入口接受裸 instances/lease；instances 位置项支持 single/multiple、config/handle 与固定/可选执行策略，默认仅应用于新短写。
+- 独立租约解析模块将 required/disabled/selectable(required) 与旧 activation/resource/configuration 归一，不改生成层和运行时。
+- format 接受位置格式项及 selector，旧具名格式声明继续兼容；保留输入输出、batch/async 组合及 feature 门禁。补充策略矩阵、默认值、旧语法等价及非法输入测试。
+- 根框架采用 0.28.0；同步 README、Rustdoc 和根技术手册。验证证据见根 plans/2026-11-11-macro-label-simplification.md；未发布候选。
+- English: Add compatible bare/positional instances and lease policies and positional format lists. Preserve all old valid declarations, runtime bridges, feature gates, slot layout and resource behavior. Framework 0.28.0 integration and validation are recorded in the root plan; this source candidate is unpublished.
+
+
 ## [0.23.2] - 2026-11-10
 
 - 仅修订随包 README：ABI 版本由框架决定，框架 0.27.0 / ABI v9 支持 platform=0 进入 Config 选择；非零仍显式选择。宏源码、标注及生成逻辑保持。

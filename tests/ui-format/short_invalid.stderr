@@ -1,0 +1,17 @@
+error: 单格式不接受 selector，多格式必须声明 selector
+ --> tests/ui-format/short_invalid.rs:4:53
+  |
+4 |     fn missing(&mut self, #[miresidian::input("数据", format(utf8, hex))] data: Vec<u8>) -> miresidian::MiresidianResult<Vec<u8>> { O...
+  |                                                       ^^^^^^^^^^^^^^^^^
+
+error: 单格式不接受 selector，多格式必须声明 selector
+ --> tests/ui-format/short_invalid.rs:6:60
+  |
+6 |     fn fixed_selector(&mut self, #[miresidian::input("数据", format(hex, selector = "格式"))] data: Vec<u8>) -> miresidian::Miresidia...
+  |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: format 短写须先列格式，再声明一个 selector；不能混用 formats 数组
+ --> tests/ui-format/short_invalid.rs:8:63
+  |
+8 |     fn mixed(&mut self, #[miresidian::input("数据", format(hex, formats = [hex]))] data: Vec<u8>) -> miresidian::MiresidianResult<Vec...
+  |                                                                 ^^^^^^^^^^^^^^^

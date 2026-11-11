@@ -10,9 +10,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-#[miresidian::node("Handle 回归", instances(
-    mode = multiple, binding = handle, execution = selectable, default_execution = sequential
-))]
+#[miresidian::node("Handle 回归", instances(multiple, handle, selectable(sequential)))]
 struct HandleNode {
     name: String,
     speed: u32,

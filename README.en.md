@@ -4,7 +4,7 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.27.0**. Rust MSRV: **1.89**. C ABI: **v9**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This runtime platform-selection candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
+Current source: **0.28.0**. Rust MSRV: **1.89**. C ABI: **v9**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This macro-shorthand source candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
 
 ## Getting started
 
@@ -18,7 +18,21 @@ crate-type = ["cdylib"]
 miresidian = "=0.26.0"
 ```
 
-Declare a node with `#[miresidian::node("Name")]` and mark its initialization, close, and business methods with `#[miresidian::operation]`. Macros generate metadata, dispatch, and DLL exports, including `const char *miresidian_invoke_request(const char *request_json)`. The new entry takes one request object such as `{"function":"GetFunctions"}`. In source 0.27.0 / ABI v9, omitted or zero `platform` follows Config selection: query `{"platform":0,"function":"GetInitConfig"}`, let the host present the published platform choices, then pass the selection in InitDevice Config. Later zero calls use the selected adapter. Nonzero values select a registered adapter explicitly. The published 0.26.0 / ABI v8 installation example above still rejects zero; omit the field to use Config selection there. Config/Input remain ordered string arrays, defaulting to `[]` only when omitted. All three call entries share runtime state and the thread-local response buffer; copy the response before another call and never free it. See the [minimal node example](README.md#最小节点示例), [node guide](docs/宏驱动开发.md), and [C ABI guide](docs/c-abi.md).
+Declare a node with `#[miresidian::node("Name")]` and mark its initialization, close, and business methods with `#[miresidian::operation]`. Macros generate metadata, dispatch, and DLL exports, including `const char *miresidian_invoke_request(const char *request_json)`. The new entry takes one request object such as `{"function":"GetFunctions"}`. In source 0.28.0 / ABI v9, omitted or zero `platform` follows Config selection: query `{"platform":0,"function":"GetInitConfig"}`, let the host present the published platform choices, then pass the selection in InitDevice Config. Later zero calls use the selected adapter. Nonzero values select a registered adapter explicitly. The published 0.26.0 / ABI v8 installation example above still rejects zero; omit the field to use Config selection there. Config/Input remain ordered string arrays, defaulting to `[]` only when omitted. All three call entries share runtime state and the thread-local response buffer; copy the response before another call and never free it. See the [minimal node example](README.md#最小节点示例), [node guide](docs/宏驱动开发.md), and [C ABI guide](docs/c-abi.md).
+
+## Feature shorthand in this source candidate
+
+Framework **0.28.0 / macro 0.24.0** adds the following forms. They are not available through the published dependency example above. Keep old annotations when maintaining older nodes; no migration is required.
+
+```rust,ignore
+#[miresidian::node("Device", instances(multiple, config), lease)]
+#[miresidian::input("Data", batch, format(hex))]
+#[miresidian::output("Result", format(utf8, hex, base64, selector = "Result format"))]
+```
+
+Bare `instances` or `instances()` means single-object, fixed sequential multi-channel execution; omitting it still rejects multi-channel requests. Multiple objects require explicit `multiple, config` or `multiple, handle`; add a fixed execution mode or `selectable(sequential)` to override the short-form default. Bare `lease` equals `lease(required)`; `lease(disabled)` fixes Direct access and `lease(selectable(required))` exposes selection with Lease as the default. Parameter identity roles stay unchanged.
+
+`format(hex)` fixes one encoding. Multiple formats require an explicit selector, and the first format remains the default. Input and Output share the same syntax and continue to compose with independent `batch`. Cargo features remain explicit. Old long forms, metadata order, errors and resource lifetimes remain compatible; reject duplicate declarations and mixed long/short fields within one group. See the [migration guide](docs/releases/0.28.0.md).
 
 ## Optional capabilities
 
@@ -60,6 +74,6 @@ Format remains a single-value encoding conversion. The macro combines the indepe
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-This checkout contains framework 0.27.0, macro 0.23.2 (bundled guidance only), and ABI crate 0.16.0 / C ABI v9, adding the Config-selection route for platform zero. The preceding framework 0.26.0, macro 0.23.0, and ABI 0.15.0 were formally published in the release phase recorded in the [release plan](plans/2026-11-06-unified-abi-request.md#发布执行结果). See the published [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) and [format module](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html). Hosts must review compatibility and add v9 to their supported version set before accepting this candidate. Generate this unpublished candidate's local API with `cargo doc -p miresidian --all-features --no-deps --locked`; source commits, local tags, registry publication, and docs.rs availability remain separate checks.
+This checkout contains framework 0.28.0, macro 0.24.0, and unchanged ABI crate 0.16.0 / C ABI v9. It adds compatible feature macro shorthand without changing runtime ownership, platform routing, codecs or ABI. The preceding framework 0.26.0, macro 0.23.0, and ABI 0.15.0 were formally published in the release phase recorded in the [release plan](plans/2026-11-06-unified-abi-request.md#发布执行结果). See the published [0.26.0 API](https://docs.rs/miresidian/0.26.0/miresidian/) and [format module](https://docs.rs/miresidian/0.26.0/miresidian/format/index.html). Hosts must review compatibility and add v9 to their supported version set before accepting this candidate. Generate this unpublished candidate's local API with `cargo doc -p miresidian --all-features --no-deps --locked`; source commits, local tags, registry publication, and docs.rs availability remain separate checks.
 
 CLI/toolset source is 0.3.3. Pack's existing new/init templates accept only ABI v7, so explicitly select a compatible published framework such as 0.25.2 when creating a project. Selecting 0.26.0/v8 writes the template but reports incomplete creation; it does not produce a validated v8 template. See the [CLI commands](tools/miresidian-cli/README.md) and migrate existing projects manually using the actual target ABI header.

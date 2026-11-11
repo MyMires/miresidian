@@ -1,17 +1,11 @@
-//! 节点身份、平台适配器与租约声明的解析。
+//! 节点身份与 feature 分组入口；裸标记和分组归一到相同声明。
 
-use quote::quote;
+use super::lease::{self, LeaseDeclaration};
 use syn::{
-    Error, Expr, ExprArray, ExprLit, Ident, Lit, LitStr, Meta, Path, Result, Token, parenthesized,
+    Error, Ident, LitStr, Meta, Path, Result, Token, parenthesized,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
 };
-
-pub(super) struct LeaseDeclaration {
-    pub(super) resource: Option<LitStr>,
-    pub(super) configuration: Option<Vec<LitStr>>,
-    pub(super) activation: proc_macro2::TokenStream,
-}
 
 pub(super) struct NodeArguments {
     pub(super) name: LitStr,
@@ -29,27 +23,30 @@ impl Parse for NodeArguments {
         while !input.is_empty() {
             input.parse::<Token![,]>()?;
             let keyword: Ident = input.parse()?;
-            let content;
-            parenthesized!(content in input);
             match keyword.to_string().as_str() {
                 "instances" => {
                     if instances.is_some() {
                         return Err(Error::new_spanned(keyword, "instances 只能声明一次"));
                     }
-                    let values = content.parse_terminated(Meta::parse, Token![,])?;
-                    instances = Some(super::instances::parse(values)?);
+                    instances = Some(super::instances::parse(
+                        optional_group(input)?.unwrap_or_default(),
+                    )?);
                 }
                 "lease" => {
                     if lease.is_some() {
                         return Err(Error::new_spanned(keyword, "lease 只能声明一次"));
                     }
-                    let values = content.parse_terminated(Meta::parse, Token![,])?;
-                    lease = Some(parse_lease_declaration(values)?);
+                    lease = Some(match optional_group(input)? {
+                        Some(values) => lease::parse(values)?,
+                        None => lease::required(),
+                    });
                 }
                 "platforms" => {
                     if platforms.is_some() {
                         return Err(Error::new_spanned(keyword, "platforms 只能声明一次"));
                     }
+                    let content;
+                    parenthesized!(content in input);
                     let values = content.parse_terminated(Path::parse_mod_style, Token![,])?;
                     if values.is_empty() {
                         return Err(Error::new_spanned(
@@ -62,7 +59,7 @@ impl Parse for NodeArguments {
                 _ => {
                     return Err(Error::new_spanned(
                         keyword,
-                        "node 子配置仅支持 lease(...)、platforms(...) 和 instances(...)",
+                        "node 子配置仅支持 instances、lease 及其分组和 platforms(...)",
                     ));
                 }
             }
@@ -75,107 +72,66 @@ impl Parse for NodeArguments {
         })
     }
 }
-fn parse_lease_declaration(values: Punctuated<Meta, Token![,]>) -> Result<LeaseDeclaration> {
-    let mut resource = None;
-    let mut configuration = None;
-    let mut activation = None;
-    for value in values {
-        let Meta::NameValue(value) = value else {
-            return Err(Error::new_spanned(
-                value,
-                "lease 参数必须使用 resource = 字段 或 configuration = [字段, ...]",
-            ));
-        };
-        let key = value
-            .path
-            .get_ident()
-            .map(ToString::to_string)
-            .ok_or_else(|| Error::new_spanned(&value.path, "lease 参数名称必须是标识符"))?;
-        match key.as_str() {
-            "resource" => {
-                if resource.is_some() {
-                    return Err(Error::new_spanned(value, "resource 只能声明一次"));
-                }
-                resource = Some(string_literal(&value.value, "resource")?);
-            }
-            "configuration" => {
-                if configuration.is_some() {
-                    return Err(Error::new_spanned(value, "configuration 只能声明一次"));
-                }
-                let Expr::Array(ExprArray { ref elems, .. }) = value.value else {
-                    return Err(Error::new_spanned(value, "configuration 必须是字符串数组"));
-                };
-                let values = elems
-                    .iter()
-                    .map(|value| string_literal(value, "configuration"))
-                    .collect::<Result<Vec<_>>>()?;
-                if values.is_empty() {
-                    return Err(Error::new_spanned(value, "configuration 至少需要一个字段"));
-                }
-                configuration = Some(values);
-            }
-            "activation" => {
-                if activation.is_some() {
-                    return Err(Error::new_spanned(value, "activation 只能声明一次"));
-                }
-                activation = Some(activation_value(&value.value)?);
-            }
-            _ => {
-                return Err(Error::new_spanned(
-                    value,
-                    "lease 只接受 activation、resource 和 configuration 参数",
-                ));
-            }
+
+fn optional_group(input: ParseStream<'_>) -> Result<Option<Punctuated<Meta, Token![,]>>> {
+    if !input.peek(syn::token::Paren) {
+        return Ok(None);
+    }
+    let content;
+    parenthesized!(content in input);
+    content.parse_terminated(Meta::parse, Token![,]).map(Some)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NodeArguments;
+
+    #[test]
+    fn bare_features_match_explicit_policies_and_omission_stays_disabled() {
+        let bare: NodeArguments = syn::parse_quote!("节点", instances, lease);
+        let long: NodeArguments = syn::parse_quote!(
+            "节点",
+            instances(mode = single, execution = sequential),
+            lease(activation = required)
+        );
+        assert_eq!(
+            bare.instances.unwrap().to_string(),
+            long.instances.unwrap().to_string()
+        );
+        assert_eq!(
+            bare.lease.unwrap().activation.to_string(),
+            long.lease.unwrap().activation.to_string()
+        );
+        let omitted: NodeArguments = syn::parse_quote!("节点");
+        assert!(omitted.instances.is_none());
+        assert!(omitted.lease.is_none());
+    }
+
+    #[test]
+    fn mixed_feature_styles_preserve_platforms() {
+        let args: NodeArguments = syn::parse_quote!(
+            "节点",
+            lease(selectable(required)),
+            platforms(crate::Adapter),
+            instances(mode = multiple, binding = handle, execution = sequential)
+        );
+        assert_eq!(args.platforms.len(), 1);
+        assert!(args.instances.is_some());
+        assert!(args.lease.is_some());
+    }
+
+    #[test]
+    fn duplicate_features_and_unscoped_options_are_rejected() {
+        for source in [
+            "\"节点\", instances, instances(single)",
+            "\"节点\", instances(), instances",
+            "\"节点\", lease, lease(required)",
+            "\"节点\", lease(activation = required), lease",
+            "\"节点\", execution = sequential",
+            "\"节点\", instances = config",
+            "\"节点\", lease = required",
+        ] {
+            assert!(syn::parse_str::<NodeArguments>(source).is_err(), "{source}");
         }
-    }
-    if resource.is_some() != configuration.is_some() {
-        return Err(Error::new(
-            proc_macro2::Span::call_site(),
-            "旧 lease 的 resource 和 configuration 必须成对声明",
-        ));
-    }
-    Ok(LeaseDeclaration {
-        activation: activation
-            .ok_or_else(|| Error::new(proc_macro2::Span::call_site(), "lease 缺少 activation"))?,
-        resource,
-        configuration,
-    })
-}
-
-fn string_literal(value: &Expr, label: &str) -> Result<LitStr> {
-    let Expr::Lit(ExprLit {
-        lit: Lit::Str(value),
-        ..
-    }) = value
-    else {
-        return Err(Error::new_spanned(
-            value,
-            format!("{label} 字段必须是字符串"),
-        ));
-    };
-    Ok(value.clone())
-}
-
-fn activation_value(value: &Expr) -> Result<proc_macro2::TokenStream> {
-    let Expr::Path(path) = value else {
-        return Err(Error::new_spanned(
-            value,
-            "activation 必须是 required、disabled 或 selectable",
-        ));
-    };
-    let Some(name) = path.path.get_ident() else {
-        return Err(Error::new_spanned(
-            value,
-            "activation 必须是 required、disabled 或 selectable",
-        ));
-    };
-    match name.to_string().as_str() {
-        "required" => Ok(quote!(::miresidian::LeaseActivation::Required)),
-        "disabled" => Ok(quote!(::miresidian::LeaseActivation::Disabled)),
-        "selectable" => Ok(quote!(::miresidian::LeaseActivation::Selectable)),
-        _ => Err(Error::new_spanned(
-            value,
-            "activation 必须是 required、disabled 或 selectable",
-        )),
     }
 }

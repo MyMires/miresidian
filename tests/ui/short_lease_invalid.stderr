@@ -1,0 +1,23 @@
+error: lease 只能声明一次
+ --> tests/ui/short_lease_invalid.rs:1:35
+  |
+1 | #[miresidian::node("重复租约", lease, lease(required))]
+  |                                       ^^^^^
+
+error: lease 策略只支持 required、disabled、selectable(required)
+ --> tests/ui/short_lease_invalid.rs:3:34
+  |
+3 | #[miresidian::node("缺少默认", lease(selectable))]
+  |                                      ^^^^^^^^^^
+
+error: 租约可选策略须写为 selectable(required)
+ --> tests/ui/short_lease_invalid.rs:5:34
+  |
+5 | #[miresidian::node("非法默认", lease(selectable(disabled)))]
+  |                                      ^^^^^^^^^^^^^^^^^^^^
+
+error: lease 短写只能声明一个策略，不能混用长写字段
+ --> tests/ui/short_lease_invalid.rs:7:34
+  |
+7 | #[miresidian::node("混用字段", lease(required, activation = required))]
+  |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

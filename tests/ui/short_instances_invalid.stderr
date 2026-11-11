@@ -1,0 +1,37 @@
+error: multiple 模式必须指定 config 或 handle
+ --> tests/ui/short_instances_invalid.rs:1:1
+  |
+1 | #[miresidian::node("缺少关联", instances(multiple))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `miresidian::node` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: single 模式不接受 binding；多实例须显式声明 multiple
+ --> tests/ui/short_instances_invalid.rs:3:47
+  |
+3 | #[miresidian::node("单实例关联", instances(single, config))]
+  |                                                    ^^^^^^
+
+error: instances 执行策略不能重复声明
+ --> tests/ui/short_instances_invalid.rs:5:48
+  |
+5 | #[miresidian::node("重复策略", instances(parallel, selectable(sequential)))]
+  |                                                    ^^^^^^^^^^^^^^^^^^^^^^
+
+error: selectable 必须指定一个默认执行方式
+ --> tests/ui/short_instances_invalid.rs:7:38
+  |
+7 | #[miresidian::node("缺少默认", instances(selectable()))]
+  |                                          ^^^^^^^^^^^^
+
+error: instances 不能混用长写字段与位置参数
+ --> tests/ui/short_instances_invalid.rs:9:38
+  |
+9 | #[miresidian::node("混用语法", instances(multiple, binding = config))]
+  |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: instances 只能声明一次
+  --> tests/ui/short_instances_invalid.rs:11:39
+   |
+11 | #[miresidian::node("重复标记", instances, instances())]
+   |                                           ^^^^^^^^^

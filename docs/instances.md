@@ -52,12 +52,29 @@ struct ExampleNode;
 
 | 配置 | 规则 |
 | --- | --- |
-| `mode` | 必填，`single` 或 `multiple` |
+| `mode` | 完整长写必填，`single` 或 `multiple` |
 | `binding` | `multiple` 必填，`config` 或 `handle`；`single` 不接受 |
 | `execution` | 必填，`sequential`、`parallel`、`broadcast` 或 `selectable` |
 | `default_execution` | `selectable` 必填，为三种具体方式之一；固定方式不接受 |
 
 声明 `instances(...)` 却未开启依赖的 feature 会编译失败。重复、未知、缺失或无效配置也会编译失败；节点 crate 自身同名 feature 不能代替框架依赖的 feature。
+
+## feature 短写（0.28.0 起）
+
+旧完整声明继续支持。新短写按以下方式展开：
+
+| 短写 | 等价完整声明 |
+| --- | --- |
+| instances 或 instances() 或 instances(single) | mode = single, execution = sequential |
+| instances(parallel) | mode = single, execution = parallel |
+| instances(selectable(sequential)) | mode = single, execution = selectable, default_execution = sequential |
+| instances(multiple, config) | mode = multiple, binding = config, execution = sequential |
+| instances(multiple, handle) | mode = multiple, binding = handle, execution = sequential |
+| instances(multiple, handle, selectable(broadcast)) | mode = multiple, binding = handle, execution = selectable, default_execution = broadcast |
+
+新短写默认 single、固定 sequential，仅在显式出现 instances 时生效；未声明节点的默认策略不变。multiple 必须明确关联方式；不能仅写 config/handle 推断 multiple，single 不接受关联项。fixed 三种策略及 selectable 的三种默认项与旧声明一致；多通道仍定位一个对象，同对象调用仍互斥。
+
+旧 NameValue 长写继续要求 mode/execution 等必填项；不能与位置参数混用。新短写三类各至多一个，同义重复也拒绝，参数排列次序不改变解析。仍需开启依赖的 instances feature；固定 sequential 不新增平台执行选择项。源码候选状态和迁移边界见[0.28.0 说明](releases/0.28.0.md)。
 
 ## Config 组合主键
 
