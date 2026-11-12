@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.13.6] - 2026-11-12
+
+- 修复 new/init 默认选择最新正式框架后仍强制 ABI v7 的失败路径；按真实 registry 解析结果支持 ABI v7–v10，创建成功信息显示实际 ABI。
+- 调用说明拆分通用内容及旧三参数/v10 单 JSON 契约，记录默认平台、ABI 校验、内存所有权与完整回显调用；未知 ABI 拒绝生成签名，未完成项目不保留错误的 v7 指导。
+- 增加已发布 ABI7–10 和默认最新版 new/init 的真实生成、编译、动态库查询/初始化/回显/关闭回归，保留旧版及覆盖保护测试；同步自身 README 与模板 README。
+- 验证：24项Pack单元测试、4项显式registry集成（含6个原生动态库回显项目）、严格Clippy/Rustdoc及Rust1.89检查通过；未在本地执行Windows原生或硬件验证。
+- English: Fix latest-version scaffolding with ABI-aware v7–v10 calling guides; verify published-version and default new/init paths through native library calls. Unknown ABIs fail explicitly.
+
 ## [0.13.5] - 2026-11-12
 
 - 框架库清单识别 miresidian_instance；继续对旧 miresidian_instances 执行精确依赖、crates.io 解析/锁来源及覆盖检查，旧节点无需迁移。

@@ -1,18 +1,18 @@
 # miresidian_pack
 
-0.13.5 的来源检查识别新包名 `miresidian_instance`，并继续对旧包 `miresidian_instances` 执行精确版本、crates.io 来源和本地覆盖校验。新旧包不是依赖别名；不改变模板代码或可接受的 ABI 版本。
+0.13.6 修复 new/init 默认采用最新正式框架时的 ABI 兼容问题。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
 
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-本页对应工具源码版本 **0.13.5**，本次未发布；可在框架仓库执行
+本页对应工具源码版本 **0.13.6**，本次未发布；可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
 ## 命令
 
 ```text
-cargo miresidian-pack --new demo-node --name 演示设备 --miresidian-version 0.25.2
+cargo miresidian-pack --new demo-node --name 演示设备 --miresidian-version 0.33.0
 cargo miresidian-pack --check
 cargo miresidian-pack --check 演示设备
 cargo miresidian-pack
@@ -37,7 +37,13 @@ cargo install miresidian_pack --locked
 
 `--new <目录> [--name <显示名称>] [--miresidian-version <已发布版本>|--mires-version <已发布版本>]` 创建独立单实例回显项目。
 
-**现有模板只支持 ABI v7。** 已发布的框架 0.26.0 为 ABI v8；0.13.2 和本次 0.13.5 源码均未提供 v8 模板。上述命令显式采用已核实发行的 0.25.2/v7。省略版本会查询最新正式版，不会自动筛选 ABI；若选到 v8，会写入模板及锁文件后报“模板创建尚未完成”。应在新的目标目录选择兼容版本重试；不要直接重跑 new 覆盖残留目录。v8 的既有项目升级须手动核对框架依赖、实际头文件和交付说明，再编译、检查及加载验收；不代表本工具已经提供 v8 模板支持。
+模板支持已核对的 **ABI v7–v10**。省略版本时仍由 Cargo 查询最新未撤回正式版并精确锁定；当前已发布框架 0.33.0 使用 ABI v10，可使用上述显式版本或省略版本。工具先生成通用项目和真实锁文件，再通过项目检查读取 ABI 元数据，最后生成对应调用说明；成功信息包含实际 ABI。
+
+- ABI v7–v9：调用说明使用三参数 `miresidian_invoke(function, config_json, input_json)`，平台保留配置按实际 GetInitConfig 查询，不混用各版本的平台编号语义。
+- ABI v10：调用说明使用单参数 `miresidian_invoke(request_json)`，明确请求对象、默认平台 0、输入/返回内存所有权和调用前版本检查，不再生成旧签名示例。
+- 未知 ABI：返回“模板创建尚未完成”，调用说明保留 ABI 待解析/待完成提示，不生成猜测签名。解析或生成失败时，新建文件保留供诊断；new 不覆盖残留目录，应在新目标重试。可在修正环境后自行完成原项目，但必须按实际头文件修订说明并单独编译和调用验证。
+
+已有 Node 的依赖和调用说明不会被自动改写；旧项目不需要因工具升级迁移框架。
 
 `--init [目录]` 使用相同选项在已有目录初始化，省略目录时使用当前目录。模板目标文件或 Cargo.lock 已存在时拒绝写入；其他文件保留。
 
@@ -56,7 +62,7 @@ AGENTS.md 填入当前项目名称、包名、初始化选定的框架版本及�
 模板默认通过 Cargo 查询 crates.io 最新未撤回正式版，排除预发布版，不按当前 Rust 版本静默回退。
 --miresidian-version 与 --mires-version 为等价参数，--framework-version 兼容保留；重复指定报错。
 离线无法确认最新版本时须显式指定。选定后写入精确依赖，后续构建不会自动升级。
-可显式选择至少 0.14.0 的其他已发布版本；模板接口说明要求 ABI v7。
+可显式选择至少 0.14.0 且提供 ABI v7–v10 的其他已发布版本；实际 ABI 以该节点解析结果为准。
 工具调用 Cargo 生成真实 Cargo.lock，并检查解析来源与项目结构，之后才报告创建成功。
 不会通过 path/git/patch/replace/paths 绕过未发布依赖。解析失败时保留新建文件以便检查，命令失败，
 不得将其视为完成的项目；修复 registry 访问或版本后运行 `cargo generate-lockfile`、结构检查与编译。
@@ -106,14 +112,18 @@ cargo test -p miresidian_pack --locked
 cargo test -p miresidian_pack --test template --locked -- --ignored
 ```
 
-第二条是显式 registry 集成测试，需要已发布框架及传递依赖可访问；缓存预热后可设置
-CARGO_NET_OFFLINE=true。它验证生成项目的真实编译、检查不改锁文件、不覆盖既有目录，
-并验证缺少 cdylib、范围依赖和缺失交付文档时失败。基础单元测试无需访问 registry。
+第二条是显式 registry 集成测试，需要已发布框架及传递依赖可访问，以及 Python 3（可用 PYTHON 指定解释器）。
+除保留 0.14.0 的结构/覆盖保护测试外，还覆盖 0.14.0/v7、0.26.1/v8、0.27.0/v9、0.33.0/v10，
+以及不指定版本的 new/init：生成后检查实际调用说明，编译原生动态库，并先核对 ABI 再调用查询、初始化、Echo 和关闭。
+构建缓存放在框架 target/pack-registry-tests，不使用本地框架依赖。
+缓存预热后可设置 CARGO_NET_OFFLINE=true，此时仅跳过必须联网的默认 latest 用例；完整验收须联网执行。
+既有回归继续验证检查不改锁、不覆盖文件，以及缺少 cdylib、范围依赖和缺失说明时失败。
+基础单元测试无需访问 registry；宿主原生动态库验证不替代 Windows 双位数加载或硬件验证。
 
-## 0.12.0 的显式入口
+## 显式入口
 
-    cargo miresidian-pack --new demo-node --miresidian-version 0.14.0
-    cargo miresidian-pack --new demo-node --mires-version 0.14.0
+    cargo miresidian-pack --new demo-node --miresidian-version 0.33.0
+    cargo miresidian-pack --new demo-node --mires-version 0.33.0
     cargo miresidian-pack --check --node 演示设备
     cargo miresidian-pack --build --node 演示设备 --arch x64
     cargo miresidian-pack --pack --node 演示设备 --arch all

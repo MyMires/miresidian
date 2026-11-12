@@ -1,0 +1,28 @@
+## C ABI v10
+
+```c
+uint32_t miresidian_abi_version(void);
+const char *miresidian_invoke(const char *request_json);
+```
+
+调用约定为 C（Windows Cdecl）。先核对 miresidian_abi_version() 等于 10，
+再绑定单 JSON 参数入口；不可使用旧版三参数函数指针。ABI v10 不导出
+miresidian_invoke_with 或 miresidian_invoke_request。准确声明以所附 miresidian.h 为准。
+
+request_json 必须是非 NULL 的 JSON 对象：function 为必填非空操作名称；
+config/input 是有序字符串数组，省略时为 `[]`；platform 为可省略的 uint32 整数。
+platform=0 或省略使用 DLL 默认平台，1 为内置 TB；其他平台必须已注册。
+平台不放在 Config 中，活跃实例期间不能切换，关闭全部实例后可重新选择。
+拒绝未知或重复字段、null、错误类型及非对象请求。业务空字符串用 `[""]` 表达。
+
+C 宿主调用示例（先加载 DLL、核对 ABI 并取得上述函数地址）：
+
+```c
+miresidian_invoke("{\"function\":\"InitDevice\"}");
+/* 立即复制并解析响应，status=0 后才继续。 */
+const char *response_json = miresidian_invoke(
+    "{\"platform\":0,\"function\":\"Echo\",\"input\":[\"hello\"]}");
+/* 立即复制并解析 response_json，检查 status，再读取 output。 */
+miresidian_invoke("{\"function\":\"CloseDevice\"}");
+/* 立即复制并检查关闭响应。 */
+```

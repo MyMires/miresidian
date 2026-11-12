@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_cli"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "semver",
  "toml",
@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "miresidian_pack"
-version = "0.13.5"
+version = "0.13.6"
 dependencies = [
  "cargo_metadata",
  "serde_json",

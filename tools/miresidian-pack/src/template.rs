@@ -7,6 +7,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod abi;
+
 use cargo_metadata::semver::Version;
 
 pub(crate) struct TemplateRequest {
@@ -134,16 +136,24 @@ pub(crate) fn create(mut request: TemplateRequest) -> Result<(), String> {
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let nodes = crate::validate::check_project(&root, None)?;
-    if nodes.iter().any(|node| node.abi_version != 7) {
-        return Err(
-            "模板已写入，但目标框架不是 ABI v7；请按实际头文件调整交付文档，模板创建尚未完成"
-                .into(),
-        );
-    }
+    let [node] = nodes.as_slice() else {
+        return Err("模板创建尚未完成：应仅包含一个节点".into());
+    };
+    // 以真实 registry 解析结果选择调用契约；未知 ABI 不沿用旧签名。
+    let contract = abi::contract(node.abi_version)?;
+    let guide = render(
+        include_str!("../templates/node.md.in"),
+        &request,
+        "",
+        &contract,
+    );
+    fs::write(root.join(format!("docs/{}.md", request.name)), guide)
+        .map_err(|e| format!("模板创建尚未完成：无法写入实际 ABI 调用说明：{e}"))?;
     println!(
-        "已创建节点模板：{}（框架 ={}）；请运行 cargo check --locked 并补充业务与交付说明",
+        "已创建节点模板：{}（框架 ={}，ABI v{}）；请运行 cargo check --locked 并补充业务与交付说明",
         root.display(),
-        request.version
+        request.version,
+        node.abi_version
     );
     Ok(())
 }
@@ -151,7 +161,7 @@ pub(crate) fn create(mut request: TemplateRequest) -> Result<(), String> {
 fn validate_version(version: &str) -> Result<(), String> {
     let parsed = Version::parse(version).map_err(|_| "框架版本须是完整版本号，例如 0.14.0")?;
     if parsed < Version::new(0, 14, 0) {
-        return Err("模板要求框架版本至少为 0.14.0，且提供 ABI v7".into());
+        return Err("模板要求框架版本至少为 0.14.0；支持的 ABI 为 v7–v10".into());
     }
     Ok(())
 }
@@ -228,7 +238,7 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
         fs::create_dir_all(request.directory.join(directory)).map_err(|e| e.to_string())?;
     }
     for (file, content) in files {
-        let rendered = render(content, request, &date);
+        let rendered = render(content, request, &date, abi::PENDING);
         let path = request.directory.join(file);
         let mut output = OpenOptions::new()
             .write(true)
@@ -243,7 +253,7 @@ fn write_project(request: &TemplateRequest) -> Result<(), String> {
 }
 
 /// 只替换模板本身的占位符，用户名称中的花括号始终保留为原文。
-fn render(content: &str, request: &TemplateRequest, date: &str) -> String {
+fn render(content: &str, request: &TemplateRequest, date: &str, contract: &str) -> String {
     let literal = format!("{:?}", request.name);
     let values = [
         ("package", request.package.as_str()),
@@ -251,6 +261,7 @@ fn render(content: &str, request: &TemplateRequest, date: &str) -> String {
         ("name_literal", literal.as_str()),
         ("name", request.name.as_str()),
         ("date", date),
+        ("abi_contract", contract),
     ];
     let mut output = String::new();
     let mut remaining = content;
@@ -349,7 +360,7 @@ mod tests {
     fn 用户名称中的模板标记保持原文() {
         let request = request(&["demo", "--name", "设备{{date}}"]).unwrap();
         assert_eq!(
-            render("{{name}} / {{date}}", &request, "2026-10-30"),
+            render("{{name}} / {{date}}", &request, "2026-10-30", abi::PENDING),
             "设备{{date}} / 2026-10-30"
         );
     }

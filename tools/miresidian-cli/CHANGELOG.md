@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.7] - 2026-11-12
+
+- CLI/套件最低 Pack 版本提升为 0.13.6，携带 new/init 的 ABI v7–v10 模板修复；README 更新默认最新版及已发布 0.33.0/v10 示例。
+- 命令转发和 TestFlow 0.13.0 保持；框架和其他组件不跟随升版。
+- 验证：双入口6项单元、4项进程测试，以及实际统一new/init到已发布0.33.0/v10的调用和项目检查通过；严格Clippy/Rustdoc及Rust1.89检查通过。
+- English: Require Pack 0.13.6 for ABI-aware scaffolding and update current framework examples.
+
 ## [0.3.6] - 2026-11-12
 
 - CLI/套件清单同步 Pack 最低版本 0.13.5，确保新旧实例包名都执行来源检查；README 同步说明，路由、参数和 TestFlow 0.13.0 保持。未发布补丁。

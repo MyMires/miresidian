@@ -1,15 +1,15 @@
 # Miresidian CLI
 
-0.3.6 的套件清单要求 Pack 0.13.5，以同时检查 `miresidian_instance` 与旧包 `miresidian_instances` 的依赖来源；转发命令和模板 ABI 支持范围保持。
+0.3.7 的套件清单要求 Pack 0.13.6，以修复默认新建/初始化项目的 ABI 兼容问题；转发命令及 TestFlow 后端保持。
 
-本页对应 CLI 源码版本 **0.3.6**，本次未发布。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
-本源码清单要求 Pack 至少 **0.13.5**、TestFlow 至少 **0.13.0**，各工具继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
+本页对应 CLI 源码版本 **0.3.7**，本次尚未发布。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
+本源码清单要求 Pack 至少 **0.13.6**、TestFlow 至少 **0.13.0**，各工具继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
 
 new 创建新目录；init 在已有目录初始化，默认当前目录。两者生成包含项目开发规则的 AGENTS.md，init 拒绝覆盖模板文件和 Cargo.lock。
 
-Pack 0.13.2 及本次 0.13.5 源码的 new/init 模板只接受 **ABI v7**。以下新建示例显式选择已核实发行的 **0.25.2/v7**；框架 0.26.0/v8 不适用于该模板。省略版本会查询最新正式版，选到 v8 时生成文件后返回未完成错误，CLI 原样转发该错误；不会自动回退或创建已验收的 v8 项目。已有项目采用 v8 时按[迁移说明](../../docs/releases/0.26.0.md)手动升级并验证。
+Pack 0.13.6 的 new/init 支持 **ABI v7–v10**。省略框架版本时由 Cargo 选择最新未撤回正式版，选定后精确锁定；以下显式示例采用已发布的 **0.33.0/v10**。调用说明依据实际解析 ABI 生成：v7–v9 使用三参数入口，v10 使用单 JSON 入口，并要求宿主先核对 ABI 再绑定签名。未知 ABI 或生成失败会返回未完成错误并保留诊断文件，CLI 透传失败，不自动回退或覆盖残留项目。完整边界见 [Pack 模板说明](../miresidian-pack/README.md#最小模板)。已有节点不因升级工具自动迁移。
 
-package 名取目标目录末段并须符合 Rust 包名规则；`--name` 指定节点显示名称，不改变 package 名。省略 `--name` 时节点名称也取目录名，仍会生成带名称的 `#[node(...)]`。例如在 `serial-node` 目录运行 `cargo miresidian init --name "串口节点" --miresidian-version 0.25.2`，package 为 `serial-node`，节点名称为 `串口节点`，调用说明为 `docs/串口节点.md`。
+package 名取目标目录末段并须符合 Rust 包名规则；`--name` 指定节点显示名称，不改变 package 名。省略 `--name` 时节点名称也取目录名，仍会生成带名称的 `#[node(...)]`。例如在 `serial-node` 目录运行 `cargo miresidian init --name "串口节点" --miresidian-version 0.33.0`，package 为 `serial-node`，节点名称为 `串口节点`，调用说明为 `docs/串口节点.md`。
 
 init 检查全部模板目标和 Cargo.lock：如 Cargo.toml、README.md、AGENTS.md、CHANGELOG.md、.gitignore、src/lib.rs、src/node.rs、tools/smoke.testflow 或 `docs/<节点名称>.md` 已存在，命令拒绝写入；其他文件保留。已有 src、docs、tools 子目录必须是普通目录，不能是符号链接。安装按下文发行记录选择实际可用版本，已安装程序的帮助与对应发布 README 才是该程序的用法依据。
 
@@ -19,10 +19,10 @@ init 检查全部模板目标和 Cargo.lock：如 Cargo.toml、README.md、AGENT
 
 | 统一指令 | 实际独立工具调用 |
 | --- | --- |
-| cargo miresidian new demo-node --miresidian-version 0.25.2 | cargo miresidian-pack --new demo-node --miresidian-version 0.25.2 |
-| cargo miresidian init --miresidian-version 0.25.2 | cargo miresidian-pack --init --miresidian-version 0.25.2 |
-| cargo miresidian new demo-node --name 演示设备 --miresidian-version 0.25.2 | cargo miresidian-pack --new demo-node --name 演示设备 --miresidian-version 0.25.2 |
-| cargo miresidian new demo-node --mires-version 0.25.2 | cargo miresidian-pack --new demo-node --mires-version 0.25.2 |
+| cargo miresidian new demo-node --miresidian-version 0.33.0 | cargo miresidian-pack --new demo-node --miresidian-version 0.33.0 |
+| cargo miresidian init --miresidian-version 0.33.0 | cargo miresidian-pack --init --miresidian-version 0.33.0 |
+| cargo miresidian new demo-node --name 演示设备 --miresidian-version 0.33.0 | cargo miresidian-pack --new demo-node --name 演示设备 --miresidian-version 0.33.0 |
+| cargo miresidian new demo-node --mires-version 0.33.0 | cargo miresidian-pack --new demo-node --mires-version 0.33.0 |
 | cargo miresidian check [--node 名称] | cargo miresidian-pack --check [--node 名称] |
 | cargo miresidian build [--node 名称] [--arch x64/x86/all] | cargo miresidian-pack --build，原样传递选项 |
 | cargo miresidian pack [--node 名称] [--arch x64/x86/all] | cargo miresidian-pack --pack，原样传递选项 |
@@ -103,7 +103,7 @@ Python 仅用于仓库内部构建和测试，不是用户安装前提。可选�
     python3 tools/miresidian-cli/distribution/bundle.py --host linux-x64
     python3 tools/miresidian-cli/distribution/bundle.py --host windows-x64
 
-仅在对应 x64 宿主构建；输出名含套件版本 0.3.6，附 SHA-256。
+仅在对应 x64 宿主构建；输出名含套件版本 0.3.7，附 SHA-256。
 Cargo 安装是正式用户安装方式，归档文件用于分发和开发验证，不改 Cargo 安装记录。
 
 ## 后续工具接入
@@ -126,4 +126,4 @@ release.py 默认只执行 dry-run，显式 --publish 才上传。发布前检�
 手动将 publish 设置为 true 时，先按清单发布未发布的后端、再发布 CLI，然后创建对应标签的草稿 Release，附加两个宿主包。
 Cargo 发布后即可原生安装；草稿公开控制 GitHub 归档下载。标签不可移动，版本来自各 Cargo.toml 与套件清单。
 
-本次套件要求 TestFlow 0.13.0，以在调用前识别 ABI v10 的单参数 JSON 签名；Pack 模板仍只支持旧 ABI v7，不据此生成本候选版本的新节点。
+本次套件要求 TestFlow 0.13.0，以在调用前识别 ABI v10 的单参数 JSON 签名；Pack 0.13.6 按实际 ABI 生成模板调用说明。两者均先核对版本，避免将旧三参数函数指针用于 v10。
