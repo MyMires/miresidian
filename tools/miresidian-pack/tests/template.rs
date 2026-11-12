@@ -238,6 +238,9 @@ fn 默认最新版_new_和_init_可完成且文档匹配实际_abi() {
 #[test]
 #[ignore = "需要已发布框架 0.33.0、Windows GNU x64 target 与链接器；验证真实 DLL 构建及文档交付"]
 fn 业务注释经_build_自动合并且_pack_交付同一文档() {
+    if !windows_gnu_documentation_test_available() {
+        return;
+    }
     let project = Project::new();
     success(tool(
         &project.0,
@@ -316,4 +319,45 @@ fn 业务注释经_build_自动合并且_pack_交付同一文档() {
     .unwrap();
     assert!(!tool(&root, &["--build", "--arch", "x64"]).status.success());
     assert_eq!(fs::read_to_string(&guide_path).unwrap(), updated);
+}
+
+/// 套件 CI 会运行全部 ignored 测试；未配置交叉工具链的宿主只跳过此项。
+/// 已具备工具链时仍真实构建 DLL，不能以本检测替代实际回归。
+fn windows_gnu_documentation_test_available() -> bool {
+    let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
+    let installed = Command::new(rustc)
+        .args([
+            "--print",
+            "target-libdir",
+            "--target",
+            "x86_64-pc-windows-gnu",
+        ])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| fs::read_dir(String::from_utf8_lossy(&output.stdout).trim()).ok())
+        .is_some_and(|entries| {
+            entries
+                .flatten()
+                .any(|entry| entry.file_name().to_string_lossy().starts_with("libcore-"))
+        });
+    if !installed {
+        eprintln!(
+            "跳过 DLL 文档交叉回归：未安装 x86_64-pc-windows-gnu 标准库；其余 registry 模板测试继续执行"
+        );
+        return false;
+    }
+    let linker = std::env::var_os("CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER")
+        .unwrap_or_else(|| "x86_64-w64-mingw32-gcc".into());
+    if !Command::new(linker)
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success())
+    {
+        eprintln!(
+            "跳过 DLL 文档交叉回归：未找到 Windows GNU x64 链接器；配置 CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER 后可执行"
+        );
+        return false;
+    }
+    true
 }
