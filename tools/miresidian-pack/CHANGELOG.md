@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-13
+
+- build/pack 在所选目标编译成功后，自动提取 operation 方法的字面 Rustdoc 与声明，合并到项目节点说明的受管区域；pack 交付同一 Markdown，无需 AI 另行整理。
+- 保留区域外手写内容，重复生成幂等，跟随方法修改/删除；异常标记、解析或编译失败不覆盖原文，写入采用同目录临时文件替换。静态参考保留条件声明，明确不展开宏/cfg、动态文档及属性别名，不推算 DLL 平台契约；旧方法缺注释如实提示。
+- 模板增加中文业务 Rustdoc 和自动文档维护说明；新增解析、合并保护与真实 registry Node 的 DLL 构建/交付回归。当前为未发布源码候选，验证证据见根任务方案。
+- 验证：30 项 Pack 单元、1 项真实 registry/Windows GNU x64 构建与打包文档回归、严格 Clippy/Rustdoc、Rust 1.89 及版本检查通过；未进行 Windows 原生加载或硬件验证。
+- English: Generate business method Markdown from Rust documentation comments during build/pack, preserve hand-written sections, and ship the generated guide with the DLL. No AI post-processing is required.
+
 ## [0.13.6] - 2026-11-12
 
 - 修复 new/init 默认选择最新正式框架后仍强制 ABI v7 的失败路径；按真实 registry 解析结果支持 ABI v7–v10，创建成功信息显示实际 ABI。

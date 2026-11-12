@@ -13,11 +13,13 @@ pub(crate) fn package(request: crate::model::PackageRequest) -> Result<(), Strin
     crate::build::preflight(&request.targets)?;
 
     for node in nodes {
+        let documentation = crate::documentation::prepare(&node)?;
         let mut artifacts = Vec::with_capacity(request.targets.len());
         for target in &request.targets {
             build_node(&root, *target, &node)?;
             artifacts.push(copy_target_files(&root, *target, &node)?);
         }
+        crate::documentation::write(&node, &documentation)?;
         copy_node_release_documents(&root, &node)?;
         for target in [crate::cli::windows_x64(), crate::cli::windows_x86()] {
             if !request.targets.contains(&target)

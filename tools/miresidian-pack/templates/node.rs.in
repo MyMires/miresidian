@@ -7,6 +7,13 @@ struct ExampleNode {
 }
 
 impl ExampleNode {
+    /// 创建无硬件回显节点；初始化成功后才能执行 Echo。
+    ///
+    /// # 参数与返回值
+    /// 无业务配置或输入；返回当前节点对象，不产生业务输出。
+    ///
+    /// # 错误与资源
+    /// 模板不访问外部资源。接入真实通信后，在此说明连接超时、配置校验和失败清理。
     #[miresidian::operation]
     fn init_device() -> MiresidianResult<Self> {
         // 在此建立连接；失败返回 Err，并释放已取得的临时资源。
@@ -15,6 +22,16 @@ impl ExampleNode {
         Ok(Self {})
     }
 
+    /// 返回传入的文本，用于验证宿主到节点的调用链。
+    ///
+    /// # 参数与返回值
+    /// `text` 来自 Input，按 UTF-8 文本原样返回，允许空字符串，不附加结束符。
+    ///
+    /// # 错误与副作用
+    /// 需要先初始化节点；本方法不访问硬件、不修改业务状态，也不自动重试。
+    ///
+    /// # 调用示例
+    /// 默认平台下使用 `Echo`，Input 为 `["hello"]`，业务输出为 `["hello"]`。
     #[miresidian::operation("Echo")]
     #[miresidian::output("回显文本")]
     fn echo(&mut self, #[miresidian::input("文本")] text: String) -> MiresidianResult<String> {
@@ -23,6 +40,10 @@ impl ExampleNode {
         Ok(text)
     }
 
+    /// 结束当前回显节点的生命周期。
+    ///
+    /// # 返回值与资源
+    /// 无业务输出；模板没有外部资源需要释放。真实连接的关闭顺序和失败边界应在此记录。
     #[miresidian::operation]
     fn close_device(&mut self) -> MiresidianResult<()> {
         // 在此关闭连接；考虑业务部分失败的清理，并以 Drop 兜底释放资源。

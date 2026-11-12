@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8] - 2026-11-13
+
+- CLI/套件要求 Pack 至少 0.14.0，通过现有 build/pack 路由自动生成并交付业务方法 Markdown；README 同步能力与生成边界。
+- 命令转发及 TestFlow 0.13.0 保持；未发布源码候选，不提升框架或无关组件。
+- 验证：双入口 6 项单元和 4 项进程测试、严格 Clippy/Rustdoc、Rust 1.89 及版本检查通过。
+- English: Require Pack 0.14.0 for automatic business method documentation in existing build/pack commands.
+
 ## [0.3.7] - 2026-11-12
 
 - CLI/套件最低 Pack 版本提升为 0.13.6，携带 new/init 的 ABI v7–v10 模板修复；README 更新默认最新版及已发布 0.33.0/v10 示例。

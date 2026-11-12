@@ -234,3 +234,86 @@ fn 默认最新版_new_和_init_可完成且文档匹配实际_abi() {
         assert_guide(&root, abi);
     }
 }
+
+#[test]
+#[ignore = "需要已发布框架 0.33.0、Windows GNU x64 target 与链接器；验证真实 DLL 构建及文档交付"]
+fn 业务注释经_build_自动合并且_pack_交付同一文档() {
+    let project = Project::new();
+    success(tool(
+        &project.0,
+        &[
+            "--new",
+            "business-docs-node",
+            "--name",
+            "演示设备",
+            "--mires-version",
+            "0.33.0",
+        ],
+    ));
+    let root = project.0.join("business-docs-node");
+    // 所有测试项目仍使用自身的 crates.io 精确依赖，只共享交叉编译缓存。
+    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/pack-business-doc-tests");
+    fs::create_dir(root.join(".cargo")).unwrap();
+    fs::write(
+        root.join(".cargo/config.toml"),
+        format!("[build]\ntarget-dir = {:?}\n", target.to_string_lossy()),
+    )
+    .unwrap();
+    let guide_path = root.join("docs/演示设备.md");
+    let original = fs::read_to_string(&guide_path).unwrap();
+    success(tool(&root, &["--check"]));
+    assert_eq!(fs::read_to_string(&guide_path).unwrap(), original);
+    success(tool(&root, &["--build", "--arch", "x64"]));
+    let initial = fs::read_to_string(&guide_path).unwrap();
+    assert!(initial.starts_with(&original));
+    assert!(initial.contains("ExampleNode::echo"));
+    assert!(initial.contains("返回传入的文本，用于验证宿主到节点的调用链。"));
+    assert!(!root.join("dist").exists());
+    assert!(
+        target
+            .join("x86_64-pc-windows-gnu/release/business_docs_node.dll")
+            .is_file()
+    );
+
+    let manual_suffix = "\n## 手写部署补充\n保持接线说明。\n";
+    fs::write(&guide_path, format!("{initial}{manual_suffix}")).unwrap();
+    let source_path = root.join("src/node.rs");
+    let source = fs::read_to_string(&source_path).unwrap().replace(
+        "返回传入的文本，用于验证宿主到节点的调用链。",
+        "业务文档变更验证。",
+    );
+    fs::write(&source_path, &source).unwrap();
+    success(tool(&root, &["--pack", "--arch", "x64"]));
+    let updated = fs::read_to_string(&guide_path).unwrap();
+    assert!(updated.contains("业务文档变更验证。"));
+    assert!(!updated.contains("返回传入的文本，用于验证宿主到节点的调用链。"));
+    assert!(updated.ends_with(manual_suffix));
+    assert_eq!(
+        updated
+            .matches("<!-- miresidian:business-docs:start -->")
+            .count(),
+        1
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("dist/演示设备/演示设备.md")).unwrap(),
+        updated
+    );
+    assert!(
+        root.join("dist/演示设备/windows-x64/business_docs_node.dll")
+            .is_file()
+    );
+    success(tool(&root, &["--build", "--arch", "x64"]));
+    assert_eq!(fs::read_to_string(&guide_path).unwrap(), updated);
+
+    // Rust 语法合法但类型检查失败：准备阶段可提取新注释，失败构建不得写入。
+    fs::write(
+        &source_path,
+        format!(
+            "{}\nfn broken() {{ let _: u32 = \"type error\"; }}\n",
+            source.replace("业务文档变更验证。", "失败构建不得写入。")
+        ),
+    )
+    .unwrap();
+    assert!(!tool(&root, &["--build", "--arch", "x64"]).status.success());
+    assert_eq!(fs::read_to_string(&guide_path).unwrap(), updated);
+}

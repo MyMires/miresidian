@@ -3,6 +3,7 @@ mod artifacts;
 mod build;
 mod cli;
 mod discover;
+mod documentation;
 mod framework;
 mod manifest;
 mod model;

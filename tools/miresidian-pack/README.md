@@ -1,6 +1,6 @@
 # miresidian_pack
 
-0.13.6 修复 new/init 默认采用最新正式框架时的 ABI 兼容问题。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
+本页对应源码候选 **0.14.0**，尚未发布。build/pack 新增业务方法文档自动生成；new/init 继续按实际框架 ABI 生成模板说明。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
 
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
@@ -101,10 +101,42 @@ Windows target、链接器及交叉编译配置由项目维护者选择。
 工具不会发布 Rust crate，不执行硬件测试，也不保证目录中不存在以前生成的其他位数文件；
 本次清单 artifacts 只描述本次构建收集的产物。
 
+## 业务方法文档自动生成
+
+执行 `cargo miresidian-pack --build --arch x64` 或 `cargo miresidian-pack --pack --arch x64`，工具会在所选节点的全部目标编译成功后，自动更新 `docs/<节点名称>.md`；pack 随后把同一文档复制到 `dist/<节点名称>/<节点名称>.md`。统一 CLI 的 build/pack 也走这条流程。无需调用 AI、另跑文档整理命令或安装 nightly；直接 `cargo build` 不执行 Pack 的生成步骤。新工具安装前按上文核对 registry 的实际可用版本，不能将本源码候选当作已发布版本。
+
+详细业务说明写在标记 `#[miresidian::operation]` 或导入后 `#[operation]` 的方法上，Rust 可见性为私有也会提取；初始化、关闭和探测方法同样适用。例如：
+
+```rust,ignore
+/// 发送请求并返回完整响应。
+///
+/// # 参数与返回值
+/// `request` 来自 Input，按 UTF-8 编码；返回响应文本，不含协议结束符。
+///
+/// # 错误与副作用
+/// 连接断开、超时或响应校验失败时返回错误；发送后不自动重试。
+#[miresidian::operation]
+fn query(&mut self, request: String) -> MiresidianResult<String> { /* 实际实现 */ }
+```
+
+注释的详细内容要求见[开发规范](../../docs/coding-standards.md#6-注释与文档)。工具读取 `src/` 下 Rust 文件和内联模块中的 inherent impl 方法，合并 `///`、`/** ... */` 与字面 `#[doc = "..."]` 的 Markdown，并附源码相对路径、方法签名和 operation/参数/输出等声明。方法实现和未标记的辅助函数不会写入。示例围栏保留，以 # 声明的注释标题降为方法标题的下级；文件排序稳定、内容无构建时间，重复生成不产生重复章节。
+
+首次在已有说明末尾追加自动区域，之后只替换以下唯一标记对之间的内容；区域前后的手写部署、接线和 ABI 示例保持原样，不需要再手工复制业务正文：
+
+```markdown
+<!-- miresidian:business-docs:start -->
+工具生成的方法参考
+<!-- miresidian:business-docs:end -->
+```
+
+请在源码修改业务正文，不手工修改自动区域。方法删除或更名在下次成功构建后同步反映。标记缺失、重复或顺序错误会报错并保留原文；文档注释不能包含上述保留标记。源码解析失败或所选目标编译失败时不写入说明。成功写入通过同目录临时文件替换，写入失败保留原文并报告；写入前重新读取说明以保留构建期间的手工编辑。文档失败时整个命令返回失败，即使 Cargo 已成功产生 DLL，也不能把本次交付标为完成。
+
+生成的是**源码方法参考**，不替代 DLL 的 GetFunctions/GetInitConfig 查询。扫描不展开宏、条件编译（cfg/cfg_attr）、include!、属性别名或 Rustdoc 自动链接；能读取到的文件/内联模块/impl 条件与方法自身声明会保留，不推断实际启用状态，也不推算平台操作名。`#[doc = include_str!(...)]` 等动态表达式标记为未展开；旧方法没有字面文档时明确提示缺少注释，不编造用途或阻止旧节点编译。实际启用能力、框架追加参数、ABI/内存契约和完整部署示例仍由当前 DLL 查询及自动区域外说明共同确定。源码注释的业务准确性在编码时维护，构建阶段不需要 AI 参与。
+
 ## 源码职责与验证
 
 main.rs 负责入口，cli.rs 解析命令；template.rs 生成模板；validate/ 检查结构和依赖；
-discover.rs 与 source.rs 读取 Cargo 图与节点属性；package.rs 编排交付，build.rs 调用 Cargo；
+discover.rs 与 source.rs 读取 Cargo 图与节点属性；package.rs 编排交付，build.rs 调用 Cargo；documentation.rs 及 documentation/ 提取业务 Rustdoc、合并并写入受管 Markdown；
 artifacts.rs 收集文件，manifest.rs 生成摘要及发布清单。各模块保持私有，不增加公开 Rust API。
 
 ```text
@@ -129,7 +161,7 @@ cargo test -p miresidian_pack --test template --locked -- --ignored
     cargo miresidian-pack --pack --node 演示设备 --arch all
     cargo miresidian-pack --help
 
---node 缺省为全部节点，--arch 为 x64/x86/all，缺省 all。build 只编译，pack 包含构建并整理 dist。
+--node 缺省为全部节点，--arch 为 x64/x86/all，缺省 all。build 编译并更新业务 Markdown，pack 包含构建、文档更新并整理 dist。
 构建先确认目标标准库可用，使用 --release --locked；链接器由项目配置，失败时明确提示核对；手动配置步骤见 [Windows GNU 构建环境](../../docs/coding-standards.md#windows-gnu-目标的手动配置)。
 模板的 lib.rs 仅声明模块，node.rs 的注释说明配置、状态、资源清理及宏生成边界。
 生成不代替编译、DLL 加载和硬件验证。--check 只检查项目；独立 TestFlow --check 可检查流程。

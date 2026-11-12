@@ -1,6 +1,6 @@
 [package]
 name = "miresidian_pack"
-version = "0.13.6"
+version = "0.14.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "Miresidian 节点发布包整理工具。"
@@ -15,6 +15,7 @@ name = "cargo-miresidian-pack"
 path = "src/main.rs"
 
 [dependencies]
+quote = "1.0"
 cargo_metadata = "0.19"
 serde_json = "1.0"
 sha2 = "0.10"

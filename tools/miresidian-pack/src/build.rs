@@ -2,15 +2,17 @@
 use crate::model::{NodeRelease, WindowsTarget};
 use std::{env, path::Path, process::Command};
 
-/// 独立构建保留 Cargo 产物，不生成 dist。
+/// 独立构建保留 Cargo 产物并更新业务 Markdown，不生成 dist。
 pub(crate) fn build(request: crate::model::PackageRequest) -> Result<(), String> {
     let root = env::current_dir().map_err(|e| e.to_string())?;
     let nodes = crate::validate::check_project(&root, request.node_name.as_deref())?;
     preflight(&request.targets)?;
     for node in nodes {
+        let documentation = crate::documentation::prepare(&node)?;
         for target in &request.targets {
             build_node(&root, *target, &node)?;
         }
+        crate::documentation::write(&node, &documentation)?;
     }
     Ok(())
 }
