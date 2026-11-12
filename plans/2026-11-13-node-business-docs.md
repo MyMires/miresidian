@@ -1,6 +1,6 @@
 # Node 业务文档注释与 DLL 构建自动生成 Markdown
 
-日期：2026-11-13。状态：实现与行为验收完成；提交与标签以 Git 实际记录及交付回复为准（方案先于实现落盘）。
+日期：2026-11-13。状态：实现、推送、正式发布与验收完成；最终记录提交见 Git 与交付回复（方案先于实现落盘）。
 执行依据：用户要求未来 Node 业务代码尽量使用详细文档注释，DLL 构建时将业务方法文档并入 Markdown；明确选择同时更新 skill 与增强 Pack，并要求生成阶段无需 AI 额外处理。
 
 ## 目标与范围
@@ -38,7 +38,7 @@ Pack 新增构建输出能力，升 MINOR 至 0.14.0；CLI 只更新后端要求
 | 安全、稳定合并 | 首次追加、重复生成幂等、方法修改/删除、手写前后缀保留、非法标记不覆盖、写入失败保留原文 | 内容测试通过；文件替换经实现审查，未注入磁盘故障 |
 | build/pack 真实入口 | 新增 registry 集成测试（仅 crates.io 已发布精确框架），实际 x64 构建及 pack，核对项目说明与 dist 文档；--check 不写入。环境不足则如实记录 | 已通过，证据见下节 |
 | 工具与依赖 | Pack/CLI 相关测试、fmt、严格 Clippy/Rustdoc，Rust 1.89 可用时检查受影响组件；不运行无关全工作区 | 已通过，证据见下节 |
-| skill 与提交门禁 | 格式、引用/锚点、UI 与完整副本一致；base/staged/提交后组件标签检查 | 内容与工作区门禁通过；暂存与标签在提交阶段核对，以 Git 实际记录及交付回复为准 |
+| skill 与提交门禁 | 格式、引用/锚点、UI 与完整副本一致；base/staged/提交后组件标签检查 | 内容、base/staged 与各发行快照组件标签核对均通过；记录提交不移动发行标签 |
 
 ## 实际结果与修订
 
@@ -78,7 +78,7 @@ Pack 新增构建输出能力，升 MINOR 至 0.14.0；CLI 只更新后端要求
 
 ### 发布验收结果
 
-尚未执行推送或上传，后续据实补充。本阶段纯方案与测试适配不升产品版本；最终以远端引用、官方注册/包校验及在线资料核对证据为准。
+实际推送、初版发行及 Windows 兼容补丁的执行记录见下方正式发布结果。本阶段纯方案与测试适配不升产品版本；路径输出修复按新增补丁独立发布。
 
 发行准备证据：环境检测适配后，显式 x64 DLL 文档回归再次真实执行并通过（6.41 秒），模板集成目标严格 Clippy 通过；工作区版本门禁通过。该适配仅修改 tests/template.rs；源码发行仍固定在上述组件标签。
 
@@ -97,3 +97,30 @@ CI 43276632917 的 Windows 任务显示生成 Markdown 的源码相对路径为 
 复用已通过的提取、受管区合并、真实 GNU DLL 构建、registry 安装与 checksum 验证方法；补丁后执行相关工具测试、严格 Clippy/Rustdoc、MSRV 与 x64 文档回归，推送补丁提交及新标签，观察 Linux/Windows CI。两个新标签各固定到补丁提交；从新标签干净快照先发布 Pack 0.14.1，再 CLI 0.3.9，仍保留 Cargo 正式编译验证，核对精确包/README/源码、云端 skill 与最终 CI。已发布 0.14.0/0.3.8 的标签和包不移动、不撤回、不覆盖；新补丁不升级独立 Node。
 
 补丁发行前验证：Pack 30 项单元、CLI 双入口 6 项单元与 Linux 5 项进程回归、x64 DLL 文档构建/打包回归（5.18 秒）、严格 Clippy/Rustdoc、Rust 1.89 all-targets、fmt 与版本门禁通过。0.14.1/0.3.9 的官方 API 预检均为 404；补丁标签待固定到本节所属提交后核对。初版 0.14.0/0.3.8 的官方包 checksum 与发行提交已验证，且两个精确版本均通过隔离目录的 cargo install --locked。
+
+### 正式发布执行结果（2026-11-13）
+
+master 先后推送发行准备 81c086c、纯测试适配 86f9291 与兼容补丁 0da4a0d；两次组件版本标签采用显式原子推送，未 force、未全量 --tags。初版两标签固定 a2e6770a2daeb0cad162fb26bb44b69c9156d79f，补丁两标签固定 0da4a0d0967c5711f37e6fa2e185dbca6265e20b；根 miresidian-v0.33.0 保持原指向。
+
+四个版本均从对应干净 detached worktree 逐包完成正式 Packaging/Verifying/Uploading/Published，没有 --allow-dirty、--no-verify 或覆盖既有发行。官方 API 均确认 yanked=false；从 static.crates.io 下载 .crate，实际 SHA-256 与官方 checksum 一致，.cargo_vcs_info 的源码提交、path_in_vcs 及非 dirty 状态匹配。
+
+| 组件 | 版本 | 不可移动标签 | 源码提交 | 官方包 SHA-256 |
+| --- | --- | --- | --- | --- |
+| [miresidian_pack](https://crates.io/crates/miresidian_pack/0.14.0) | 0.14.0 | miresidian_pack-v0.14.0 | a2e6770 | 7c04b230238fcb5be31f68068fec8b14c7e866f9959662441713e6def06e6cf8 |
+| [miresidian_cli](https://crates.io/crates/miresidian_cli/0.3.8) | 0.3.8 | miresidian_cli-v0.3.8 | a2e6770 | 01d809bc4849765d3f69f271c66ab2a9f83350e30e4474cf301c8eb93e5bfb36 |
+| [miresidian_pack](https://crates.io/crates/miresidian_pack/0.14.1) | 0.14.1 | miresidian_pack-v0.14.1 | 0da4a0d | 412fcc5731f4788d21c160dbc674d00d31644bf26aac52ea8fba660f0ab2a5c3 |
+| [miresidian_cli](https://crates.io/crates/miresidian_cli/0.3.9) | 0.3.9 | miresidian_cli-v0.3.9 | 0da4a0d | 516fcaa2226ecfcb4a0a7150f48db87b91fbbe1b4462649aa710d0fbc81fcd9f |
+
+每个 Pack 包逐字节核对 35 个原始文件（共 38 个归档文件），每个 CLI 包核对 16 个原始文件（共 19 个归档文件），均与对应发行快照一致。README、日期 CHANGELOG、Cargo.toml.orig、生成模块/模板及 CLI 内嵌最低 Pack 0.14.1 均进入最终包；新补丁归档保留初版发行事实，不移动原标签。
+
+最终版本在线资料已分别核对：Pack 0.14.1 的精确 README、documentation.rs、业务注释模板，以及 CLI 0.3.9 的精确 README、toolset.toml，共 5/5 页面 HTTP 200、正文匹配且未跳转 latest。两组件为二进制工具，不将 crate 介绍页冒充不存在的库 API。入口：[Pack README](https://docs.rs/crate/miresidian_pack/0.14.1)、[生成实现](https://docs.rs/crate/miresidian_pack/0.14.1/source/src/documentation.rs)、[注释模板](https://docs.rs/crate/miresidian_pack/0.14.1/source/templates/node.rs.in)、[CLI README](https://docs.rs/crate/miresidian_cli/0.3.9)、[套件清单](https://docs.rs/crate/miresidian_cli/0.3.9/source/toolset.toml)。
+
+GitHub 两个最终精确标签的关键源码 blob 与本地匹配；master 的完整 skill 5 文件已逐项比对云端 Git tree SHA，安装副本也与仓库一致。框架、ABI、TestFlow 和独立 Node 无新版本，本次不创建额外 GitHub Release、不改全局工具安装。
+
+从 crates.io 用 --version/--locked 将初版及最终补丁分别安装到隔离 /tmp 根目录，版本输出正确。最终安装的 CLI 0.3.9 在同目录找到 Pack 0.14.1，真实创建精确依赖已发布框架 0.33.0 的临时 Node，并以 pack --arch x64 成功生成 GNU DLL；项目 Markdown 包含源码注释和 src/node.rs，自动区域唯一、原手写内容保留，dist 文档逐字节相同。DLL SHA-256 为 ed38408d62e25a115af4e12d32072fbe47f43be4c8277eb315c968e1f0f03ca3，与 manifest 一致；这是交叉构建验证，不冒充真实硬件通信。
+
+最新补丁的[主 CI 43277634281](https://github.com/MyMires/miresidian/actions/runs/43277634281)与[独立工具套件 43277634248](https://github.com/MyMires/miresidian/actions/runs/43277634248)均 completed/success：主框架默认/全特性及严格检查、Windows 工具端到端、Rust 1.89 的 Linux/Windows 检查全部通过；套件两宿主的进程/registry 模板、归档构建及安装验证通过。没有手动触发额外 GitHub Release，draft-release 按配置跳过。先前 43275819729 的 Linux ETXTBSY 与 43276632917 的 Windows 路径断言失败均已保留并按上述过程修正，不把早期失败记为通过。
+
+临时详细证据保存在 /tmp/miresidian-business-docs-release-verification/：四个官方归档、逐包 JSON、online.json、installed-smoke.json、ci.json；关键提交、版本、checksum 和在线入口已在本方案持久归档。最终记录以纯方案提交推送 master，发行标签保持对应源码提交。
+
+发布验收全部完成：最终 Pack 0.14.1 与 CLI 0.3.9 可从 crates.io 精确安装，文档可访问，官方包/源码/标签/云端 skill 一致，最新 CI 全部成功，无待发布或文档排队项。此最后提交仅归档结果（版本影响：无），使用 [skip ci] 复用上述源码 CI；Git 版本门禁仍执行，发行标签保留原指向。
