@@ -1,4 +1,4 @@
 interface:
   display_name: "Miresidian Node"
-  short_description: "Node 新建和更新先落盘方案，按实际版本列出 features 供用户选择，再按方案实现与验收"
-  default_prompt: "使用 $miresidian-node 先建立或更新方案，按实际版本查证并展示支持的 features、用途与配置供我选择，确认执行条件后严格按方案实施与验收。"
+  short_description: "按实际版本介绍 features 并指导 Node 开发，按更新范围管理方案与验收"
+  default_prompt: "使用 $miresidian-node 介绍 features 并供我选择，按主流程初始化、规划和实现 Node，完成本次范围内的验证与交付。"
