@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.9] - 2026-11-13
+
+- CLI/套件最低 Pack 提升至 0.14.1，携带 Windows/Linux 文档路径统一修复；README 同步实际源码版本与发行状态核对方式。
+- 已有 Linux 测试夹具只重试短暂 ETXTBSY 启动错误，其他错误及进程退出码断言保持；命令转发实现与 TestFlow 版本不变。
+- English: Require Pack 0.14.1 for portable generated documentation paths; retain existing command routing.
+
 ## [0.3.8] - 2026-11-13
 
 - CLI/套件要求 Pack 至少 0.14.0，通过现有 build/pack 路由自动生成并交付业务方法 Markdown；README 同步能力与生成边界。

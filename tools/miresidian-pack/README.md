@@ -1,6 +1,6 @@
 # miresidian_pack
 
-本页对应源码候选 **0.14.0**，尚未发布。build/pack 新增业务方法文档自动生成；new/init 继续按实际框架 ABI 生成模板说明。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
+本页对应源码版本 **0.14.1**；安装状态以精确版本发行记录为准。build/pack 新增业务方法文档自动生成；new/init 继续按实际框架 ABI 生成模板说明。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
 
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
@@ -103,7 +103,7 @@ Windows target、链接器及交叉编译配置由项目维护者选择。
 
 ## 业务方法文档自动生成
 
-执行 `cargo miresidian-pack --build --arch x64` 或 `cargo miresidian-pack --pack --arch x64`，工具会在所选节点的全部目标编译成功后，自动更新 `docs/<节点名称>.md`；pack 随后把同一文档复制到 `dist/<节点名称>/<节点名称>.md`。统一 CLI 的 build/pack 也走这条流程。无需调用 AI、另跑文档整理命令或安装 nightly；直接 `cargo build` 不执行 Pack 的生成步骤。新工具安装前按上文核对 registry 的实际可用版本，不能将本源码候选当作已发布版本。
+执行 `cargo miresidian-pack --build --arch x64` 或 `cargo miresidian-pack --pack --arch x64`，工具会在所选节点的全部目标编译成功后，自动更新 `docs/<节点名称>.md`；pack 随后把同一文档复制到 `dist/<节点名称>/<节点名称>.md`。统一 CLI 的 build/pack 也走这条流程。无需调用 AI、另跑文档整理命令或安装 nightly；直接 `cargo build` 不执行 Pack 的生成步骤。安装前按上文核对 registry 中所需精确版本的可用性。
 
 详细业务说明写在标记 `#[miresidian::operation]` 或导入后 `#[operation]` 的方法上，Rust 可见性为私有也会提取；初始化、关闭和探测方法同样适用。例如：
 
@@ -119,7 +119,7 @@ Windows target、链接器及交叉编译配置由项目维护者选择。
 fn query(&mut self, request: String) -> MiresidianResult<String> { /* 实际实现 */ }
 ```
 
-注释的详细内容要求见[开发规范](../../docs/coding-standards.md#6-注释与文档)。工具读取 `src/` 下 Rust 文件和内联模块中的 inherent impl 方法，合并 `///`、`/** ... */` 与字面 `#[doc = "..."]` 的 Markdown，并附源码相对路径、方法签名和 operation/参数/输出等声明。方法实现和未标记的辅助函数不会写入。示例围栏保留，以 # 声明的注释标题降为方法标题的下级；文件排序稳定、内容无构建时间，重复生成不产生重复章节。
+注释的详细内容要求见[开发规范](../../docs/coding-standards.md#6-注释与文档)。工具读取 `src/` 下 Rust 文件和内联模块中的 inherent impl 方法，合并 `///`、`/** ... */` 与字面 `#[doc = "..."]` 的 Markdown，并附使用 / 分隔的跨平台源码相对路径、方法签名和 operation/参数/输出等声明。方法实现和未标记的辅助函数不会写入。示例围栏保留，以 # 声明的注释标题降为方法标题的下级；文件排序稳定、内容无构建时间，重复生成不产生重复章节。
 
 首次在已有说明末尾追加自动区域，之后只替换以下唯一标记对之间的内容；区域前后的手写部署、接线和 ABI 示例保持原样，不需要再手工复制业务正文：
 

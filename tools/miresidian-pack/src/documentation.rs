@@ -33,7 +33,12 @@ pub(crate) fn prepare(node: &NodeRelease) -> Result<String, String> {
         section.push_str(&format!(
             "### {}\n\n源码：`{}`\n\n",
             method.name,
-            method.path.display(),
+            method
+                .path
+                .components()
+                .map(|part| part.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
         ));
         if !method.conditions.is_empty() {
             section.push_str("上层条件声明（未求值）：\n\n");

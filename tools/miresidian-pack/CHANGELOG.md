@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-13
+
+- 业务 Markdown 的源码参考路径统一按路径组件以 / 连接，修复 Windows 输出反斜杠与跨平台文档约定不一致；提取内容和业务 API 保持。
+- README 使用源码版本与 registry 发行状态分别核对的稳定说明；包含已提交的测试工具链检测与既有合并保护回归。
+- English: Normalize generated source reference paths across Windows and Linux without changing business APIs.
+
 ## [0.14.0] - 2026-11-13
 
 - build/pack 在所选目标编译成功后，自动提取 operation 方法的字面 Rustdoc 与声明，合并到项目节点说明的受管区域；pack 交付同一 Markdown，无需 AI 另行整理。
