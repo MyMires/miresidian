@@ -87,7 +87,7 @@ fn 独立进程保持参数目录和退出码() {
         let output = fixture
             .command(name)
             .args(["pack", "--node", "设备 有空格", "--arch", "x86"])
-            .output()
+            .fixture_output()
             .unwrap();
         assert_eq!(output.status.code(), Some(37));
         let log = fs::read_to_string(fixture.0.join("log")).unwrap();
@@ -99,7 +99,7 @@ fn 独立进程保持参数目录和退出码() {
     let output = fixture
         .command("cargo-mires")
         .arg("check")
-        .output()
+        .fixture_output()
         .unwrap();
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("版本过旧"));
@@ -112,7 +112,7 @@ fn 缺少工具提示安装而不自动下载() {
         .command("cargo-mires")
         .arg("check")
         .env("PATH", "")
-        .output()
+        .fixture_output()
         .unwrap();
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("install --full"));
@@ -164,7 +164,7 @@ fn main() {
             ])
             .env("CARGO", &cargo)
             .env("MIRES_TEST_EXIT", "37")
-            .output()
+            .fixture_output()
             .unwrap();
         assert_eq!(output.status.code(), Some(37));
         assert!(String::from_utf8_lossy(&output.stdout).contains("cargo-stdout"));
@@ -185,7 +185,7 @@ fn main() {
             .args(args)
             .env("CARGO", &cargo)
             .env("MIRES_TEST_EXIT", "0")
-            .output()
+            .fixture_output()
             .unwrap();
         assert!(output.status.success(), "{output:?}");
         assert!(
@@ -200,7 +200,7 @@ fn main() {
         .args(["install", "--full", "--version", "0.12.0"])
         .env("CARGO", &cargo)
         .env("MIRES_TEST_EXIT", "0")
-        .output()
+        .fixture_output()
         .unwrap();
     assert!(!output.status.success());
     assert!(!fixture.0.join("log").exists());
@@ -242,7 +242,7 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
                 "CARGO_TARGET_DIR",
                 fixture.0.join(format!("tool-target-{id}")),
             )
-            .output()
+            .fixture_output()
             .unwrap();
         assert!(
             output.status.success(),
@@ -255,14 +255,20 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
     assert!(install_root.join(".crates.toml").is_file());
     write_manifest("0.11.0");
     run(&["use", "pack", "0.11.0"]);
-    let version = Command::new(&backend).arg("--version").output().unwrap();
+    let version = Command::new(&backend)
+        .arg("--version")
+        .fixture_output()
+        .unwrap();
     assert!(
         version.status.success() && String::from_utf8_lossy(&version.stdout).contains("0.11.0"),
         "{version:?}"
     );
     write_manifest("0.12.0");
     run(&["update", "pack"]);
-    let version = Command::new(&backend).arg("--version").output().unwrap();
+    let version = Command::new(&backend)
+        .arg("--version")
+        .fixture_output()
+        .unwrap();
     assert!(
         version.status.success() && String::from_utf8_lossy(&version.stdout).contains("0.12.0"),
         "{version:?}"
@@ -272,11 +278,59 @@ fn 原生_cargo_在同一目录升级降级并保留安装记录() {
         .args(["list", "--root"])
         .arg(&install_root)
         .env("CARGO", env!("CARGO"))
-        .output()
+        .fixture_output()
         .unwrap();
     assert!(list.status.success());
     let list = String::from_utf8_lossy(&list.stdout);
     assert!(list.contains("miresidian_pack v0.12.0"));
     assert!(!list.contains("miresidian_pack v0.11.0"));
     assert_eq!(fs::read_dir(install_root.join("bin")).unwrap().count(), 1);
+}
+
+/// 文件复制后某些 Linux 文件系统会短暂保留写占用；只重试尚未启动的 ETXTBSY。
+/// 其他启动错误立即返回，进程启动后的状态和输出仍由各测试原有断言检查。
+trait FixtureCommand {
+    fn fixture_output(&mut self) -> std::io::Result<std::process::Output>;
+}
+
+impl FixtureCommand for Command {
+    fn fixture_output(&mut self) -> std::io::Result<std::process::Output> {
+        for attempt in 0..50 {
+            match self.output() {
+                Err(error)
+                    if cfg!(target_os = "linux")
+                        && error.raw_os_error() == Some(26)
+                        && attempt < 49 =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                result => return result,
+            }
+        }
+        unreachable!("最后一次启动结果已返回")
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn 文件短暂写占用时重试但不吞掉其他启动错误() {
+    let fixture = Fixture::new();
+    fixture.backend("0.14.0");
+    let binary = fixture.0.join("cargo-miresidian-pack");
+    let writer = fs::OpenOptions::new().write(true).open(&binary).unwrap();
+    let mut command = Command::new(&binary);
+    command.arg("--version");
+    assert_eq!(command.output().unwrap_err().raw_os_error(), Some(26));
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        drop(writer);
+    });
+    let output = command.fixture_output().unwrap();
+    release.join().unwrap();
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("0.14.0"));
+    let error = Command::new(fixture.0.join("不存在的程序"))
+        .fixture_output()
+        .unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
 }
