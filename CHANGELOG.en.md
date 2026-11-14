@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## Shared plan for each target minor version - 2026-11-14
+
+- Reuse one plan per project/component and target major/minor version (X.Y), covering the framework, components/tools and independent Nodes. Add requirements from later tasks to that file even after execution, preserving prior decisions and validation evidence; start a new plan for a new major/minor version.
+- Minor or larger updates still require a plan; small patch fixes do not. Preserve the new-Node initialization and confirmation sequence, and synchronize the complete installed skill.
+- Version impact: none; workflow rules only, with no changes to product code, APIs, templates, dependencies, lockfiles or deliverable behavior. Keep component versions and existing tags; validate documentation, skill synchronization and version gates.
+
 ## [0.33.0] - 2026-11-12
 
 - Rename the instances Cargo feature and node group to instance, including NodeDescriptor.instance and the generated feature gate. Reject the old spelling without aliases.
