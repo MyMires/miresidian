@@ -1,4 +1,4 @@
 interface:
   display_name: "Miresidian Node"
-  short_description: "按实际版本介绍 features 并指导 Node 开发，同一次版本共用方案并完成验收"
-  default_prompt: "使用 $miresidian-node 介绍 features 并供我选择，按主流程初始化、规划和实现 Node，完成本次范围内的验证与交付。"
+  short_description: "按项目实际版本开发和维护 Node，落实业务契约、资源生命周期及验证交付"
+  default_prompt: "使用 $miresidian-node 按本次新建、维护或构建交付需求，查证项目实际版本，完成业务契约、资源生命周期及相关验证与交付。"

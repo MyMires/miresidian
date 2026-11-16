@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## Node skill task routing and version applicability - 2026-11-17
+
+- Distinguish new business development or overall redesign from existing-project maintenance and routine compilation/packaging. Focus on business contracts, resource lifecycles and actual validation; preserve feature choices and required confirmations without adding plans or initialization for routine rebuilds.
+- Separate versioned technical contracts from development conventions applicable to the project. Check old-version support and compatibility before adopting new conventions; do not migrate existing Node contracts incidentally or maintain a fixed compatibility matrix.
+- Document constrained fallbacks for initialization and documentation when older tools lack support. Preserve project rules, authorization, published exact dependencies and acceptance criteria; never upgrade implicitly or claim automatic generation. Synchronize review guidance, UI metadata and the complete installed copy.
+- Version impact: none; skill and workflow rules only, with no product code, technical API, tool template, dependency, lockfile or product delivery-contract changes. Keep framework 0.33.0 and all other component versions and tags. Validate formatting, references, copy synchronization, scenario paths and version gates.
+
 ## Shared plan for each target minor version - 2026-11-14
 
 - Reuse one plan per project/component and target major/minor version (X.Y), covering the framework, components/tools and independent Nodes. Add requirements from later tasks to that file even after execution, preserving prior decisions and validation evidence; start a new plan for a new major/minor version.
