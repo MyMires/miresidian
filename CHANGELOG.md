@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-17
+
+- instance 短写的裸 multiple 默认 Config 关联；新增 multiple(config/handle)，保留旧平铺短写及完整长写必填检查，拒绝空括号、重复和冲突。
+- format 能力统一改名 encoding：Cargo feature、宏标签、crate、目录、公开模块、转换 trait 和函数同步；基础 codec、字节契约、实例生命周期、调度和 ABI v10 保持。
+- encoding 多编码省略选择器时自动以显示名加“格式”命名，新增字符串首项显式命名；保留 selector/formats 字段形态，单编码无选择器、第一编码默认、槽位及 batch 对齐保持，名称冲突编译报错。
+- 根 0.34.0、macro 0.30.0、新 miresidian_encoding 0.5.0；batch 0.3.3 仅更新组合指导，Pack 0.14.2/CLI 0.3.10 同步新旧包来源约束。精确依赖、Cargo 生成锁文件、双语指导、Rustdoc、注释、示例及迁移页同步。
+- 已审查完整 Node skill 双副本：无旧能力名称或 API 引用，保持版本无关流程及内容一致，不因组件升版加入固定语法。独立 Node/夹具保留已发布精确依赖。
+- 本次仅本地源码交付，不推送或发布；验证与版本标签记录见 plans/2026-11-17-instance-multiple-default.md。
+
+
 ## Node skill 任务分流与版本适用边界 - 2026-11-17
 
 - 入口区分业务新建/整体重构、已有项目维护和例行编译/打包，聚焦业务契约、资源生命周期及实际验证；例行重建不触发重新初始化、features 选择或额外方案，保留已有选择及必要确认要求。

@@ -1,4 +1,4 @@
-#![cfg(feature = "format")]
+#![cfg(feature = "encoding")]
 //! 复用同一节点契约，经 Runtime、原生 async 和 C ABI 验证格式列、批量及输出槽位。
 use miresidian::{Invocation, MiresidianResult, NodeRuntime};
 
@@ -17,11 +17,11 @@ impl FormatNode {
     }
 
     #[miresidian::operation("转换")]
-    #[miresidian::output("数据", format(formats = [hex, utf8], selector = "输出格式"))]
+    #[miresidian::output("数据", encoding(formats = [hex, utf8], selector = "输出格式"))]
     #[miresidian::output("次数")]
     fn convert(
         &mut self,
-        #[miresidian::input("数据", format(formats = [utf8, hex], selector = "输入格式"))]
+        #[miresidian::input("数据", encoding(formats = [utf8, hex], selector = "输入格式"))]
         data: Vec<u8>,
         #[miresidian::input("后缀:!")] suffix: String,
     ) -> MiresidianResult<(Vec<u8>, usize)> {
@@ -31,21 +31,21 @@ impl FormatNode {
         Ok((data, self.calls))
     }
     #[miresidian::operation("异步")]
-    #[miresidian::output("数据", format(formats = [hex]))]
+    #[miresidian::output("数据", encoding(formats = [hex]))]
     async fn echo_async(
         &mut self,
-        #[miresidian::input("数据", format(formats = [hex]))] data: Vec<u8>,
+        #[miresidian::input("数据", encoding(formats = [hex]))] data: Vec<u8>,
     ) -> MiresidianResult<Vec<u8>> {
         Ok(data)
     }
 
     #[cfg(feature = "batch")]
     #[miresidian::operation("批量")]
-    #[miresidian::output("数据", format(formats = [hex, utf8], selector = "输出格式"))]
+    #[miresidian::output("数据", encoding(formats = [hex, utf8], selector = "输出格式"))]
     #[miresidian::output("次数")]
     fn batch(
         &mut self,
-        #[miresidian::input("数据", batch, format(formats = [hex, utf8], selector = "输入格式"))]
+        #[miresidian::input("数据", batch, encoding(formats = [hex, utf8], selector = "输入格式"))]
         data: Vec<u8>,
         #[miresidian::input("倍率", batch)] scale: f64,
     ) -> MiresidianResult<(Vec<u8>, usize)> {
@@ -55,12 +55,12 @@ impl FormatNode {
     }
     #[cfg(feature = "batch")]
     #[miresidian::operation("顺序失败")]
-    #[miresidian::output("数据", format(formats = [utf8]))]
+    #[miresidian::output("数据", encoding(formats = [utf8]))]
     fn fail(&mut self, #[miresidian::input("序号", batch)] n: u16) -> MiresidianResult<Vec<u8>> {
         self.calls += 1;
         Ok(if n == 2 { vec![0xff] } else { vec![b'A'] })
     }
-    #[miresidian::output("数据", format(formats = [hex]))]
+    #[miresidian::output("数据", encoding(formats = [hex]))]
     #[miresidian::operation("单元组")]
     fn single_tuple(&mut self) -> MiresidianResult<(Vec<u8>,)> {
         Ok((vec![0x41],))
@@ -73,11 +73,11 @@ impl FormatNode {
 
     #[cfg(feature = "batch")]
     #[miresidian::operation("逐条格式")]
-    #[miresidian::output("文本", format(formats = [utf8, hex, base64], selector = "输出类型"))]
+    #[miresidian::output("文本", encoding(formats = [utf8, hex, base64], selector = "输出类型"))]
     #[miresidian::output("开关")]
     fn per_record(
         &mut self,
-        #[miresidian::input("文本", batch, format(formats = [utf8, hex, base64], selector = "输入类型"))]
+        #[miresidian::input("文本", batch, encoding(formats = [utf8, hex, base64], selector = "输入类型"))]
         text: String,
         #[miresidian::input("开关", batch)] flag: bool,
     ) -> MiresidianResult<(String, bool)> {
@@ -90,7 +90,7 @@ impl FormatNode {
     #[miresidian::output("文本")]
     fn fixed_text(
         &mut self,
-        #[miresidian::input("文本", batch, format(formats = [hex]))] text: String,
+        #[miresidian::input("文本", batch, encoding(formats = [hex]))] text: String,
     ) -> MiresidianResult<String> {
         self.calls += 1;
         Ok(text)
@@ -98,14 +98,14 @@ impl FormatNode {
 
     #[cfg(feature = "batch")]
     #[miresidian::operation("多列组合")]
-    #[miresidian::output("文本", format(formats = [utf8, hex], selector = "返回类型"))]
+    #[miresidian::output("文本", encoding(formats = [utf8, hex], selector = "返回类型"))]
     #[miresidian::output("开关")]
     #[miresidian::output("序号")]
     fn multiple_columns(
         &mut self,
-        #[miresidian::input("文本", batch, format(formats = [utf8, hex, base64], selector = "文本类型"))]
+        #[miresidian::input("文本", batch, encoding(formats = [utf8, hex, base64], selector = "文本类型"))]
         text: String,
-        #[miresidian::input("开关", batch, format(formats = [utf8, hex, base64], selector = "开关类型"))]
+        #[miresidian::input("开关", batch, encoding(formats = [utf8, hex, base64], selector = "开关类型"))]
         flag: bool,
         #[miresidian::input("序号", batch)] index: u16,
         #[miresidian::input("后缀:!")] suffix: String,
@@ -118,7 +118,7 @@ impl FormatNode {
     #[miresidian::operation("异步批量格式")]
     async fn batch_async(
         &mut self,
-        #[miresidian::input("文本", batch, format(formats = [hex]))] text: String,
+        #[miresidian::input("文本", batch, encoding(formats = [hex]))] text: String,
         #[miresidian::input("开关", batch)] flag: bool,
     ) -> MiresidianResult<(String, bool)> {
         std::future::ready(()).await;

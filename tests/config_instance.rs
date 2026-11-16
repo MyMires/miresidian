@@ -4,7 +4,7 @@
 use miresidian::{Invocation, MiresidianError, MiresidianResult, NodeRuntime};
 type Speed = u32;
 
-#[miresidian::node("Config 主键", instance(multiple, config))]
+#[miresidian::node("Config 主键", instance(multiple))]
 struct ConfigNode {
     key: String,
     speed: u32,

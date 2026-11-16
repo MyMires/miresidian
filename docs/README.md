@@ -16,7 +16,7 @@
 | 宿主接入 | [平台接入与 C ABI](c-abi.md) | C 入口、响应与内存契约、TB 文本协议和平台适配器 |
 | 仓库维护 | [开发与维护规范](coding-standards.md) | 方案门禁、编码、验证、构建环境和交付组织 |
 | 仓库维护 | [版本管理](versioning.md) | 版本判断、依赖/锁文件、修订归档、提交门禁和发布标签 |
-| 历史记录 | [0.33.0 名称迁移](releases/0.33.0.md) · [发行说明](releases/) · [维护历史与复盘](history/maintenance.md) · [任务方案](../plans/) | 版本迁移、历史背景、实施过程和验收证据，不作为第二套现行规范 |
+| 历史记录 | [0.34.0 宏简写与 encoding 迁移](releases/0.34.0.md) · [发行说明](releases/) · [维护历史与复盘](history/maintenance.md) · [任务方案](../plans/) | 版本迁移、历史背景、实施过程和验收证据，不作为第二套现行规范 |
 
 ## 按任务阅读
 
@@ -39,7 +39,7 @@
 4. 如需完整仓库手册，从发布包 `.cargo_vcs_info.json` 的 git.sha1 和 path_in_vcs 定位 [官方仓库](https://github.com/MyMires/miresidian) 的实际发布提交；或核实对应组件不可移动标签后，在该快照打开 docs/README.md。工具 README 的相对手册链接在单独发布包中可能没有目标文件，此时沿发布提交查完整仓库。
 5. 某些旧版根 API 文档未展示全部可选能力。先核对精确版本的 feature 手册；需要公开类型签名时按解析到的组件版本查组件 Rustdoc/发布源码，或在具备该版本源码的环境执行全特性文档构建。页面缺失不等于该版本没有该能力，也不能据此使用新版签名。
 
-框架 docs.rs 配置使用 all-features，公开的 format 模块须出现在构建结果中。维护时执行 `cargo doc -p miresidian --all-features --no-deps --locked`，核对 `target/doc/miresidian/format/index.html`；跨 crate 的重导出链接可能指向其独立组件文档，宏内部隐藏模块不作为节点公开 API。已发布旧包不可覆盖，修复通过新版本发布，旧版本继续使用对应手册与组件资料。
+框架 docs.rs 配置使用 all-features，公开的 encoding 模块须出现在构建结果中。维护时执行 `cargo doc -p miresidian --all-features --no-deps --locked`，核对 `target/doc/miresidian/encoding/index.html`；跨 crate 的重导出链接可能指向其独立组件文档，宏内部隐藏模块不作为节点公开 API。已发布旧包不可覆盖，修复通过新版本发布，旧版本继续使用对应手册与组件资料。
 
 ## crate 与开发工具
 
@@ -52,7 +52,7 @@
 | `miresidian_abi` | [ABI crate](../abi/README.md) · [公共头文件](../abi/api/miresidian.h) |
 | `miresidian_codec` | [编解码 crate](../codec/README.md) |
 | `miresidian_macro` | [过程宏 crate](../macro/README.md) |
-| `miresidian_format` | [格式选择、类型转换及 batch 组合](../features/format/README.md) |
+| `miresidian_encoding` | [格式选择、类型转换及 batch 组合](../features/encoding/README.md) |
 | `miresidian_batch` | [记录解析、长度对齐及输出聚合](../features/batch/README.md) |
 | `miresidian_instance` | [通用策略、容器及多通道调度](../features/instance/README.md) |
 | `miresidian_lease` | [租约接入、v2 协议、配置锁与迁移](../features/lease/README.md) |

@@ -1,6 +1,6 @@
 # 架构总览
 
-本检出 0.30.1 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
+本检出 0.34.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
 
 [文档中心](README.md) · [项目首页](../README.md)
 
@@ -22,8 +22,8 @@ flowchart TB
     instance --> codec
     runtime --> lease["miresidian_lease：通用租约模型"]
     lease --> codec
-    runtime -->|format feature| format["miresidian_format：显式格式转换"]
-    format --> codec
+    runtime -->|encoding feature| encoding["miresidian_encoding：显式格式转换"]
+    encoding --> codec
     runtime -->|batch feature| batch["miresidian_batch：记录解析与聚合"]
     batch --> codec
     macros -.-> generated["编译期生成：元数据、Node 实现与 DLL 导出"]
@@ -37,7 +37,7 @@ flowchart TB
     host["C / C# / Python / LabVIEW 宿主"] -.-> dll
 ```
 
-框架工作区包含八个库 crate（含根 crate、宏、ABI、codec、format、batch、instance、lease）和三个 Cargo 开发工具（CLI、Pack、TestFlow）；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。CLI 启动独立后端进程，开发工具不进入节点 DLL 的运行时依赖图。
+框架工作区包含八个库 crate（含根 crate、宏、ABI、codec、encoding、batch、instance、lease）和三个 Cargo 开发工具（CLI、Pack、TestFlow）；节点与烟测夹具是独立 Cargo 项目。`miresidian_macro` 在编译期运行，生成代码调用 `miresidian` 的公开 API，宏实现本身不进入 DLL 的运行时。CLI 启动独立后端进程，开发工具不进入节点 DLL 的运行时依赖图。
 
 `instance` feature 与同名宏配置共同控制实例策略和多通道执行；未标注节点在任意 feature 组合下仍是单实例。根 crate 始终依赖独立 miresidian_instance 的通用模型及单实例容器，instance feature 开启其 runtime 后端；多实例容器和通用调度留在该 crate，根框架只适配节点生命周期。详见[实例管理](instances.md)。
 
@@ -200,7 +200,7 @@ Direct 清理本地 N；Shared 只释放当前代理，最后引用才清理唯�
 
 ## 节点创建与方法汇总
 
-0.33.0 / macro 0.29.0 将实例入口统一为 instance，沿用 0.28.0 / macro 0.24.0 引入的长短写归一策略：裸 instance 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。format 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instance/format 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[名称迁移](releases/0.33.0.md)和[宏简写历史](releases/0.28.0.md)。
+0.33.0 / macro 0.29.0 将实例入口统一为 instance，沿用 0.28.0 / macro 0.24.0 引入的长短写归一策略：裸 instance 为 Single/Config/Fixed(Sequential)，不声明时仍为 Single/Config/Disabled；裸 lease 为 Required，不声明仍为 Disabled。encoding 位置项和旧 formats 数组归一到相同有序列表及 selector。租约声明解析独立位于 macro/src/node/lease.rs，节点入口处理裸标记与分组，instance/encoding 各自检查默认、重复和混用。桥接生成、对象容器、资源代理和 ABI 均复用原实现；详见[名称迁移](releases/0.33.0.md)和[宏简写历史](releases/0.28.0.md)。
 
 `node` 保留在结构体上，生成节点身份、同模块方法的类型绑定、Node 实现和唯一 C ABI 入口；`operation` 独立生成方法描述与包装，再提交注册项。每个节点模块只有一个具体节点，可以有多个固有 impl；未标注的方法不会进入平台契约。方法按源码位置稳定排序，首次请求校验重复和保留名称。
 
@@ -284,8 +284,8 @@ Shared 分支的 Node 位于唯一资源所有者中；图中省略 IPC 编解�
 | `codec/` | 值模型、统一错误、参数与编解码 | [lib.rs](../codec/src/lib.rs) |
 | `macro/` | 属性宏入口、节点声明与逐方法生成 | [lib.rs](../macro/src/lib.rs)、[node.rs](../macro/src/node.rs)、[operation.rs](../macro/src/operation.rs) |
 | `macro/src/operation/` 与 `macro/src/node/` | 方法标注校验、描述及调用包装；节点注册绑定与 FFI | [definition.rs](../macro/src/operation/definition.rs)、[dispatch.rs](../macro/src/operation/dispatch.rs)、[generate.rs](../macro/src/node/generate.rs)、[ffi.rs](../macro/src/node/ffi.rs) |
-| `features/format/` | 可选显式格式转换，宏生成选择输入及转换包装 | [说明](../features/format/README.md) |
-| `features/batch/` | 按原类型解析批量记录、广播对齐及逐槽聚合，独立于 format | [说明](../features/batch/README.md) |
+| `features/encoding/` | 可选显式格式转换，宏生成选择输入及转换包装 | [说明](../features/encoding/README.md) |
+| `features/batch/` | 按原类型解析批量记录、广播对齐及逐槽聚合，独立于 encoding | [说明](../features/batch/README.md) |
 | `features/lease/` | 资源无关租约模型与可选本地 IPC | [lib.rs](../features/lease/src/lib.rs)、[local_ipc.rs](../features/lease/src/local_ipc.rs) |
 | `tools/` | 统一命令路由、发布打包、Windows 流程执行及版本检查 | [CLI](../tools/miresidian-cli/README.md)、[打包说明](../tools/miresidian-pack/README.md)、[TestFlow 说明](../tools/miresidian-testflow-windows/README.md)、[check_versions.py](../tools/check_versions.py) |
 | `tools/fixtures/smoke-node/` | 独立的工具链集成夹具 | [节点源码](../tools/fixtures/smoke-node/src/lib.rs) |
@@ -375,13 +375,13 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 ### 待办：自定义结构体的平台契约自动生成（未实现，2026-11-03）
 
-当前自定义 struct 可通过手动实现 NodeInput/NodeOutput 或 FormatInput/FormatOutput 接入；输入侧按一个槽位整体解析，尚不能根据结构体字段自动展开多个平台槽位。现有 trait 实现不等于具备字段级自动映射能力。
+当前自定义 struct 可通过手动实现 NodeInput/NodeOutput 或 EncodingInput/EncodingOutput 接入；输入侧按一个槽位整体解析，尚不能根据结构体字段自动展开多个平台槽位。现有 trait 实现不等于具备字段级自动映射能力。
 
 - [ ] 设计结构体字段标注及 Input/Config 槽位展开，使框架从多个平台参数自动构造业务结构体，业务方法直接接收适合业务语义的类型。
 - [ ] 设计结构体返回值的字段级 Output 展开，明确字段顺序、名称、输出数量和元数据的一致性。
 - [ ] 明确字段默认值、可选字段、枚举/嵌套类型、缺失或非法字段的错误，以及不支持结构的编译期诊断。
 - [ ] 评估通过 derive/属性宏自动生成自定义类型转换实现，区分单槽位整体转换与多槽位字段映射，不隐式猜测序列化格式。
-- [ ] 明确与 format 格式选择、batch 记录边界及现有手写 trait 的组合和兼容性；保留旧节点依赖及既有默认解析行为。
+- [ ] 明确与 encoding 格式选择、batch 记录边界及现有手写 trait 的组合和兼容性；保留旧节点依赖及既有默认解析行为。
 - [ ] 配套提供输入构造、输出展开、默认值/错误和兼容性回归，并同步对应版本的节点开发文档、Rustdoc、示例与迁移说明；skill 仅在开发流程或资料查询方式确有变化时另行修订。
 
 此项仅记录后续需求，标注语法与支持范围待设计，暂不实现。
@@ -414,3 +414,9 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 ## 0.25.0 Lease 节点所有权
 
 InstanceState 通过 NodeAccess 区分 Direct(N) 与 Shared(SharedNode)。宏生成 LeaseRequest，运行时以 SharedNode 连接唯一所有者；所有者保存 N、初始化输出及接口信息，代理只保存 IPC 会话，不跨 DLL 传 Rust 对象或指针。共享条件、事务互斥与最后引用关闭由[共享资源专题](shared-resources.md)定义。
+
+## 0.34.0 宏归一与 encoding 名称迁移
+
+宏 0.30.0 将 multiple 与 multiple(config/handle) 归一到已有 InstancePolicy；省略关联时仅在短写结束后补 Config，保留旧平铺短写和完整长写。encoding 模块将自动名称、字符串首项和具名列表归一到同一个 Encoding，复用现有格式选择器生成、同方法 Input 名称冲突检查及转换路径。
+
+能力的 feature、宏、crate 与公开模块统一为 encoding；基础 codec 的 ByteTextFormat 不改名。单格式仍无选择器，多格式默认第一项；输入选择器就地附加，输出选择器追加到方法 Input 末尾。实例锁、生命周期、batch 对齐、字节转换、ABI 和租约协议不变。候选状态、精确迁移和组件版本见 [0.34.0](releases/0.34.0.md)。

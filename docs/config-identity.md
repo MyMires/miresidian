@@ -93,3 +93,7 @@ TCP 可分别在 ip、port 上标记 instance(key)、lease(key)，超时标记 l
 ## 0.25.0 自动资源租约补充
 
 参数角色与配置编码保持本页定义；自动共享节点、独立通信提供者和初始化兼容条件由[共享资源](shared-resources.md#现有-lease-标签自动共享节点资源)统一维护。
+
+## 0.34.0 关联短写补充
+
+instance(multiple) 默认按 Config 组合键关联；instance(multiple(config)) 与之等价，instance(multiple(handle)) 显式选择 Handle。原平铺短写与具名长写继续支持，长写 binding 仍必填；这不改变参数 instance(key/ignore)、租约身份或配置兼容性规则。multiple() 与重复/冲突关联报错，详见 [0.34.0](releases/0.34.0.md)。候选未发布，独立 Node 保留已发布精确依赖。

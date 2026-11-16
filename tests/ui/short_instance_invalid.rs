@@ -1,4 +1,4 @@
-#[miresidian::node("缺少关联", instance(multiple))]
+#[miresidian::node("缺少关联", instance(multiple()))]
 struct MissingBinding;
 #[miresidian::node("单实例关联", instance(single, config))]
 struct SingleBinding;

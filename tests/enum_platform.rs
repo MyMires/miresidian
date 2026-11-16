@@ -16,11 +16,11 @@ enum Mode {
 }
 type ModeAlias = Mode;
 
-#[cfg(feature = "format")]
+#[cfg(feature = "encoding")]
 struct FormatOnly(String);
-#[cfg(feature = "format")]
-impl miresidian::format::FormatInput for FormatOnly {
-    fn from_format_bytes(bytes: Vec<u8>, field: &str) -> MiresidianResult<Self> {
+#[cfg(feature = "encoding")]
+impl miresidian::encoding::EncodingInput for FormatOnly {
+    fn from_encoding_bytes(bytes: Vec<u8>, field: &str) -> MiresidianResult<Self> {
         String::from_utf8(bytes)
             .map(Self)
             .map_err(|error| MiresidianError::InvalidArgument {
@@ -192,11 +192,11 @@ impl Workflow {
         Ok(mode)
     }
 
-    #[cfg(feature = "format")]
+    #[cfg(feature = "encoding")]
     #[miresidian::operation("格式类型")]
     fn formatted(
         &mut self,
-        #[miresidian::input("数据", format(utf8))] value: FormatOnly,
+        #[miresidian::input("数据", encoding(utf8))] value: FormatOnly,
     ) -> MiresidianResult<String> {
         Ok(value.0)
     }
@@ -334,7 +334,7 @@ fn codec_converts_alias_optional_collection_and_manual_display_without_defaults(
             .as_slice(),
         ["Idle|Running"]
     );
-    #[cfg(feature = "format")]
+    #[cfg(feature = "encoding")]
     assert_eq!(
         runtime
             .invoke(&request("格式类型", &["Running"], &["业务文本"]))

@@ -7,7 +7,7 @@ use miresidian::MiresidianResult;
 
 #[miresidian::node(
     "宏简写回显",
-    instance(multiple, config, selectable(sequential)),
+    instance(multiple, selectable(sequential)),
     lease(selectable(required))
 )]
 struct EchoNode {
@@ -29,12 +29,11 @@ impl EchoNode {
     }
 
     #[miresidian::operation("回显")]
-    #[miresidian::output("数据", format(utf8, hex, base64, selector = "输出格式"))]
+    #[miresidian::output("数据", encoding("输出格式", utf8, hex, base64))]
     #[miresidian::output("次数")]
     async fn echo(
         &mut self,
-        #[miresidian::input("数据", batch, format(utf8, hex, base64, selector = "输入格式"))]
-        data: String,
+        #[miresidian::input("数据", batch, encoding("输入格式", utf8, hex, base64))] data: String,
     ) -> MiresidianResult<(String, usize)> {
         self.calls += 1;
         Ok((data, self.calls))

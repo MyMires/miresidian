@@ -1,0 +1,5 @@
+error: 输入参数或格式选择名称重复，请在 encoding 首项显式指定不同名称
+ --> tests/ui-encoding/duplicate_selector.rs:6:29
+  |
+6 |         #[miresidian::input("格式")] format: String,
+  |                             ^^^^^^

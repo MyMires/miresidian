@@ -37,7 +37,7 @@ jobs:
           RUSTDOCFLAGS: '-D warnings'
         run: |
           cargo doc -p miresidian --all-features --no-deps --locked
-          test -f target/doc/miresidian/format/index.html
+          test -f target/doc/miresidian/encoding/index.html
       - run: cargo build --workspace --release --locked
 
 

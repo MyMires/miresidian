@@ -30,11 +30,11 @@ pub fn node_enum(item: TokenStream) -> TokenStream {
 /// 同模块的 `operation` 独立生成方法契约；本宏汇总注册项并生成节点接口与 C ABI。
 ///
 /// 0.29.0 将节点级 instances 统一改为 instance，不保留旧入口；参数级 instance(key/ignore) 保持。
-/// `instance` / `instance()` 默认单对象顺序多通道，`instance(multiple, config)`
-/// 明确多对象关联，可追加 `parallel` 或 `selectable(sequential)`。不声明时仍禁用多通道。
+/// `instance` / `instance()` 默认单对象顺序多通道，`instance(multiple)`
+/// 默认 Config 关联，`multiple(config)` 显式同义，`multiple(handle)` 使用 Handle；可追加 `parallel` 或 `selectable(sequential)`。不声明时仍禁用多通道。
 /// `lease` / `lease(required)` 固定租约，`lease(disabled)` 固定直连，
 /// `lease(selectable(required))` 发布选择器且默认租约。旧长写继续支持。
-/// 所需 Cargo feature 必须开启；重复、缺关联、非法策略或同组混用长短写会编译报错。
+/// 所需 Cargo feature 必须开启；重复模式/关联、非法策略或同组混用长短写会编译报错。
 #[proc_macro_attribute]
 pub fn node(attribute: TokenStream, item: TokenStream) -> TokenStream {
     node::expand(attribute, item)
@@ -66,9 +66,11 @@ pub fn config(_attribute: TokenStream, item: TokenStream) -> TokenStream {
 /// 标记节点方法输入参数；由 `operation` 消费。
 ///
 /// 用法与 `config` 相同，但应用于 `close_device`、`get_port_no` 和 `operation` 方法的
-/// 非 `self` 参数。普通业务参数可用 `batch`、`format(hex)` 或
-/// `format(utf8, hex, selector = "数据格式")`，旧 `format(formats = [...])` 仍有效。
-/// 单格式禁止 selector、多格式必须 selector 且首项默认；重复格式、未知格式或混用语法会报错。
+/// 非 `self` 参数。普通业务参数可用 `batch`、`encoding(hex)` 或
+/// `encoding("数据格式", utf8, hex)`，旧 `encoding(formats = [...])` 仍有效。
+/// 单格式禁止选择器名称；多格式首项默认，未命名时自动用显示名（冒号前 trim）加“格式”，
+/// `encoding("名称", utf8, hex)` 显式命名。重复/未知格式、名称冲突或混用语法会报错。
+/// 原 format feature、宏分组与公开模块均已更名 encoding，不保留旧入口。
 /// 格式转换只用于普通业务 Input/Output，仍须显式开启对应 feature。
 #[proc_macro_attribute]
 pub fn input(_attribute: TokenStream, item: TokenStream) -> TokenStream {
@@ -89,7 +91,7 @@ pub fn lease(_attribute: TokenStream, _item: TokenStream) -> TokenStream {
 /// 标记节点方法输出；由 `operation` 消费。
 ///
 /// 此标注写在方法上，参数为一个或多个输出名称。未标注且返回值不是 `MiresidianResult<()>` 时，
-/// 自动生成名为“返回值”的单个输出。可使用与 Input 相同的 `format(hex)` 或
+/// 自动生成名为“返回值”的单个输出。可使用与 Input 相同的 `encoding(hex)` 或
 /// 多格式分组；选择器追加在方法输入末尾。旧 formats 数组语法和属性先后顺序保持兼容。
 #[proc_macro_attribute]
 pub fn output(attribute: TokenStream, item: TokenStream) -> TokenStream {

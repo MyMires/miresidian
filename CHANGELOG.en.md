@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-17
+
+- Default bare multiple to Config binding and add multiple(config/handle), retaining flat declarations and complete named policy validation.
+- Rename the optional format feature, macro group, package, module, traits and conversion functions to encoding. Base codec APIs, byte contracts, lifetimes, scheduling and ABI v10 are unchanged.
+- Infer multi-encoding selector names from display names and accept a leading string for explicit names. Preserve selector/formats fields, defaults, slot order and batch alignment; reject invalid or colliding names.
+- Integrate macro 0.30.0 and miresidian_encoding 0.5.0; batch guidance 0.3.3, Pack 0.14.2 and CLI/toolset 0.3.10 track the rename and enforce registry sources for both old and new packages. Update guidance, examples and lockfile.
+- Audit both complete Node skill copies without binding the workflow to fixed component versions. Independent nodes keep published dependencies. Local source delivery only; no push or publication. Validation is recorded in the 2026-11-17 plan.
+
+
 ## Node skill task routing and version applicability - 2026-11-17
 
 - Distinguish new business development or overall redesign from existing-project maintenance and routine compilation/packaging. Focus on business contracts, resource lifecycles and actual validation; preserve feature choices and required confirmations without adding plans or initialization for routine rebuilds.

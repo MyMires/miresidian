@@ -1,6 +1,6 @@
 [package]
-name = "miresidian_format"
-version = "0.4.1"
+name = "miresidian_encoding"
+version = "0.5.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

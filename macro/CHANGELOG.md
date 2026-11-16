@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-17
+
+- 支持裸 multiple 默认 Config 及 multiple(config/handle)，新旧短写归一到既有 InstancePolicy，完整长写必填检查保持。
+- 将 format 入口及生成模块路径迁移到 encoding；多格式自动命名选择器，支持 encoding("名称", utf8, hex)，兼容 selector/formats 字段，补充重复/冲突/feature 校验与公开回归。
+- 同步 README、Rustdoc 与框架 0.34.0 指导；运行时、槽位、字节转换及 ABI 不变，不保留旧 format 入口。
+- English: Normalize nested/default instance bindings and inferred/leading-string encoding selectors into existing policies and conversion bridges. Framework 0.34.0 source candidate; not published.
+
+
 ## [0.29.0] - 2026-11-12
 
 - 节点级 instances/instances(...) 统一改为 instance/instance(...)，拒绝旧入口；参数级 instance(key/ignore) 与实例策略/默认值保持。

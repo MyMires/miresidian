@@ -6,6 +6,8 @@
 
 [文档中心](README.md) · [宏驱动开发](宏驱动开发.md) · [平台调用契约](c-abi.md)
 
+0.34.0 / macro 0.30.0 新增 multiple 默认 Config 与 multiple(config/handle) 嵌套关联；候选未发布，完整迁移见 [0.34.0](releases/0.34.0.md)。
+
 ## 默认单实例
 
 未声明 `instance(...)` 的节点最多保留一个对象；只开启 Cargo feature 不改变此默认行为。同一份按原 Rust 参数类型规范化的业务 Config 初始化会复用当前对象；不同 Config 初始化先预解析参数，成功后关闭并析构旧对象、释放租约，再构造新对象。预解析失败保留旧对象；关闭失败阻止新构造；旧对象释放后构造失败保持未初始化。普通调用和关闭使用当前对象的完整业务 Config 校验目标，不会隐式切换目标资源。
@@ -73,11 +75,11 @@ struct ExampleNode;
 | instance 或 instance() 或 instance(single) | mode = single, execution = sequential |
 | instance(parallel) | mode = single, execution = parallel |
 | instance(selectable(sequential)) | mode = single, execution = selectable, default_execution = sequential |
-| instance(multiple, config) | mode = multiple, binding = config, execution = sequential |
-| instance(multiple, handle) | mode = multiple, binding = handle, execution = sequential |
-| instance(multiple, handle, selectable(broadcast)) | mode = multiple, binding = handle, execution = selectable, default_execution = broadcast |
+| instance(multiple) 或 instance(multiple(config)) 或 instance(multiple, config) | mode = multiple, binding = config, execution = sequential |
+| instance(multiple(handle)) 或 instance(multiple, handle) | mode = multiple, binding = handle, execution = sequential |
+| instance(multiple(handle), selectable(broadcast)) | mode = multiple, binding = handle, execution = selectable, default_execution = broadcast |
 
-新短写默认 single、固定 sequential，仅在显式出现 instance 时生效；未声明节点的默认策略不变。multiple 必须明确关联方式；不能仅写 config/handle 推断 multiple，single 不接受关联项。fixed 三种策略及 selectable 的三种默认项与旧声明一致；多通道仍定位一个对象，同对象调用仍互斥。
+新短写默认 single、固定 sequential，仅在显式出现 instance 时生效；未声明节点的默认策略不变。multiple 未指定关联时默认 config，multiple(handle) 选择 handle；空 multiple()、重复模式/关联报错。保留 multiple, config/handle 及合法排列次序，不能仅写 config/handle 推断 multiple，single 不接受关联项。fixed 三种策略及 selectable 的三种默认项与旧声明一致；多通道仍定位一个对象，同对象调用仍互斥。
 
 旧 NameValue 长写继续要求 mode/execution 等必填项；不能与位置参数混用。新短写三类各至多一个，同义重复也拒绝，参数排列次序不改变解析。仍需开启依赖的 instance feature；固定 sequential 不新增平台执行选择项。名称与发布迁移边界见[0.33.0 说明](releases/0.33.0.md)；简写起源见[0.28.0 历史](releases/0.28.0.md)。
 

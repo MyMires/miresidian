@@ -1,10 +1,8 @@
-error: multiple 模式必须指定 config 或 handle
- --> tests/ui/short_instance_invalid.rs:1:1
+error: multiple(...) 必须且只能指定 config 或 handle
+ --> tests/ui/short_instance_invalid.rs:1:37
   |
-1 | #[miresidian::node("缺少关联", instance(multiple))]
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the attribute macro `miresidian::node` (in Nightly builds, run with -Z macro-backtrace for more info)
+1 | #[miresidian::node("缺少关联", instance(multiple()))]
+  |                                         ^^^^^^^^^^
 
 error: single 模式不接受 binding；多实例须显式声明 multiple
  --> tests/ui/short_instance_invalid.rs:3:46

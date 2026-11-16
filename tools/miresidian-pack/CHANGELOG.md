@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-17
+
+- 框架来源清单采用 miresidian_encoding，继续把旧 miresidian_format 与 miresidian_instances 作为受限框架包识别；声明、别名、本地覆盖、解析及锁文件均执行相同 crates.io 精确来源校验。
+- 同步 README 与全组件来源检查矩阵；模板、命令、业务文档生成和旧节点行为保持。未推送、未发布。
+
+
 ## [0.14.1] - 2026-11-13
 
 - 业务 Markdown 的源码参考路径统一按路径组件以 / 连接，修复 Windows 输出反斜杠与跨平台文档约定不一致；提取内容和业务 API 保持。

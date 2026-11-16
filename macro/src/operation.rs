@@ -5,7 +5,7 @@ mod config;
 mod definition;
 mod descriptor;
 mod dispatch;
-mod format;
+mod encoding;
 mod naming;
 
 use definition::{NodeMethod, ParameterSource};

@@ -120,7 +120,7 @@ TB 平台接收 Idle 或空闲时先映射为实际值 Idle，再由 codec 转�
 
 TB 自动生成 名称:A/B 或 名称:A-显示值/B-显示值；其他适配器可以生成 JSON 等表示，配套接收自己的输入格式。自动 TB 候选拒绝其保留分隔符与歧义标签，这些限制不施加到通用 EnumOption 或其他平台。未实现枚举支持的平台明确返回 NOT_SUPPORTED，不能默用 TB 规则。
 
-元数据和输入规范化使用同一个真实适配器对象，每次查询独立渲染，不缓存第一次平台的候选字符串。Config、初始化/探测/业务 Input、多通道槽位使用对应参数元数据；普通类型及 format 转换参数沿用既有规则。format 的业务类型不被额外要求实现 NodeInput。
+元数据和输入规范化使用同一个真实适配器对象，每次查询独立渲染，不缓存第一次平台的候选字符串。Config、初始化/探测/业务 Input、多通道槽位使用对应参数元数据；普通类型及 encoding 转换参数沿用既有规则。encoding 的业务类型不被额外要求实现 NodeInput。
 
 ### 参数值与节点解析
 
@@ -163,4 +163,4 @@ ABI v10 只通过调用请求的 platform 字段确定平台。0 是 MIRESIDIAN_
 
 ## batch 与格式选择输入
 
-batch/format 不改变本 ABI 的两个参数数组；框架选择器仍按元数据查询到的位置传入。见[format](../features/format/README.md)与[batch](../features/batch/README.md)。
+batch/encoding 不改变本 ABI 的两个参数数组；框架选择器仍按元数据查询到的位置传入。见[encoding](../features/encoding/README.md)与[batch](../features/batch/README.md)。

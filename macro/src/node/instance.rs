@@ -102,12 +102,30 @@ fn parse_short(values: Punctuated<Meta, Token![,]>) -> Result<proc_macro2::Token
     for value in &values {
         match value {
             Meta::Path(path) if path.is_ident("single") || path.is_ident("multiple") => {
-                if mode.replace(path).is_some() {
+                if mode.replace(path.is_ident("multiple")).is_some() {
                     return Err(Error::new_spanned(value, "instance 模式不能重复声明"));
                 }
             }
+            Meta::List(list) if list.path.is_ident("multiple") => {
+                if mode.replace(true).is_some() {
+                    return Err(Error::new_spanned(value, "instance 模式不能重复声明"));
+                }
+                let values =
+                    list.parse_args_with(Punctuated::<syn::Path, Token![,]>::parse_terminated)?;
+                if values.len() != 1
+                    || !(values[0].is_ident("config") || values[0].is_ident("handle"))
+                {
+                    return Err(Error::new_spanned(
+                        list,
+                        "multiple(...) 必须且只能指定 config 或 handle",
+                    ));
+                }
+                if binding.replace(values[0].clone()).is_some() {
+                    return Err(Error::new_spanned(value, "instance 关联方式不能重复声明"));
+                }
+            }
             Meta::Path(path) if path.is_ident("config") || path.is_ident("handle") => {
-                if binding.replace(path).is_some() {
+                if binding.replace(path.clone()).is_some() {
                     return Err(Error::new_spanned(value, "instance 关联方式不能重复声明"));
                 }
             }
@@ -146,14 +164,8 @@ fn parse_short(values: Punctuated<Meta, Token![,]>) -> Result<proc_macro2::Token
             }
         }
     }
-    let multiple = mode.is_some_and(|mode| mode.is_ident("multiple"));
-    if multiple && binding.is_none() {
-        return Err(Error::new(
-            proc_macro2::Span::call_site(),
-            "multiple 模式必须指定 config 或 handle",
-        ));
-    }
-    if !multiple && let Some(binding) = binding {
+    let multiple = mode.unwrap_or(false);
+    if !multiple && let Some(binding) = &binding {
         return Err(Error::new_spanned(
             binding,
             "single 模式不接受 binding；多实例须显式声明 multiple",
@@ -236,6 +248,9 @@ mod tests {
             ("single", "mode = single"),
             ("multiple, config", "mode = multiple, binding = config"),
             ("multiple, handle", "mode = multiple, binding = handle"),
+            ("multiple", "mode = multiple, binding = config"),
+            ("multiple(config)", "mode = multiple, binding = config"),
+            ("multiple(handle)", "mode = multiple, binding = handle"),
         ] {
             for execution in ["sequential", "parallel", "broadcast"] {
                 for selectable in [false, true] {
@@ -276,6 +291,14 @@ mod tests {
             policy("parallel, handle, multiple").unwrap()
         );
         assert_eq!(
+            policy("multiple").unwrap(),
+            policy("multiple(config,)").unwrap()
+        );
+        assert_eq!(
+            policy("multiple(handle), parallel").unwrap(),
+            policy("parallel, multiple(handle)").unwrap()
+        );
+        assert_eq!(
             policy("selectable(broadcast)").unwrap(),
             policy("mode = single, execution = selectable, default_execution = broadcast").unwrap()
         );
@@ -284,7 +307,15 @@ mod tests {
     #[test]
     fn invalid_short_forms_and_incomplete_long_forms_stay_errors() {
         for source in [
-            "multiple",
+            "multiple()",
+            "multiple(unknown)",
+            "multiple(config, handle)",
+            "multiple(binding = config)",
+            "multiple(config), config",
+            "handle, multiple(config)",
+            "multiple, multiple(config)",
+            "single, multiple(handle)",
+            "single(config)",
             "single, config",
             "config",
             "handle",

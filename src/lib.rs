@@ -11,8 +11,11 @@
 //! 参数没有非空描述时，由本次平台适配器渲染并配套规范化输入，不提供缺参首项默认值。
 //!
 //! 0.33.0 起实例能力统一名为 `instance`；裸标记默认单对象顺序多通道，
-//! `instance(multiple, config)` 显式多对象关联；裸 `lease` 等价于固定 required。
-//! `format(hex)` 与 `format(utf8, hex, selector = "格式")` 可用于普通业务 Input/Output，
+//! 0.34.0 起 `instance(multiple)` 默认 Config 关联，`multiple(handle)` 显式选择 Handle；
+//! 裸 `lease` 等价于固定 required。
+//! 原 format 能力统一更名 encoding：`encoding(hex)` 固定编码；多编码 `encoding(utf8, hex)`
+//! 自动生成“参数名 + 格式”，`encoding("名称", utf8, hex)` 显式命名，名称冲突报错。
+//! 编码选择器只用于普通业务 Input/Output，单编码不接受选择器名称，第一项为默认编码；
 //! 仍与 `batch` 独立组合。instance 的完整长写与短写等价；旧 instances 名称不再接受。
 //!
 //! # 节点声明示例
@@ -82,7 +85,7 @@ pub use miresidian_batch as batch;
 
 /// 参数级顺序批量执行。只有启用 Cargo feature `batch` 并在普通业务 Input 参数上写入
 /// `#[miresidian::input("名称", batch)]` 时，宏按原参数类型展开记录；
-/// 字符串和布尔无需 format，整数支持列表、范围及混合形式。
+/// 字符串和布尔无需 encoding，整数支持列表、范围及混合形式。
 #[cfg(feature = "batch")]
 #[doc(hidden)]
 pub const fn __require_batch_feature() {}
@@ -97,12 +100,12 @@ pub fn __lease_feature_required() {}
 #[doc(hidden)]
 pub const fn __require_instance_runtime() {}
 
-/// 显式格式编解码增强；启用 Cargo feature `format` 后可用。
-#[cfg(feature = "format")]
-pub mod format {
-    pub use miresidian_format::{
-        FormatInput, FormatOutput, decode_formatted, decode_formatted_batch, encode_formatted,
-        select_format, select_format_value,
+/// 显式格式编解码增强；启用 Cargo feature `encoding` 后可用。
+#[cfg(feature = "encoding")]
+pub mod encoding {
+    pub use miresidian_encoding::{
+        EncodingInput, EncodingOutput, decode_encoded, decode_encoded_batch, encode_encoded,
+        select_encoding, select_encoding_value,
     };
 }
 
@@ -154,6 +157,6 @@ pub use runtime::{
 };
 
 /// 宏通过框架符号检查显式格式转换能力。
-#[cfg(feature = "format")]
+#[cfg(feature = "encoding")]
 #[doc(hidden)]
-pub const fn __require_format_feature() {}
+pub const fn __require_encoding_feature() {}

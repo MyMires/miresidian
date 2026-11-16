@@ -1,11 +1,11 @@
 # miresidian_pack
 
-本页对应源码版本 **0.14.1**；安装状态以精确版本发行记录为准。build/pack 新增业务方法文档自动生成；new/init 继续按实际框架 ABI 生成模板说明。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源检查继续同时识别新旧实例包名。
+本页对应源码版本 **0.14.2**；安装状态以精确版本发行记录为准。build/pack 新增业务方法文档自动生成；new/init 继续按实际框架 ABI 生成模板说明。模板支持 ABI v7–v10，调用说明按节点实际解析的 ABI 生成；未知 ABI 明确拒绝，不沿用旧签名。框架来源清单新增 miresidian_encoding，并对旧 miresidian_format、miresidian_instances 保持同样的严格校验。
 
 [文档中心](../../docs/README.md) · [架构总览](../../docs/architecture.md)
 
 `miresidian_pack` 提供最小节点模板、项目结构检查和 Windows DLL 发布包整理。
-本页对应工具源码版本 **0.13.6**，本次未发布；可在框架仓库执行
+本页对应工具源码版本 **0.14.2**，本次未发布；可在框架仓库执行
 `cargo build -p miresidian_pack --locked`，再使用生成的 `target/debug/cargo-miresidian-pack`。
 工具发布需单独授权，不随根框架发布。
 
@@ -167,4 +167,4 @@ cargo test -p miresidian_pack --test template --locked -- --ignored
 生成不代替编译、DLL 加载和硬件验证。--check 只检查项目；独立 TestFlow --check 可检查流程。
 统一命令、整套下载安装和实际调用对照见 [CLI](../miresidian-cli/README.md)。
 
-Pack 随包携带 framework-crates.txt，覆盖包括 batch、format 在内的全部框架库；声明、解析来源、覆盖配置和锁文件共用此清单。仓库版本门禁核对该清单与现行框架库集合一致；旧实例包名另行保留相同来源校验，旧节点无需因本次工具升级迁移。
+Pack 随包携带 framework-crates.txt，覆盖包括 batch、encoding 在内的全部框架库；声明、解析来源、覆盖配置和锁文件共用此清单。仓库版本门禁核对该清单与现行框架库集合一致；旧实例及 format 包名另行保留相同来源校验，旧节点无需因本次工具升级迁移。

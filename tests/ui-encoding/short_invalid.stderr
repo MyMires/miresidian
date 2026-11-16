@@ -1,0 +1,17 @@
+error: 单格式不接受选择器名称
+ --> tests/ui-encoding/short_invalid.rs:4:53
+  |
+4 |     fn missing(&mut self, #[miresidian::input("数据", encoding("格式", hex))] data: Vec<u8>) -> miresidian::MiresidianResult<Vec<u8>>...
+  |                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+error: 单格式不接受选择器名称
+ --> tests/ui-encoding/short_invalid.rs:6:60
+  |
+6 |     fn fixed_selector(&mut self, #[miresidian::input("数据", encoding(hex, selector = "格式"))] data: Vec<u8>) -> miresidian::Miresid...
+  |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: encoding 短写仅支持首项名称、格式列表和末尾 selector，禁止重复命名或混用 formats 数组
+ --> tests/ui-encoding/short_invalid.rs:8:65
+  |
+8 |     fn mixed(&mut self, #[miresidian::input("数据", encoding(hex, formats = [hex]))] data: Vec<u8>) -> miresidian::MiresidianResult<V...
+  |                                                                   ^^^^^^^^^^^^^^^

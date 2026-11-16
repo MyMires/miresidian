@@ -145,11 +145,11 @@ checksum = "0000000000000000000000000000000000000000000000000000000000000000"
         lock.write_text(lock.read_text().replace('source = "registry+https://github.com/rust-lang/crates.io-index"\n', ''))
         self.assertNotEqual(self.check().returncode, 0)
 
-    def test_current_and_legacy_instance_packages_keep_registry_source_checks(self):
+    def test_current_and_legacy_packages_keep_registry_source_checks(self):
         manifest = self.repo / "Cargo.toml"
         lock = self.repo / "Cargo.lock"
         original_manifest, original_lock = manifest.read_text(), lock.read_text()
-        for name in ("miresidian_instance", "miresidian_instances"):
+        for name in ("miresidian_instance", "miresidian_instances", "miresidian_encoding", "miresidian_format"):
             with self.subTest(package=name):
                 valid_manifest = original_manifest + f'{name} = "=0.17.0"\n'
                 bare_lock = original_lock + f'\n[[package]]\nname = "{name}"\nversion = "0.17.0"\n'

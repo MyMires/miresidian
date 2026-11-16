@@ -1,0 +1,41 @@
+error: multiple(...) 必须且只能指定 config 或 handle
+ --> tests/ui-instance-fail/nested_invalid.rs:1:36
+  |
+1 | #[miresidian::node("空关联", instance(multiple()))]
+  |                                       ^^^^^^^^^^
+
+error: multiple(...) 必须且只能指定 config 或 handle
+ --> tests/ui-instance-fail/nested_invalid.rs:3:37
+  |
+3 | #[miresidian::node("未知关联", instance(multiple(other)))]
+  |                                         ^^^^^^^^^^^^^^^
+
+error: multiple(...) 必须且只能指定 config 或 handle
+ --> tests/ui-instance-fail/nested_invalid.rs:5:36
+  |
+5 | #[miresidian::node("双关联", instance(multiple(config, handle)))]
+  |                                       ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: instance 关联方式不能重复声明
+ --> tests/ui-instance-fail/nested_invalid.rs:7:55
+  |
+7 | #[miresidian::node("重复关联", instance(multiple(config), config))]
+  |                                                           ^^^^^^
+
+error: instance 关联方式不能重复声明
+ --> tests/ui-instance-fail/nested_invalid.rs:9:45
+  |
+9 | #[miresidian::node("冲突关联", instance(handle, multiple(config)))]
+  |                                                 ^^^^^^^^^^^^^^^^
+
+error: instance 模式不能重复声明
+  --> tests/ui-instance-fail/nested_invalid.rs:11:47
+   |
+11 | #[miresidian::node("重复模式", instance(multiple, multiple(handle)))]
+   |                                                   ^^^^^^^^^^^^^^^^
+
+error: instance 短写只支持 single/multiple、config/handle 和执行策略
+  --> tests/ui-instance-fail/nested_invalid.rs:13:38
+   |
+13 | #[miresidian::node("单实例关联", instance(single(config)))]
+   |                                           ^^^^^^^^^^^^^^

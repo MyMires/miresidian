@@ -100,9 +100,9 @@ def check_lock(repo, name, expected):
             raise VersionError(f"{name} 的 {package} 应锁定 {version}，实际为 {actual}")
 
 
-FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_format", "miresidian_lease", "miresidian_macro", "miresidian_instance"}
-# 旧版独立节点及历史快照仍使用复数包名，必须继续执行同样的来源门禁。
-LEGACY_FRAMEWORK_CRATES = {"miresidian_instances"}
+FRAMEWORK_CRATES = {"miresidian", "miresidian_abi", "miresidian_batch", "miresidian_codec", "miresidian_encoding", "miresidian_lease", "miresidian_macro", "miresidian_instance"}
+# 旧版独立节点及历史快照仍使用 instances/format 包名，继续执行同样的来源门禁。
+LEGACY_FRAMEWORK_CRATES = {"miresidian_instances", "miresidian_format"}
 KNOWN_FRAMEWORK_CRATES = FRAMEWORK_CRATES | LEGACY_FRAMEWORK_CRATES
 CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -326,8 +326,9 @@ def validate(repo, base):
             libraries = {member["package"]["name"] for path, member in zip(manifests, members)
                          if not path.startswith("tools/")}
             expected_libraries = FRAMEWORK_CRATES
-            if "miresidian_instances" in libraries:
-                expected_libraries = (FRAMEWORK_CRATES - {"miresidian_instance"}) | LEGACY_FRAMEWORK_CRATES
+            for current, legacy in [("miresidian_instance", "miresidian_instances"), ("miresidian_encoding", "miresidian_format")]:
+                if legacy in libraries:
+                    expected_libraries = (expected_libraries - {current}) | {legacy}
             if len(listed) != len(set(listed)) or set(listed) != libraries or set(listed) != expected_libraries:
                 raise VersionError("Pack、版本门禁与工作区框架库组件清单不一致")
     check_lock(repo, "Cargo.lock", expected)

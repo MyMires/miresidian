@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2026-11-17
+
+- 包名由 miresidian_format 改为 miresidian_encoding，目录为 features/encoding；转换 trait、方法与选择函数统一采用 Encoding/encoding 命名，不保留旧 API 别名。
+- 精确依赖 codec 0.18.0；六种格式的字节契约、严格错误、空值、标量/集合和 batch 便捷函数行为保持。新宏的自动/显式选择器命名归 macro 0.30.0，不引入运行时分支。
+- 更新 README、Rustdoc、调用示例与转换测试；配套根 0.34.0，仅本地未发布候选。
+
 ## [0.4.1] - 2026-11-11
 
 - codec 精确依赖同步至 0.18.0；显式格式类型不新增 NodeInput 约束，格式选择与字节契约保持。

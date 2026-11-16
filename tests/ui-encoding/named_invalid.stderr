@@ -1,0 +1,53 @@
+error: selector 必须是非空参数名称
+ --> tests/ui-encoding/named_invalid.rs:4:60
+  |
+4 |     fn empty(&mut self, #[miresidian::input("数据", encoding("", utf8, hex))] data: String) -> miresidian::MiresidianResult<()> { Ok(...
+  |                                                              ^^
+
+error: encoding 短写仅支持首项名称、格式列表和末尾 selector，禁止重复命名或混用 formats 数组
+ --> tests/ui-encoding/named_invalid.rs:6:81
+  |
+6 |     fn duplicate(&mut self, #[miresidian::input("数据", encoding("格式", utf8, hex, selector = "格式"))] data: String) -> miresidian:...
+  |                                                                                     ^^^^^^^^^^^^^^^^^
+
+error: encoding 短写仅支持首项名称、格式列表和末尾 selector，禁止重复命名或混用 formats 数组
+ --> tests/ui-encoding/named_invalid.rs:8:75
+  |
+8 |     fn misplaced(&mut self, #[miresidian::input("数据", encoding(utf8, hex, "格式"))] data: String) -> miresidian::MiresidianResult<(...
+  |                                                                             ^^^^^^
+
+error: 未知或重复的 encoding 格式
+  --> tests/ui-encoding/named_invalid.rs:10:59
+   |
+10 |     fn typo(&mut self, #[miresidian::input("数据", encoding(uft8, hex))] data: String) -> miresidian::MiresidianResult<()> { Ok(()) }
+   |                                                             ^^^^
+
+error: encoding 短写仅支持首项名称、格式列表和末尾 selector，禁止重复命名或混用 formats 数组
+  --> tests/ui-encoding/named_invalid.rs:12:66
+   |
+12 |     fn mixed(&mut self, #[miresidian::input("数据", encoding("格式", formats = [utf8, hex]))] data: String) -> miresidian::Miresidia...
+   |                                                                      ^^^^^^^^^^^^^^^^^^^^^
+
+error: 无效或重复的参数标注选项
+  --> tests/ui-encoding/named_invalid.rs:14:52
+   |
+14 |     fn legacy(&mut self, #[miresidian::input("数据", format(hex))] data: String) -> miresidian::MiresidianResult<()> { Ok(()) }
+   |                                                      ^^^^^^^^^^^
+
+error: 无法自动生成有效格式选择名称，请在 encoding 首项显式指定名称
+  --> tests/ui-encoding/named_invalid.rs:16:52
+   |
+16 |     fn invalid_auto(&mut self, #[miresidian::input("数据/内容", encoding(utf8, hex))] data: String) -> miresidian::MiresidianResult<...
+   |                                                    ^^^^^^^^^^^
+
+error: 输入参数或格式选择名称重复，请在 encoding 首项显式指定不同名称
+  --> tests/ui-encoding/named_invalid.rs:18:111
+   |
+18 |     fn collision(&mut self, #[miresidian::input("数据", encoding(utf8, hex))] data: String, #[miresidian::input("数据格式")] encodin...
+   |                                                                                                                 ^^^^^^^^^^
+
+error: 输入参数或格式选择名称重复，请在 encoding 首项显式指定不同名称
+  --> tests/ui-encoding/named_invalid.rs:20:26
+   |
+20 |     #[miresidian::output("数据", encoding(utf8, hex))]
+   |                          ^^^^^^

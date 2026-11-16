@@ -110,7 +110,7 @@ pub(super) fn operation_async(operation: &OperationMethod) -> proc_macro2::Token
 
 fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro2::TokenStream {
     let has_batch = operation.parameters.iter().any(|p| p.batch);
-    let has_format = operation.parameters.iter().any(|p| p.format.is_some())
+    let has_encoding = operation.parameters.iter().any(|p| p.encoding.is_some())
         || operation.output_codecs.iter().any(Option::is_some);
     let mut prepare = Vec::new();
     let mut arguments = Vec::new();
@@ -139,19 +139,19 @@ fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro
                 (quote!(input), current)
             }
         };
-        let parse = if let Some(format) = &parameter.format {
+        let parse = if let Some(encoding) = &parameter.encoding {
             let selection = if parameter.batch {
-                batch::selection(format, input_index)
+                batch::selection(encoding, input_index)
             } else {
-                format.selection(input_index)
+                encoding.selection(input_index)
             };
-            input_index += usize::from(format.selector.is_some());
-            let selected = format_ident!("__miresidian_input_format_{index}");
+            input_index += usize::from(encoding.selector.is_some());
+            let selected = format_ident!("__miresidian_input_encoding_{index}");
             prepare.push(quote!(let #selected = #selection;));
             let decode = if parameter.batch {
-                batch::decode(ty, name, format, &selected)
+                batch::decode(ty, name, encoding, &selected)
             } else {
-                quote!(::miresidian::format::decode_formatted::<#ty>(&text, #selected, #name)?)
+                quote!(::miresidian::encoding::decode_encoded::<#ty>(&text, #selected, #name)?)
             };
             quote!({
                 let text = ::miresidian::codec::normalize_value_with_definition(#values, #source_index, #name, #definition, #default)?;
@@ -179,7 +179,7 @@ fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro
     }
     let mut encoded = Vec::new();
     let mut output_variables = Vec::new();
-    for (index, (ty, format)) in operation
+    for (index, (ty, encoding)) in operation
         .output_types
         .iter()
         .zip(&operation.output_codecs)
@@ -187,24 +187,24 @@ fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro
     {
         let variable = format_ident!("__miresidian_output_{index}");
         output_variables.push(variable.clone());
-        if let Some(format) = format {
+        if let Some(encoding) = encoding {
             let selection = if has_batch {
-                batch::selection(format, input_index)
+                batch::selection(encoding, input_index)
             } else {
-                format.selection(input_index)
+                encoding.selection(input_index)
             };
-            input_index += usize::from(format.selector.is_some());
-            let selected = format_ident!("__miresidian_output_format_{index}");
+            input_index += usize::from(encoding.selector.is_some());
+            let selected = format_ident!("__miresidian_output_encoding_{index}");
             prepare.push(quote!(let #selected = #selection;));
             let encoding = if has_batch {
-                if let Some(name) = &format.selector {
+                if let Some(name) = &encoding.selector {
                     lengths.push(quote!((#name, #selected.len())));
                 }
                 quote!(#selected[if #selected.len() == 1 { 0 } else { __miresidian_batch_index }])
             } else {
                 quote!(#selected)
             };
-            encoded.push(quote!(__miresidian_encoded.push(::miresidian::format::encode_formatted::<#ty>(#variable, #encoding)?);));
+            encoded.push(quote!(__miresidian_encoded.push(::miresidian::encoding::encode_encoded::<#ty>(#variable, #encoding)?);));
         } else {
             encoded.push(quote!(__miresidian_encoded.extend(::miresidian::codec::encode_value(#variable)?.into_values());));
         }
@@ -229,7 +229,7 @@ fn operation_body(operation: &OperationMethod, asynchronous: bool) -> proc_macro
     } else {
         quote!(Self::#method(node, #(#variables),*))
     };
-    let feature = has_format.then(|| quote!(::miresidian::__require_format_feature();));
+    let feature = has_encoding.then(|| quote!(::miresidian::__require_encoding_feature();));
     if has_batch {
         quote! {
             #feature ::miresidian::__require_batch_feature(); #(#prepare)*

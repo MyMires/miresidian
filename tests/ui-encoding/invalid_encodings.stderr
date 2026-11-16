@@ -1,0 +1,5 @@
+error: formats 不能为空
+ --> tests/ui-encoding/invalid_encodings.rs:4:51
+  |
+4 |     #[miresidian::output("结果", encoding(formats = []))]
+  |                                                     ^^

@@ -7,7 +7,7 @@ use toml::Value;
 // 随 Pack 发布；版本门禁读取同一清单并核对工作区库集合。
 const FRAMEWORK: &str = include_str!("../../framework-crates.txt");
 // 兼容旧节点的包名；旧名同样不能通过本地覆盖绕过来源校验。
-const LEGACY_FRAMEWORK: &[&str] = &["miresidian_instances"];
+const LEGACY_FRAMEWORK: &[&str] = &["miresidian_instances", "miresidian_format"];
 fn is_framework(name: &str) -> bool {
     FRAMEWORK.lines().any(|component| component == name) || LEGACY_FRAMEWORK.contains(&name)
 }

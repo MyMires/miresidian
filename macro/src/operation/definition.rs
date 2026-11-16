@@ -1,7 +1,7 @@
 //! 方法级属性解析；参数名称、来源、默认值及输出标注沿用既有规则。
 
 use super::config::{self, Role};
-use super::format::{self, Format};
+use super::encoding::{self, Encoding};
 use super::naming::{operation_name, parameter_name, rust_parameter_name};
 use syn::{
     Attribute, Error, FnArg, GenericArgument, ImplItemFn, LitStr, PathArguments, Result,
@@ -17,7 +17,7 @@ pub(super) struct Parameter {
     pub(super) default: Option<LitStr>,
     pub(super) source: ParameterSource,
     pub(super) batch: bool,
-    pub(super) format: Option<Format>,
+    pub(super) encoding: Option<Encoding>,
     pub(super) instance: Role,
     pub(super) lease: Role,
 }
@@ -42,7 +42,7 @@ pub(super) struct OperationMethod {
     pub(super) name: LitStr,
     pub(super) parameters: Vec<Parameter>,
     pub(super) outputs: Vec<LitStr>,
-    pub(super) output_codecs: Vec<Option<Format>>,
+    pub(super) output_codecs: Vec<Option<Encoding>>,
     pub(super) output_types: Vec<Type>,
     pub(super) output_tuple: bool,
 }
@@ -144,7 +144,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
             validate_batch_parameters(&parameters)?;
             let (outputs, output_codecs) =
                 operation_outputs(&mut method.attrs, &method.sig.output)?;
-            let platform = format::platform_parameters(&parameters, &output_codecs);
+            let platform = encoding::platform_parameters(&parameters, &output_codecs);
             let mut names = std::collections::HashSet::new();
             for parameter in platform
                 .iter()
@@ -153,7 +153,7 @@ pub(super) fn parse(attribute: &Attribute, method: &mut ImplItemFn) -> Result<No
                 if !names.insert(parameter.name.value()) {
                     return Err(Error::new_spanned(
                         &parameter.name,
-                        "输入参数或格式选择名称重复",
+                        "输入参数或格式选择名称重复，请在 encoding 首项显式指定不同名称",
                     ));
                 }
             }
@@ -247,7 +247,7 @@ fn parse_parameters(
                     "同一参数不能同时标注 #[config] 和 #[input]",
                 ));
             }
-            let (source, name, definition, default, batch, format) = match (config, input) {
+            let (source, name, definition, default, batch, encoding) = match (config, input) {
                 (Some(attribute), None) => {
                     let annotation = config::annotation(&attribute, initialization)?;
                     instance = annotation.instance;
@@ -264,7 +264,8 @@ fn parse_parameters(
                     )
                 }
                 (None, Some(attribute)) => {
-                    let (mut definitions, batch, format) = format::annotation(&attribute, true)?;
+                    let (mut definitions, batch, encoding) =
+                        encoding::annotation(&attribute, true)?;
                     if definitions.len() != 1 {
                         return Err(Error::new_spanned(
                             attribute,
@@ -279,7 +280,7 @@ fn parse_parameters(
                         definition,
                         default,
                         batch,
-                        format,
+                        encoding,
                     )
                 }
                 (None, None) => {
@@ -288,10 +289,10 @@ fn parse_parameters(
                 }
                 (Some(_), Some(_)) => unreachable!("已在上方拒绝双通道标注"),
             };
-            if format.is_some() && !batch_allowed {
+            if encoding.is_some() && !batch_allowed {
                 return Err(Error::new_spanned(
                     argument,
-                    "format 只能标注普通业务方法的 Input 或 Output",
+                    "encoding 只能标注普通业务方法的 Input 或 Output",
                 ));
             }
             if batch && !batch_allowed {
@@ -308,7 +309,7 @@ fn parse_parameters(
                 default,
                 source,
                 batch,
-                format,
+                encoding,
                 instance,
                 lease,
             })
@@ -355,7 +356,7 @@ pub(super) fn take_output(
 fn operation_outputs(
     attributes: &mut Vec<Attribute>,
     return_type: &ReturnType,
-) -> Result<(Vec<LitStr>, Vec<Option<Format>>)> {
+) -> Result<(Vec<LitStr>, Vec<Option<Encoding>>)> {
     let expected = output_count(return_type);
     let mut outputs = Vec::new();
     let mut codecs = Vec::new();
@@ -365,7 +366,7 @@ fn operation_outputs(
         if first_attribute.is_none() {
             first_attribute = Some(attribute.clone());
         }
-        let (names, _, format) = format::annotation(&attribute, false)?;
+        let (names, _, encoding) = encoding::annotation(&attribute, false)?;
         if (!outputs.is_empty() && names.len() > 1) || multi_names {
             return Err(Error::new_spanned(
                 attribute,
@@ -375,7 +376,7 @@ fn operation_outputs(
         multi_names = names.len() > 1;
         for name in names {
             outputs.push(name);
-            codecs.push(format.clone());
+            codecs.push(encoding.clone());
         }
     }
     if outputs.is_empty() {

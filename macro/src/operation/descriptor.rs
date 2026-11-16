@@ -11,8 +11,8 @@ pub(super) fn parameters(
         let name = &parameter.name;
         let definition = &parameter.definition;
         let ty = &parameter.ty;
-        // format 参数只承诺 FormatInput，不额外要求 NodeInput。
-        let options = if parameter.format.is_some() || parameter.default.is_some() {
+        // encoding 参数只承诺 EncodingInput，不额外要求 NodeInput。
+        let options = if parameter.encoding.is_some() || parameter.default.is_some() {
             quote!(&[])
         } else {
             quote!(<#ty as ::miresidian::NodeInput>::OPTIONS)
@@ -36,7 +36,7 @@ pub(super) fn outputs(
 pub(super) fn operation(operation: &OperationMethod) -> proc_macro2::TokenStream {
     let name = &operation.name;
     let platform_parameters =
-        super::format::platform_parameters(&operation.parameters, &operation.output_codecs);
+        super::encoding::platform_parameters(&operation.parameters, &operation.output_codecs);
     let inputs = parameters(&platform_parameters);
     let outputs = outputs(&operation.outputs);
     let channel_parameters = platform_parameters

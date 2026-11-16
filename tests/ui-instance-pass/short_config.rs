@@ -1,5 +1,5 @@
 use miresidian::{node, operation, MiresidianResult};
-#[node("实例短写", instance(multiple, config))]
+#[node("实例短写", instance(multiple(config)))]
 struct Example;
 impl Example {
     #[operation]

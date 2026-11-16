@@ -2,6 +2,30 @@
 
 日期：2026-11-17。
 
+## 实施决议与 encoding 名称统一（2026-11-17，优先于下方方案编写记录）
+
+用户明确要求“先执行当前已写入计划的内容”，随后将 format 改名为 encoding，并明确要求 crate 名称一致。按该授权实施本方案的 instance 与格式简写，以及本节名称迁移；此前“仅计划、未授权实现”描述保留为历史记录，不覆盖本节。不推送、不发布，不加入此前讨论的错误增强、输出样式、编码组合或共享选择器。
+
+| 原入口 | 本次统一入口 |
+| --- | --- |
+| Cargo feature format、宏分组 format(...) | encoding、encoding(...) |
+| miresidian_format、features/format/ | miresidian_encoding、features/encoding/ |
+| miresidian::format | miresidian::encoding |
+| FormatInput / FormatOutput | EncodingInput / EncodingOutput |
+| from_format_bytes / into_format_bytes | from_encoding_bytes / into_encoding_bytes |
+| decode_formatted / decode_formatted_batch / encode_formatted | decode_encoded / decode_encoded_batch / encode_encoded |
+| select_format / select_format_value | select_encoding / select_encoding_value |
+
+- 不保留旧 feature、宏分组、crate 重导出或公开 API 别名；旧 Node 保持自己已发布版本的旧用法。下方 format 语法设计按 encoding 入口实施，formats 长写字段、selector 字段与平台“格式”显示文本保持，自动名称仍为“参数名 + 格式”。
+- 基础 codec 的 ByteTextFormat、parse_byte_text_format、文本/字节通用转换函数，以及 Rust format!、平台 format_parameter 等通用概念不属于本能力重命名，不修改其 API 或语义。
+- 移动宏内部 operation/format.rs 为 operation/encoding.rs，测试目标、UI 目录、feature 门禁、CI 命令及实际相关当前指导引用同步。历史 CHANGELOG/发行说明/方案保留版本事实，仅修正源码移动后失效的相对链接。
+- 实施版本：根 0.34.0、macro 0.30.0、新包 miresidian_encoding 0.5.0（原 miresidian_format 0.4.1 的 API/包名迁移）；batch 0.3.3 仅同步组合指导，不改变批量行为。Pack 0.14.2 将新包纳入来源清单并保留旧 miresidian_format 的严格来源校验；CLI/套件 0.3.10 同步最低 Pack。其他组件、ABI v10、租约协议及 MSRV 不变。
+- 修改工具清单和 tools/check_versions.py 时同时识别新旧包名；历史快照的库清单按其实际旧包名映射，不能让独立 Node 绕过 crates.io 来源约束。独立 Node 与独立烟测夹具的清单/锁文件保持已发布依赖，不用本地覆盖采用候选。
+- 每个实际升版组件同步 README、日期 CHANGELOG、精确依赖和 Cargo 生成锁文件；根双语 README/CHANGELOG、Rustdoc、相关手册、新 0.34.0 迁移页同步。Pack/CLI 补丁实施范围追加至原 tools 0.14 / 0.3 方案，不重复建案。
+- 用户特别要求检查 skill、文档与注释：审查仓库和已安装 Node skill 的完整内容及一致性；如无旧名引用则保留版本无关流程，不为改名写入固定 API。确有受影响的内容时按 skill 维护规则同步完整双副本并验证，不能只改 SKILL.md。
+- 验收采用下方矩阵的 encoding 新名称，增加旧 format 入口拒绝、新旧包来源约束、encoding 转换回归、Pack/CLI 单元与进程测试。涉及多个组件，执行工作区默认/全特性测试与 Clippy、release 构建、MSRV all-targets 检查及严格 Rustdoc；不声称 Windows 原生加载或真实硬件验证。
+- 提交前执行工作区和暂存区版本门禁；提交后核对 miresidian-v0.34.0、miresidian_macro-v0.30.0、miresidian_encoding-v0.5.0、miresidian_batch-v0.3.3、miresidian_pack-v0.14.2、miresidian_cli-v0.3.10 标签，既有标签不得移动。记录实际结果及未完成项后交付。
+
 ## 状态、目标与执行依据
 
 - 所属项目为 Miresidian 框架及过程宏；目标版本为根框架 0.34.0、miresidian_macro 0.30.0。同一目标主/次版本后续新增需求继续修订本文件，保留决策和实施记录。
@@ -141,3 +165,41 @@ struct DeviceNode;
 - 本轮仅写入计划；产品实现、组件升版、Rust 编译测试和发行均未执行。提交前执行工作区/暂存版本门禁及 git diff --check，提交时保留正常钩子；提交后核对纯计划未生成版本标签、既有版本标签未移动，提交结果在交付回复报告。
 - 首次方案已于 eb3ed20 提交；文档检查、工作区/暂存区版本门禁通过，既有框架与宏标签未移动。纯计划不升版，--require-tag 因 HEAD 没有对应新版本标签而提示失败，未为此创建或移动标签。
 - 2026-11-17 追加 format 自动选择器名称与字符串首项简写：沿用同一目标版本，扩充解析设计、兼容/错误契约、受影响文件与验收矩阵。保留原 instance 决策与实施记录；本轮版本影响仍为无，仅更新方案，检查与提交结果在交付回复报告。
+
+## 2026-11-17 实施与验收记录
+
+本节按上方实施决议执行。实现和验证已完成，提交及不可移动标签核验作为交付收尾；不推送、不发布。历史的纯方案状态保留，不代表当前产品实施状态。
+
+| 需求 | 实现与稳定证据 | 结果 |
+| --- | --- | --- |
+| 裸 multiple 默认 Config，嵌套关联与旧声明兼容 | macro/src/node/instance.rs 策略等价矩阵；config_instance、handle_instance、short_instance 与 UI 正反例 | 通过 |
+| 自动名称、字符串首项、具名声明生成同名契约 | macro/src/operation/encoding.rs；short_encoding 的元数据、默认、槽位、同步/async 和 JSON ABI 回归 | 通过 |
+| 单编码、非法/重复/混合配置、选择器冲突、缺少 feature | 宏单元；ui-encoding、ui-encoding-feature、ui-instance-fail/feature；已逐项审查新的诊断快照，旧合法用法没有被改成错误 | 通过 |
+| batch 与自动/显式选择器组合 | short_encoding、encoding_feature：逐条格式、空项默认、单值广播、不等长拒绝、输出聚合与 async | 通过 |
+| encoding 全入口一致，无旧别名 | Cargo metadata 与源代码检查；miresidian_encoding 转换矩阵、自定义 EncodingInput 用例与旧 format 宏入口拒绝 | 通过 |
+| 新旧包均执行严格来源约束 | Pack 全组件来源矩阵，Python 版本门禁涵盖 encoding/format 与 instance/instances | 通过 |
+| 指导、skill、组件版本与锁文件 | 六个升版组件 README/日期 CHANGELOG、双语根指导、Rustdoc、手册、示例及 0.34.0 迁移；skill 完整五文件副本一致 | 通过 |
+
+实际版本为根 0.34.0、macro 0.30.0、miresidian_encoding 0.5.0、batch 0.3.3、Pack 0.14.2、CLI/套件 0.3.10。Cargo 自动更新的锁文件仅涉及上述组件及旧 format 包名替换，第三方依赖不变。运行时、基础 codec、ABI、instance/lease 实现和独立夹具清单/锁文件没有修改；没有以本地依赖升级独立 Node。
+
+执行结果（Cargo 命令均带 --locked --offline；首次 Cargo 更新锁文件的宏检查除外）：
+
+- cargo test -p miresidian_macro：17 项通过，包含六种编码的固定/多格式归一、名称规则、全部实例执行策略及错误矩阵。
+- cargo test --workspace --all-targets：144 项通过，5 项原有忽略。
+- cargo test --workspace --all-targets --all-features：271 项通过，6 项原有忽略。
+- 独立 instance 的 short_instance/macro_compile_fail/config_instance/handle_instance/instance_execution/broadcast：24 项通过；独立 encoding 的 short_encoding/encoding_feature/encoding_compile_fail：6 项通过；encoding,batch 同目标组合：16 项通过。
+- cargo clippy --workspace --all-targets -- -D warnings 及增加 --all-features 的组合：均通过。
+- cargo build --workspace --release、cargo build -p miresidian --example macro_shortcuts --all-features：通过。
+- cargo +1.89.0 check --workspace --all-targets --all-features：通过。
+- RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps：通过；本地根 encoding 模块、miresidian_encoding crate、EncodingInput 和 decode_encoded 页面已生成。
+- cargo test --workspace --doc --all-features：2 项通过。
+- python3 -m unittest discover -s tools/tests -p test_check_versions.py：30 项通过。
+- cargo fmt --all -- --check、git diff --check、python3 tools/check_versions.py --base HEAD：通过；暂存及提交钩子仍须核对最终快照。
+
+忽略项为原有需要 registry/平台环境的 Pack 模板集成测试，以及全特性中的租约子进程辅助入口。没有新增忽略、没有运行 Windows 原生 DLL 加载或真实设备通信，也没有验证候选的 crates.io/docs.rs 发行状态。
+
+提交前审查发现缺 feature 短写夹具曾因输入/输出选择器重名提前报错，已改为不同名称。补充同一组夹具在 encoding 开启时必须编译成功，关闭时必须命中缺失模块/feature 符号的诊断；encoding_compile_fail 两侧重新验证均通过。此收尾只修改夹具和测试入口，工作区源码验证结果仍适用。
+
+skill 审查：仓库与安装副本完整五文件一致，不含 format/FormatInput 等旧能力 API 引用，已有流程要求按目标 Node 的实际版本查官方资料；无需修改或重新绑定 skill 版本。实际技术指导由本次组件文档负责。最终 Markdown 本地文件目标检查 251 项通过。历史发行页只修正因目录移动失效的链接，不改写旧版本行为。
+
+临时原始日志位于 /tmp/miresidian-034-*.log；稳定证据为测试代码、UI 快照及本节命令结果。提交及根/组件标签结果在交付回复报告。

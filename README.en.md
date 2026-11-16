@@ -4,7 +4,7 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.33.0**. Rust MSRV: **1.89**. C ABI: **v10**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This instance naming migration source candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
+Current source: **0.34.0**. Rust MSRV: **1.89**. C ABI: **v10**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This macro shorthand and encoding naming migration source candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
 
 ## Getting started
 
@@ -22,17 +22,20 @@ Declare a node with `#[miresidian::node("Name")]` and its methods with `#[miresi
 
 ## Feature shorthand in this source candidate
 
-Framework **0.33.0 / macro 0.29.0** uses the following forms. The Cargo feature and node macro group are now `instance`; the old `instances` spelling is rejected. These forms are unavailable through the published dependency example above. See the [name migration](docs/releases/0.33.0.md).
+Framework **0.34.0 / macro 0.30.0** renames the optional format capability to **encoding**, including the Cargo feature, macro group, public module, traits and the miresidian_encoding 0.5.0 package. Old format entries are rejected. These source candidates are not installation instructions; independent nodes retain their published dependencies. See the [0.34 migration](docs/releases/0.34.0.md).
 
 ```rust,ignore
-#[miresidian::node("Device", instance(multiple, config), lease)]
-#[miresidian::input("Data", batch, format(hex))]
-#[miresidian::output("Result", format(utf8, hex, base64, selector = "Result format"))]
+#[miresidian::node("Device", instance(multiple, selectable(sequential)), lease)]
+#[miresidian::input("Data", batch, encoding(hex))]
+#[miresidian::output("Result", encoding(utf8, hex, base64))]
+#[miresidian::input("Data", encoding("Input encoding", utf8, hex))]
 ```
 
-Bare `instance` or `instance()` means single-object, fixed sequential multi-channel execution; omitting it still rejects multi-channel requests. Multiple objects require explicit `multiple, config` or `multiple, handle`; add a fixed execution mode or `selectable(sequential)` to override the short-form default. Bare `lease` equals `lease(required)`; `lease(disabled)` fixes Direct access and `lease(selectable(required))` exposes selection with Lease as the default. Parameter identity roles stay unchanged.
+Bare instance/instance() still enables single-object sequential multi-channel calls; omission rejects multi-channel requests. Bare multiple defaults to Config binding; multiple(config) is explicit and multiple(handle) selects Handle. Empty multiple(), duplicate bindings and single with a binding are errors. Existing flat short forms and complete named policy fields remain supported. Parallel still serializes complete calls to the same object, including async waits.
 
-`format(hex)` fixes one encoding. Multiple formats require an explicit selector, and the first format remains the default. Input and Output share the same syntax and continue to compose with independent `batch`. Cargo features remain explicit. Long-form policy fields, metadata order, errors and resource lifetimes stay unchanged after renaming the instance group; reject duplicate declarations and mixed long/short fields within one group. See the [migration guide](docs/releases/0.28.0.md).
+One encoding fixes conversion without an extra slot. Multiple encodings default to the first and infer the selector name as the outer display name before its description, trimmed, plus the literal suffix “格式”. A leading string supplies an explicit selector name; selector = "..." and formats = [...] remain supported under encoding. Input selectors follow their data; output selectors follow all business inputs. Name collisions are compile errors, with no automatic numbering. Single encodings reject selector names; blank/invalid names, duplicate encodings, duplicate naming and mixed format-list styles are rejected.
+
+Bare lease remains required; disabled uses Direct and selectable(required) exposes selection defaulting to Lease. Cargo features stay explicit. Batch alignment, raw-byte/text conversion contracts, metadata order and lifetimes are unchanged.
 
 ## Optional capabilities
 
@@ -40,7 +43,7 @@ Bare `instance` or `instance()` means single-object, fixed sequential multi-chan
 | --- | --- |
 | `instance` | Explicit Config-key or Handle identity, multiple objects, and multi-channel execution |
 | `lease` | Automatic shared node ownership, configuration leases, and communication-layer resource proxies |
-| `format` | Explicit input/output text and byte conversions |
+| `encoding` | Explicit input/output text and byte conversions |
 | `batch` | Type-driven sequential expansion of strings, booleans, numbers, and supported custom inputs |
 
 The default feature set is empty. Enabling a feature does not by itself activate every policy or rewrite device communication.
@@ -59,7 +62,7 @@ See the [resource provider contract and runnable simulated example](docs/shared-
 
 The shared resource implementation has been tested using exclusive file handles, independent processes, renamed dynamic libraries, and distinct node types. Linux dynamic loading passed; Windows x64/x86 compilation checks passed. These results do not establish real serial communication or Windows host loading.
 
-The batch/format update is validated with independent feature configurations, typed records, aligned format columns, and native async methods. Unchanged resource-sharing validation remains applicable. Cargo publication verifies normalized packages against registry dependencies. Independent nodes must use published exact framework versions, without path/git dependencies or local overrides.
+The batch/encoding update is validated with independent feature configurations, typed records, aligned encoding columns, and native async methods. Unchanged resource-sharing validation remains applicable. Cargo publication verifies normalized packages against registry dependencies. Independent nodes must use published exact framework versions, without path/git dependencies or local overrides.
 
 [Runtime platform selection and v9 migration](docs/releases/0.27.0.md) · [Changelog](CHANGELOG.en.md) · [Documentation index](docs/README.md) · [Build and maintenance](docs/coding-standards.md) · [CLI](tools/miresidian-cli/README.md)
 
@@ -68,13 +71,13 @@ When delivering a Node DLL, keep one user-facing Node DLL at the top of each nod
 
 ## Typed batch and explicit formats
 
-Batch parsing uses the original Rust argument type, including aliases and qualified paths. Integers retain single values, lists, nonnegative ascending ranges, and mixed input such as `1-3|5|8-10`; strings preserve range-like text, while booleans and floats do not expand ranges. String and bool inputs do not require format annotations. Empty batch text is one record whose validity is determined by the target type.
+Batch parsing uses the original Rust argument type, including aliases and qualified paths. Integers retain single values, lists, nonnegative ascending ranges, and mixed input such as `1-3|5|8-10`; strings preserve range-like text, while booleans and floats do not expand ranges. String and bool inputs do not require encoding annotations. Empty batch text is one record whose validity is determined by the target type.
 
-Format remains a single-value encoding conversion. The macro combines the independent batch and format crates, aligning data and format-selection columns by singleton broadcast or equal length. `A|42|Qw==` with `UTF8|HEX|Base64` produces three String values A, B, and C. Batch output format selectors also accept columns. Fixed single-format annotations create no selector or additional input slot. All input conversion and alignment checks precede business execution; output failures can occur after effects and stop subsequent records without rollback.
+Format remains a single-value encoding conversion. The macro combines the independent batch and encoding crates, aligning data and encoding-selection columns by singleton broadcast or equal length. `A|42|Qw==` with `UTF8|HEX|Base64` produces three String values A, B, and C. Batch output encoding selectors also accept columns. Fixed single-encoding annotations create no selector or additional input slot. All input conversion and alignment checks precede business execution; output failures can occur after effects and stop subsequent records without rollback.
 
 Config-bound composite identities and nested parameter roles are described in the [0.24.0 contract and migration](docs/config-identity.md). Instance selection and lease resource identity are independent; unmarked lease fields form compatibility settings.
 
-This checkout contains framework 0.33.0, macro 0.29.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
+This checkout contains framework 0.34.0, macro 0.30.0, codec 0.18.0 and ABI crate 0.17.1 / ABI v10. `#[derive(miresidian::NodeEnum)]` generates codecs and structured choices for fieldless business enums. The actual call adapter renders missing descriptions and normalizes that platform’s inputs; explicit descriptions take precedence. No business enum is defined inside the framework. The single-argument invocation signature and removal of Config platform selection are incompatible changes: see [migration](docs/releases/0.30.0.md). This source candidate is unpublished; registry availability and exact-version docs must be verified separately.
 
 Version 0.32.0 returns `["0", "当前未实现端口发现能力"]` for unimplemented GetPortNO, and `["0", "未找到匹配设备"]` for None. Found addresses and Option<String> signatures remain unchanged. NotSupported carries a normal miss reason; other errors remain errors. See [migration](docs/releases/0.32.0.md). Unpublished source candidate.
 
@@ -92,7 +95,7 @@ enum State {
 
 With only `#[miresidian::input("状态")]`, TB renders `状态:Idle-空闲/Running-运行中` and converts display inputs to member names. Direct codecs and outputs continue to use member names; unannotated members keep their name as their display text. Invalid or duplicate annotations fail to compile; platform syntax and ambiguity checks remain in each adapter. See [0.31.0 migration](docs/releases/0.31.0.md). These versions are source candidates, not installation instructions.
 
-CLI/toolset source is 0.3.6. Pack's existing new/init templates accept only ABI v7, so explicitly select a compatible published framework such as 0.25.2 when creating a project. Selecting 0.26.0/v8 writes the template but reports incomplete creation; it does not produce a validated v8 template. See the [CLI commands](tools/miresidian-cli/README.md) and migrate existing projects manually using the actual target ABI header.
+CLI/toolset source is 0.3.10. Pack new/init templates support ABI v7–v10 and generate calling guidance for the actual published dependency. Verify tool and framework publication separately. See the [CLI commands](tools/miresidian-cli/README.md) and migrate existing projects manually using the actual target ABI header.
 
 Source 0.30.1 corrects raw-versus-platform-rendered metadata documentation, generic status descriptions and the coding-standard contract references. NodeEnum and ABI v10 behavior are unchanged; see [documentation correction](docs/releases/0.30.1.md).
 
