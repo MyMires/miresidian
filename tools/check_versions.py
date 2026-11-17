@@ -71,8 +71,8 @@ def own_version(manifest):
 
 
 def exact_dependency(value):
-    requirement = value if isinstance(value, str) else value.get("version", "")
-    if not requirement.startswith("="):
+    requirement = value.get("version", "") if isinstance(value, dict) else value
+    if not isinstance(requirement, str) or not requirement.startswith("="):
         raise VersionError(f"第一方依赖必须使用精确版本 =X.Y.Z：{requirement}")
     version_tuple(requirement[1:])
     return requirement[1:]
@@ -129,7 +129,22 @@ def check_node_sources(repo, manifest, lock_name, prefix=""):
             if data.get("paths"):
                 raise VersionError("子节点禁止 Cargo paths 本地覆盖")
             walk(data)
-    for item in repo.toml(lock_name).get("package", []):
+    packages = repo.toml(lock_name).get("package", [])
+    workspace = manifest.get("workspace", {}).get("dependencies", {})
+    tables = [manifest, *manifest.get("target", {}).values()]
+    for table in tables:
+        for kind in ("dependencies", "dev-dependencies", "build-dependencies", "dev_dependencies", "build_dependencies"):
+            for alias, declaration in table.get(kind, {}).items():
+                if isinstance(declaration, dict) and declaration.get("workspace") is True:
+                    if alias not in workspace:
+                        raise VersionError(f"子节点 {prefix} 无法从当前清单解析工作区依赖 {alias}")
+                    declaration = workspace[alias]
+                package = declaration.get("package", alias) if isinstance(declaration, dict) else alias
+                if package in KNOWN_FRAMEWORK_CRATES:
+                    version = exact_dependency(declaration)
+                    if not any(item["name"] == package and item["version"] == version for item in packages):
+                        raise VersionError(f"{lock_name} 的 {package} 缺少声明的精确版本 {version}")
+    for item in packages:
         if item["name"] in KNOWN_FRAMEWORK_CRATES:
             if item.get("source") != CRATES_IO_SOURCE or not re.fullmatch(r"[0-9a-f]{64}", item.get("checksum", "")):
                 raise VersionError(f"{lock_name} 的 {item['name']} 必须由 Cargo 从 crates.io 解析，不能使用本地框架或缺少 registry 校验和")
@@ -315,10 +330,6 @@ def validate(repo, base):
                     raise VersionError(f"{path} 随框架重建时必须同步提升夹具自身版本")
     else:
         check_node_sources(repo, manifest, "Cargo.lock")
-        dependency = manifest.get("dependencies", {}).get("miresidian")
-        if dependency:
-            framework = exact_dependency(dependency)
-            expected["miresidian"] = framework
     if name == "miresidian" and "workspace" in manifest:
         inventory = repo.read("tools/miresidian-pack/framework-crates.txt", optional=True)
         if inventory is not None:

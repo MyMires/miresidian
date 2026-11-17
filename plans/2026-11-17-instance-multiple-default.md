@@ -203,3 +203,36 @@ struct DeviceNode;
 skill 审查：仓库与安装副本完整五文件一致，不含 format/FormatInput 等旧能力 API 引用，已有流程要求按目标 Node 的实际版本查官方资料；无需修改或重新绑定 skill 版本。实际技术指导由本次组件文档负责。最终 Markdown 本地文件目标检查 251 项通过。历史发行页只修正因目录移动失效的链接，不改写旧版本行为。
 
 临时原始日志位于 /tmp/miresidian-034-*.log；稳定证据为测试代码、UI 快照及本节命令结果。提交及根/组件标签结果在交付回复报告。
+
+## 2026-11-17 审核补丁：依赖别名门禁与残留注释
+
+用户要求修复再次审核发现的两项问题；沿用本次版本方案，原 0.34.0 实施及标签保留。本补丁为根 0.34.1、encoding 0.5.1、batch 0.3.4；宏、工具、运行时、ABI 与协议保持，不推送、不发布。
+
+- tools/check_versions.py 在 check_node_sources 中按声明的真实 package 名检查全部已知新旧框架包，不再依赖字面键名 miresidian。覆盖 dependencies/dev-dependencies/build-dependencies 及 target 下同类表；workspace = true 按当前清单的 workspace.dependencies 解析，无法解析时明确报错，不以空版本通过。
+- 统一要求 =X.Y.Z，并确认 Cargo.lock 包记录中存在所声明的精确版本及合法 crates.io 来源/校验和。不同目标或别名声明不同精确版本时逐条核对，不把合法多版本解析误判为同包只能有一个版本。第三方依赖不强制使用框架精确版本规则，现有 path/git/patch/replace/paths 拒绝保持。
+- 移除独立 Node 分支仅按键名 miresidian 检查的重复路径；根工作区内部 crate 仍按自身现有版本规则校验，不更改框架内部 path 依赖政策或独立 Node 清单。
+- 用 tools/tests/test_check_versions.py 的真实临时 Git 仓库复现别名范围/缺版本/锁文件不符，补充正确精确别名、开发/构建/target、workspace 继承及不同版本并存用例；保留已有来源与暂存/历史/标签回归。夹具仅用于门禁测试，不构建独立 Node 或声称虚构版本已发布。
+- 更正 encoding/src/lib.rs、encoding/src/conversion.rs 和 batch/src/lib.rs 中四处旧 format 能力名；明确通用 ByteTextFormat 与参数名 format 不属于重命名。不改变任何转换实现、trait 或宏契约。
+- 先更新上述三组件版本、根精确依赖与 Cargo 生成锁文件，同步各自 README/带日期 CHANGELOG、根双语记录与节点开发手册/版本规范实际受影响内容。Node skill 的版本无关流程不变，完整双副本复核即可，不写入固定 API 或版本表。
+- 验证范围：先以新增 Python 回归证明原问题，再运行全部门禁测试；编译/测试 encoding 与 batch 组件、严格 Rustdoc、相关 Rustdoc 示例及版本门禁。运行时和宏实现没有变化，复用 0.34.0 的 144/271 项及工作区 Clippy/MSRV/release 结果，不重复无关全量构建。完成后本地提交，核对根及两组件新标签和既有标签未移动。
+
+### 补丁实施与验证结果
+
+- 已在统一子节点检查中实现真实 package 名解析、精确版本及锁记录匹配，覆盖三类依赖和 target 表，兼容旧 dev_dependencies/build_dependencies 拼写；当前清单的 workspace 继承先解析再校验，第三方范围依赖不受影响。合法的不同版本别名分别匹配锁文件，不要求同包只有一个版本。
+- 新增回归先在原实现上复现失败，修复后 python3 -m unittest discover -s tools/tests -p test_check_versions.py 全部 36 项通过，包含别名范围/缺版本/过期或缺失锁记录、目标平台、继承、多版本及第三方对照。
+- cargo check -p miresidian --all-features --offline 通过并由 Cargo 更新锁文件；锁差异仅根、encoding、batch 三个版本，无第三方依赖变化。
+- cargo test -p miresidian_encoding -p miresidian_batch --locked --offline：8 项通过；RUSTDOCFLAGS='-D warnings' cargo doc -p miresidian -p miresidian_encoding -p miresidian_batch --all-features --no-deps --locked --offline：通过；根 all-features Rustdoc 示例 2 项通过；cargo fmt --all -- --check 通过。
+- 四处遗漏注释均已修正；去掉 Rust 注释后与 0.34.0 提交的对应源码逐行一致，宏/运行时/ABI/独立夹具没有修改，故复用其已通过的全量测试、Clippy、MSRV 与 release 证据。
+- 受影响 Markdown 的 80 个本地文件目标检查通过；Node skill 完整 5 文件双副本一致，无需改动版本无关流程。python3 tools/check_versions.py --base HEAD 与 git diff --check 通过，最终暂存和提交钩子按正常门禁执行。
+- 本补丁未执行推送、发行、Windows 原生加载或硬件验证；提交和 miresidian-v0.34.1、miresidian_encoding-v0.5.1、miresidian_batch-v0.3.4 标签核对结果在交付回复报告，旧标签保持。
+
+## 2026-11-17 推送与发布授权
+
+用户明确要求“推送和发布”，本节取代本任务此前不推送/不发布的执行边界，保留原候选措辞的冻结时点事实。中断时补丁仍暂存，先完成 0.34.1 提交及根/encoding/batch 标签核验，再推送 master 的待推送历史和本任务明确列出的版本标签，不 force、不全量推送所有标签，不升级独立 Node 或创建额外 GitHub Release。
+
+- 本次发行目标为 miresidian_macro 0.30.0、miresidian_encoding 0.5.1、miresidian_batch 0.3.4、miresidian 0.34.1、miresidian_pack 0.14.2、miresidian_cli 0.3.10；官方 crates.io 精确版本预检六者均返回 404。不补发被替代的框架 0.34.0、encoding 0.5.0、batch 0.3.3，不重复发布已有依赖版本。
+- 各包从自身不可移动标签的干净 detached worktree 发布：macro/Pack/CLI 使用 2376665 的对应标签，根/encoding/batch 使用补丁提交的对应标签，保持包内 .cargo_vcs_info.json 与其版本标签一致。先核对冻结源码与标签，再按依赖顺序逐包执行正常 cargo publish，保留打包及编译验证，不用 --allow-dirty 或 --no-verify。
+- 发布前确认 ABI/codec/instance/lease 精确依赖的发行状态；先发布 macro、encoding、batch，registry 可解析后发布根，独立工具按 Pack → CLI 顺序发布。registry 的成功或错误均以精确版本查询确认，网络中断后不盲目重复上传。
+- 发布后查询精确版本及 yanked 状态，下载官方 .crate 验证 SHA-256/checksum、源码修订及非 dirty 状态、原始清单/README/关键 API；核对 GitHub 精确源码入口与 docs.rs 精确 README/API 页面。工具为 binary crate，核对包说明和源码页面，不要求不存在的库 API。
+- 用独立临时目录从 crates.io 精确安装 Pack/CLI，并核对 --version 与实际进程调用；该验证不使用本地路径替代新框架依赖。复核完整 Node skill 双副本与推送内容，观察 GitHub CI；记录未完成或外部排队状态，不把上传成功当作在线文档/CI 通过。
+- 本地测试结果可复用于未改变的冻结源码；发布需新增正式 Cargo 包验证、registry 安装和在线材料检查，不重跑无关硬件验证。将实际版本、源码/记录提交、标签、包 checksum、在线状态和 CI 结果归档于本文件，发布记录以纯文档提交收尾，不移动发行标签。

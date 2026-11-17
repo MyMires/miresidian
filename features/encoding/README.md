@@ -2,9 +2,11 @@
 
 根框架 0.34.0 将原 format 能力统一更名为可选 `encoding` feature，实现位于本目录的 `miresidian_encoding` crate。原有 `miresidian_codec` 继续提供默认解析、统一错误和值模型；节点无需直接依赖本 crate。
 
-本目录源码候选为 **0.5.0**，精确依赖 codec **0.18.0**，由框架 **0.34.0** 接入。内部转换使用 NodeInput::parse_text、NodeOutput::into_output；EncodingInput/EncodingOutput、字节契约及框架格式选择器保持。
+本目录源码候选为 **0.5.1**，精确依赖 codec **0.18.0**，由框架 **0.34.1** 接入。内部转换使用 NodeInput::parse_text、NodeOutput::into_output；EncodingInput/EncodingOutput、字节契约及框架格式选择器保持。
 
 上述版本尚未发布；外部节点只采用 crates.io 已发布精确版本并启用根框架的 `encoding` feature。框架更新不自动修改、升级或重新打包已有节点。
+
+0.5.1 仅修正 crate/转换模块 Rustdoc 中遗留的旧能力名称，准确说明根框架通过 encoding feature 接入；公开 API 与转换行为保持。
 
 encoding 与 batch 可分别使用：encoding 决定数据如何编解码，batch 决定业务方法是否按多条记录重复调用。启用 encoding 不会自动启用 batch，启用 batch 也不要求 encoding。
 
@@ -60,8 +62,8 @@ fn convert(
 只有需要批量处理时，才同时开启两个 feature：
 
 ```toml
-# 仅示意发布后的迁移目标；0.34.0 候选尚未发布，不可直接安装。
-miresidian = { version = "=0.34.0", features = ["encoding", "batch"] }
+# 仅示意发布后的迁移目标；0.34.1 候选尚未发布，不可直接安装。
+miresidian = { version = "=0.34.1", features = ["encoding", "batch"] }
 ```
 
 并在需要展开的参数上增加 batch 标记，例如：

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-17
+
+- Validate aliased framework dependencies by actual package name, exact version and corresponding lockfile records across normal/dev/build/target declarations and locally declared workspace inheritance. Retain registry-source checks for current and legacy packages.
+- Encoding 0.5.1 and batch 0.3.4 correct stale Rustdoc names only. Synchronize exact dependencies, Cargo.lock and affected guidance; macros, runtime, ABI, tools and independent nodes are unchanged. Local source delivery only, with no push or publication.
+
+
 ## [0.34.0] - 2026-11-17
 
 - Default bare multiple to Config binding and add multiple(config/handle), retaining flat declarations and complete named policy validation.

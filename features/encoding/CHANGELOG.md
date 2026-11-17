@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.1] - 2026-11-17
+
+- 修正 crate 与转换模块 Rustdoc 中三处遗留 format 能力名，准确说明根框架通过 encoding feature 接入；同步 README，公开 API、字节转换及运行时行为保持。
+
 ## [0.5.0] - 2026-11-17
 
 - 包名由 miresidian_format 改为 miresidian_encoding，目录为 features/encoding；转换 trait、方法与选择函数统一采用 Encoding/encoding 命名，不保留旧 API 别名。

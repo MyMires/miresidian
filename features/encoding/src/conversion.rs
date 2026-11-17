@@ -1,5 +1,5 @@
 //! 显式格式转换。字节保持原样；其余内置类型采用 UTF-8 规范文本作为中间表示。
-//! 本模块只在 format feature 下公开，不改变 NodeInput / NodeOutput 的默认规则。
+//! 根框架通过 encoding feature 接入本模块，不改变 NodeInput / NodeOutput 的默认规则。
 use miresidian_codec::{ByteTextFormat, MiresidianError, MiresidianResult, NodeInput, NodeOutput};
 
 fn invalid(field: &str, message: &str) -> MiresidianError {
@@ -163,7 +163,7 @@ pub fn encode_encoded<T: EncodingOutput>(
     }
 }
 /// 按同一种格式解码多条转义竖线记录的兼容便捷函数；不参与批次长度对齐或调用调度。
-/// 空文本表示一条空记录；逐条格式选择由宏组合独立的 batch 与单条 format 接口。
+/// 空文本表示一条空记录；逐条格式选择由宏组合独立的 batch 与单条 encoding 接口。
 ///
 /// 记录数由调用上下文保持；单条空结果与空集合不能仅凭一个输出字符串区分。
 pub fn decode_encoded_batch<T: EncodingInput>(

@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-17
+
+- 修复子节点依赖别名绕过精确版本与锁文件校验的问题；按真实 package 名检查普通/开发/构建/target 依赖及当前清单中的 workspace 继承，保留全部新旧框架包的 crates.io 来源约束。
+- encoding 0.5.1、batch 0.3.4 仅修正遗留 format 名称注释；同步根精确依赖、真实 Cargo.lock、组件 README/Rustdoc、根双语指导及节点开发/版本手册。宏、运行时、ABI、工具和独立 Node 依赖保持。
+- 本次只完成本地提交与标签，不推送或发布；复现、修复及验证记录见同版本 2026-11-17 方案。
+
+
 ## [0.34.0] - 2026-11-17
 
 - instance 短写的裸 multiple 默认 Config 关联；新增 multiple(config/handle)，保留旧平铺短写及完整长写必填检查，拒绝空括号、重复和冲突。

@@ -176,6 +176,84 @@ checksum = "0000000000000000000000000000000000000000000000000000000000000000"
         self.write(".cargo/config.toml", 'paths = ["../framework"]\n')
         self.assertNotEqual(self.check().returncode, 0)
 
+    def test_framework_alias_requires_an_exact_version(self):
+        manifest = self.repo / "Cargo.toml"
+        original = manifest.read_text()
+        for declaration in [
+            'framework = { package = "miresidian", version = "0.11" }',
+            'framework = { package = "miresidian", version = "^0.11.0" }',
+            'framework = { package = "miresidian" }',
+        ]:
+            with self.subTest(declaration=declaration):
+                manifest.write_text(original.replace('miresidian = "=0.11.0"', declaration))
+                result = self.check()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("精确版本", result.stderr)
+
+    def test_framework_alias_checks_the_exact_locked_package(self):
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text().replace(
+            'miresidian = "=0.11.0"',
+            'framework = { package = "miresidian", version = "=0.11.0" }',
+        ))
+        self.assertEqual(self.check().returncode, 0)
+        lock = self.repo / "Cargo.lock"
+        original = lock.read_text()
+        for invalid in [original.replace('version = "0.11.0"', 'version = "0.11.1"'),
+                        original.split('[[package]]\nname = "miresidian"')[0]]:
+            with self.subTest(lock=invalid):
+                lock.write_text(invalid)
+                result = self.check()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Cargo.lock", result.stderr)
+
+    def test_aliases_in_each_dependency_table_use_the_same_rules(self):
+        manifest = self.repo / "Cargo.toml"
+        package = manifest.read_text().split("[dependencies]")[0]
+        for group in ["dependencies", "dev-dependencies", "build-dependencies",
+                      "dev_dependencies", "build_dependencies",
+                      "target.'cfg(windows)'.dependencies",
+                      "target.'cfg(unix)'.dev-dependencies",
+                      "target.'cfg(unix)'.build-dependencies"]:
+            with self.subTest(table=group):
+                for version, expected in [("=0.11.0", 0), ("0.11", 1)]:
+                    manifest.write_text(package + f'[{group}]\nframework = {{ package = "miresidian", version = "{version}" }}\n')
+                    result = self.check()
+                    self.assertEqual(result.returncode, expected, result.stderr)
+
+    def test_workspace_alias_uses_the_inherited_declaration(self):
+        manifest = self.repo / "Cargo.toml"
+        package = manifest.read_text().split("[dependencies]")[0]
+        for alias in ["framework", "miresidian"]:
+            inherited = package + f'[dependencies]\n{alias} = {{ workspace = true }}\n'
+            for version, expected in [("=0.11.0", 0), ("0.11", 1)]:
+                with self.subTest(alias=alias, version=version):
+                    manifest.write_text(inherited + f'[workspace.dependencies]\n{alias} = {{ package = "miresidian", version = "{version}" }}\n')
+                    result = self.check()
+                    self.assertEqual(result.returncode, expected, result.stderr)
+            manifest.write_text(inherited)
+            self.assertNotEqual(self.check().returncode, 0)
+
+    def test_distinct_exact_alias_versions_can_coexist_in_the_lock(self):
+        manifest = self.repo / "Cargo.toml"
+        package = manifest.read_text().split("[dependencies]")[0]
+        manifest.write_text(package + '''[dependencies]
+old = { package = "miresidian", version = "=0.11.0" }
+new = { package = "miresidian", version = "=0.12.0" }
+''')
+        lock = self.repo / "Cargo.lock"
+        lock.write_text(lock.read_text() + '\n[[package]]\nname = "miresidian"\nversion = "0.12.0"\n'
+                        'source = "registry+https://github.com/rust-lang/crates.io-index"\nchecksum = "' + 'a' * 64 + '"\n')
+        self.assertEqual(self.check().returncode, 0)
+        lock.write_text(lock.read_text().replace('version = "0.12.0"', 'version = "0.12.1"'))
+        self.assertNotEqual(self.check().returncode, 0)
+
+    def test_third_party_workspace_dependency_can_use_a_range(self):
+        manifest = self.repo / "Cargo.toml"
+        manifest.write_text(manifest.read_text() + 'helper = { workspace = true }\n'
+                            '[workspace.dependencies]\nhelper = "2"\n')
+        self.assertEqual(self.check().returncode, 0)
+
     def framework_release(self, version, abi_version, extra=False, dependency=None):
         self.write("Cargo.toml", f'''[package]
 name = "miresidian"

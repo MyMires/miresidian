@@ -4,7 +4,7 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.34.0**，C ABI 为 **v10**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.34.1**，C ABI 为 **v10**，租约协议为 **v2**。
 
 **[0.34.0 宏简写与 encoding 迁移](docs/releases/0.34.0.md)** · **[0.33.0 instance 名称迁移](docs/releases/0.33.0.md)** · **[0.30.0 枚举与单 JSON 入口](docs/releases/0.30.0.md)** · **[0.29.0 公开类型命名迁移](docs/releases/0.29.0.md)** · **[0.28.0 宏简写与兼容迁移](docs/releases/0.28.0.md)** · **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[运行时平台选择与 v9 迁移](docs/releases/0.27.0.md)**
 
@@ -42,7 +42,7 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 
 在独立节点项目中声明依赖，并将节点 crate 构建为 `cdylib`：
 
-以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.34.0** 是尚未发布的宏简写与 encoding 命名迁移源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
+以下依赖采用先前已核实发行的 **0.26.0**。其 registry 与精确 docs.rs 验收已在 [2026-11-06 发布记录](plans/2026-11-06-unified-abi-request.md#发布执行结果)归档，2026-11-07 再次确认可用。本检出的 **0.34.1** 是尚未发布的宏简写与 encoding 命名迁移源码候选，不把候选写成可直接安装依赖；后续采用其他版本前仍须核实各自发行记录。
 
 ```toml
 [lib]
@@ -77,7 +77,7 @@ impl EchoNode {
 }
 ```
 
-本源码 0.34.0 / ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 业务调用入口和 `miresidian_abi_version()` 版本查询。请求如 `{"platform":1,"function":"GetFunctions"}`；platform 非零指定已注册平台，0/省略使用 DLL 固定默认平台。Config 不发布也不接受“平台适配”选择。先核对 ABI 10 再使用单参数签名，不能把上面已发布 0.26.0/v8 的调用方式与本候选混用。响应和指针复制要求见 [C ABI](docs/c-abi.md)。
+本源码 0.34.1 / ABI v10 仅生成 `miresidian_invoke(const char *request_json)` 业务调用入口和 `miresidian_abi_version()` 版本查询。请求如 `{"platform":1,"function":"GetFunctions"}`；platform 非零指定已注册平台，0/省略使用 DLL 固定默认平台。Config 不发布也不接受“平台适配”选择。先核对 ABI 10 再使用单参数签名，不能把上面已发布 0.26.0/v8 的调用方式与本候选混用。响应和指针复制要求见 [C ABI](docs/c-abi.md)。
 
 子节点仅依赖 crates.io 已发布框架的精确版本，禁止本地路径和本地覆盖，要求见[节点依赖规则](docs/versioning.md#子节点只使用已发布框架)。
 
@@ -85,7 +85,7 @@ impl EchoNode {
 
 ## 当前源码的 feature 简写
 
-以下对应框架 **0.34.0 / macro 0.30.0 / encoding 0.5.0** 源码候选，尚未发布；不能将上面的旧已发布依赖示例与新语法混用。format 能力统一更名为 encoding，包括 Cargo feature、宏标签、公开模块及 crate；旧入口不保留别名。迁移见 [0.34.0](docs/releases/0.34.0.md)。
+以下对应框架 **0.34.1 / macro 0.30.0 / encoding 0.5.1** 源码候选，尚未发布；不能将上面的旧已发布依赖示例与新语法混用。format 能力统一更名为 encoding，包括 Cargo feature、宏标签、公开模块及 crate；旧入口不保留别名。迁移见 [0.34.0](docs/releases/0.34.0.md)。
 
 ```rust,ignore
 #[miresidian::node("设备", instance(multiple, selectable(sequential)), lease)]
@@ -107,13 +107,15 @@ impl EchoNode {
 
 ## 参与开发
 
+0.34.1 修复版本门禁对依赖别名的遗漏：按真实 package 名核对框架依赖的精确版本及锁文件，覆盖开发/构建/target 声明和当前清单中的 workspace 继承；同时补齐 encoding/batch Rustdoc 旧名。宏、运行时和 ABI 保持。
+
 0.32.0 修正 GetPortNO 原因输出：未实现方法时固定返回 `["0", "当前未实现端口发现能力"]`，None 返回 `["0", "未找到匹配设备"]`，找到时仍返回地址。Option<String> 签名保持；NotSupported 说明作为未找到原因返回，其他错误仍走错误响应。见[迁移说明](docs/releases/0.32.0.md)。本次源码候选未发布。
 
 版本管理是 **P0 提交门禁**。首次检出先检查已有钩子配置，再执行 `git config core.hooksPath .githooks`；存在自定义钩子时须先整合。相关更新必须同步版本、精确依赖、锁文件、带日期的修订与标签，详见[版本管理规范](docs/versioning.md)。
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本检出对应框架 0.34.0、macro 0.30.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
+本检出对应框架 0.34.1、macro 0.30.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
 
 0.31.0 支持成员显示值的长写与简写，含义相同：
 

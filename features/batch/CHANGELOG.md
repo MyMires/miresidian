@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-17
+
+- 将 crate Rustdoc 中“不依赖 format”的旧能力名更正为 encoding，同步 README；批量解析、对齐、调用与输出聚合行为保持。
+
+
 ## [0.3.3] - 2026-11-17
 
 - 仅将 README 中 format 组合指导迁移为 encoding，与根 0.34.0 / miresidian_encoding 0.5.0 配套；类型解析、对齐、调用与输出聚合实现不变。
