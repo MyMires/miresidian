@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-11-18
+
+- 修复并发平台切换时旧 CloseDevice/CloseAllDevices 请求误关新平台实例的竞态；在生命周期锁内复核绑定平台，冲突返回 INVALID_ARGUMENT 并保留新实例。
+- Rust 管理接口 shutdown/shutdown_async 继续不限定平台；公开 Rust API、ABI v10 和租约协议保持，无需修改调用参数。仅根框架升补丁版本，其他组件与独立 Node 不升版。
+- 补充两个关闭入口的平台切换回归测试，同步双语 README、Rustdoc、平台与实例生命周期手册；仅本地提交与标签，不推送、不发布。
+
 ## [0.34.1] - 2026-11-17
 
 - 修复子节点依赖别名绕过精确版本与锁文件校验的问题；按真实 package 名检查普通/开发/构建/target 依赖及当前清单中的 workspace 继承，保留全部新旧框架包的 crates.io 来源约束。

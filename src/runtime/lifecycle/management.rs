@@ -151,6 +151,7 @@ impl<N: Node> NodeRuntime<N> {
             .unwrap_or_else(|e| e.into_inner());
         crate::CallContext::current().check()?;
         let parsed = self.parse_config(config, platform)?;
+        self.check_platform(parsed.platform)?;
         let key = parsed.key::<N>(self.normalize_channel_config(parsed.node, true)?)?;
         let channel = {
             let management = self.management();
@@ -180,6 +181,13 @@ impl<N: Node> NodeRuntime<N> {
     /// Direct 对象本地清理，Shared 引用释放代理；最后共享引用才清理所有者及租约。
     /// 所有并发 shutdown 调用结束后，运行时可再次初始化。关闭错误仍尽力清理其余对象。
     pub fn shutdown(&self) -> MiresidianResult<()> {
+        self.shutdown_with_platform(None)
+    }
+    /// 在生命周期事务内校验调用平台，再清理实例；None 用于不限定平台的管理调用。
+    pub(super) fn shutdown_with_platform(
+        &self,
+        platform: Option<Platform>,
+    ) -> MiresidianResult<()> {
         self.core.stopping.fetch_add(1, Ordering::AcqRel);
         struct Reset<'a>(&'a AtomicUsize);
         impl Drop for Reset<'_> {
@@ -193,6 +201,9 @@ impl<N: Node> NodeRuntime<N> {
             .lifecycle
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        if let Some(platform) = platform {
+            self.check_platform(platform)?;
+        }
         self.cleanup_all()
     }
     /// 异步关闭入口；生命周期清理交给独立执行器，避免阻塞调用方的异步线程。

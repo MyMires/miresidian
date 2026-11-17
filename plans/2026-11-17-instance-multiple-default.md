@@ -278,3 +278,11 @@ skill 审查：仓库与安装副本完整五文件一致，不含 format/Format
 - 发行包 README 中的候选说明保留其源码冻结时点；当前 registry、在线文档和安装的实测状态以本节为准。发行后不为改写候选措辞而重写标签或修改已发布包。
 
 本节与工具方案的结果记录为纯文档变更，版本影响：无；不改变产品源码、依赖、API、默认值或交付契约，不创建或移动版本标签。产品快照此前的测试及本节新增发行验证均保持适用；记录提交采用 [skip ci]，沿用上述产品提交的 CI 结果。记录提交仍执行工作区、暂存区与历史版本门禁；--require-tag 在产品发行 worktree 核对，记录 HEAD 不绑定新产品标签。记录提交哈希及最终远端一致性由 Git 历史和交付回复确认。
+
+## 0.34.2 平台关闭竞态修复（2026-11-18）
+
+- 用户在代码质量审核确认竞态后要求修复；本节记录同一框架 0.34 次版本下的补丁维护，不改变原方案决议。
+- 根框架 0.34.1 -> 0.34.2；在 CloseDevice 生命周期锁内复核平台，全局关闭通过内部带平台校验的关闭路径在同一锁内检查并清理。管理 shutdown/shutdown_async 不限定平台，公开 Rust API、ABI v10、其他组件与独立 Node 保持。
+- 以有界等待暂停旧平台请求解码，在另一线程关闭并切换到新平台后恢复；两个关闭入口均须返回 INVALID_ARGUMENT，新平台对象保持可调用，并可正常关闭、重新切换平台。审核阶段两种旧实现均已复现误关。
+- 同步根 README、Rustdoc、C ABI 与实例手册、双语修订归档，由 Cargo 更新根锁文件；独立夹具的 registry 依赖保持。验证结果在完成后补充。本次仅本地提交及不可移动标签，不推送、不发布。
+- 验证完成：cargo fmt --all -- --check；根框架 cargo test --all-targets --locked 的默认/全特性组合全部通过（test-default: 54 passed, 0 ignored, 50 suites；test-all-features: 164 passed, 1 ignored, 56 suites）；同两组 cargo clippy --all-targets --locked -- -D warnings、cargo build -p miresidian --release --locked、cargo doc -p miresidian --no-deps --all-features --locked 均通过。版本门禁与 git diff --check 通过。未运行 Windows 实际加载或真实硬件验证；本补丁不改变 FFI 签名或设备协议。

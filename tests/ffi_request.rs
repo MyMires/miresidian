@@ -6,7 +6,8 @@ use miresidian::{
 use serde_json::{Value, json};
 use std::{
     ffi::{CStr, CString, c_char},
-    sync::OnceLock,
+    sync::{Mutex, OnceLock, mpsc},
+    time::Duration,
 };
 
 #[derive(Default)]
@@ -60,6 +61,105 @@ impl RequestNode {
 }
 
 type Runtime = OnceLock<NodeRuntime<RequestNode>>;
+
+/// 暂停旧平台的请求解码，让另一线程在执行关闭前完成平台切换。
+struct PausedCloseAdapter {
+    started: mpsc::Sender<()>,
+    resume: Mutex<mpsc::Receiver<()>>,
+}
+
+impl PlatformAdapter for PausedCloseAdapter {
+    fn platform(&self) -> Platform {
+        Platform::TbLvTestPlatform
+    }
+    fn identifier(&self) -> &'static str {
+        "paused_close_test"
+    }
+    fn decode(&self, invocation: Invocation) -> MiresidianResult<RuntimeInvocation> {
+        self.started.send(()).unwrap();
+        self.resume
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap();
+        Ok(RuntimeInvocation::Single(invocation))
+    }
+    fn encode(&self, response: RuntimeResponse) -> MiresidianResult<InvocationOutput> {
+        match response {
+            RuntimeResponse::Output(output) => Ok(output),
+            RuntimeResponse::MultiChannel(_) => unreachable!("仅使用单通道调用"),
+        }
+    }
+}
+
+#[test]
+fn stale_platform_closes_preserve_replacement_instances() {
+    for operation in ["CloseDevice", "CloseAllDevices"] {
+        let runtime = NodeRuntime::<RequestNode>::with_platforms(
+            miresidian::PlatformRegistry::default().with_adapter(CustomAdapter),
+        );
+        let config = vec!["A".to_owned()];
+        runtime
+            .invoke(&Invocation::new("InitDevice", config.clone(), vec![]))
+            .unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (resume_tx, resume_rx) = mpsc::channel();
+        let old = runtime.clone();
+        let close_config = if operation == "CloseDevice" {
+            config.clone()
+        } else {
+            vec![]
+        };
+        let pending = std::thread::spawn(move || {
+            old.invoke_with(
+                &PausedCloseAdapter {
+                    started: started_tx,
+                    resume: Mutex::new(resume_rx),
+                },
+                Invocation::new(operation, close_config, vec![]),
+            )
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        // 管理接口无需平台参数；随后以同一 Config 创建另一个平台的实例。
+        runtime.shutdown().unwrap();
+        let custom = Platform::Custom(65_536);
+        runtime
+            .invoke_with_platform(
+                custom,
+                Invocation::new("InitDevice", config.clone(), vec![]),
+            )
+            .unwrap();
+        resume_tx.send(()).unwrap();
+        let error = pending.join().unwrap().unwrap_err();
+        assert_eq!(error.code(), "INVALID_ARGUMENT", "{operation}");
+        let output = runtime
+            .invoke_with_platform(
+                custom,
+                Invocation::new("Record", config.clone(), vec!["alive".into()]),
+            )
+            .unwrap();
+        assert_eq!(output.as_slice(), ["alive", "1", "custom"]);
+        // 拒绝旧请求后仍可从绑定平台关闭，并重新切换回默认平台。
+        runtime
+            .invoke_with_platform(
+                custom,
+                Invocation::new(
+                    operation,
+                    if operation == "CloseDevice" {
+                        config.clone()
+                    } else {
+                        vec![]
+                    },
+                    vec![],
+                ),
+            )
+            .unwrap();
+        runtime
+            .invoke(&Invocation::new("InitDevice", config, vec![]))
+            .unwrap();
+        runtime.shutdown().unwrap();
+    }
+}
 
 unsafe fn copy_response(pointer: *const c_char) -> Value {
     // SAFETY: 调用者保证指针是当前线程刚返回的 ABI 响应，在下一次调用前读取并拥有结果。

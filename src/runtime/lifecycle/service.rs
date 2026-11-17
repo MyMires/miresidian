@@ -148,6 +148,7 @@ impl<N: Node> NodeRuntime<N> {
     }
     /// 使用调用方提供的适配器同步解码请求、执行命令并编码响应。
     /// 与当前平台绑定冲突、适配器转换错误或业务错误原样返回；初始化不接受平台选择器。
+    /// 关闭操作在生命周期锁内复核平台；解码或排队期间切换平台后，旧请求返回参数错误。
     pub fn invoke_with(
         &self,
         adapter: &dyn PlatformAdapter,
@@ -300,7 +301,9 @@ impl<N: Node> NodeRuntime<N> {
                                         message: "不接受 Config 或 Input 参数".into(),
                                     });
                                 }
-                                runtime.shutdown().map(|()| InvocationOutput::empty())
+                                runtime
+                                    .shutdown_with_platform(platform)
+                                    .map(|()| InvocationOutput::empty())
                             }
                             _ => runtime.get_port_no(&request.config, &request.input),
                         };

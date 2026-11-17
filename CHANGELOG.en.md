@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-11-18
+
+- Recheck the bound platform under the lifecycle lock before CloseDevice/CloseAllDevices cleanup. A stale request from another platform now returns INVALID_ARGUMENT and preserves replacement instances.
+- Keep administrative shutdown/shutdown_async independent of platform selection. Public Rust APIs, ABI v10, lease protocols and call parameters are unchanged; only the root framework receives a patch bump.
+- Add deterministic regressions for both close operations and synchronize README, Rustdoc and lifecycle guidance. Local commit and tag only; no push or publication.
+
 ## [0.34.1] - 2026-11-17
 
 - Validate aliased framework dependencies by actual package name, exact version and corresponding lockfile records across normal/dev/build/target declarations and locally declared workspace inheritance. Retain registry-source checks for current and legacy packages.

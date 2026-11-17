@@ -40,6 +40,8 @@ Windows 使用 Cdecl。宿主必须先调用版本查询并确认 ABI **10**，�
 - GetFunctions/GetInitConfig 不发布“平台适配”Config，InitDevice 传入旧平台选择项返回 INVALID_ARGUMENT。
 - 实例存活期间本次平台必须与绑定平台一致；关闭全部实例后可重新显式指定。默认平台和显式平台调用使用同一运行时，不创建平行状态。
 
+从框架 0.34.2 起，CloseDevice/CloseAllDevices 在生命周期锁内再次核对绑定平台。请求在解码或排队期间遇到其他线程关闭旧实例并切换平台时，旧平台关闭请求返回 INVALID_ARGUMENT，保留新平台实例。调用参数与 ABI v10 不变，无需迁移；宿主应使用当前绑定平台发起关闭。Rust 管理接口 shutdown/shutdown_async 不限定平台。
+
 ```json
 {"platform":1,"function":"InitDevice","config":["COM3"],"input":[]}
 ```
