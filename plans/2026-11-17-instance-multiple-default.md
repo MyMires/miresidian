@@ -286,3 +286,14 @@ skill 审查：仓库与安装副本完整五文件一致，不含 format/Format
 - 以有界等待暂停旧平台请求解码，在另一线程关闭并切换到新平台后恢复；两个关闭入口均须返回 INVALID_ARGUMENT，新平台对象保持可调用，并可正常关闭、重新切换平台。审核阶段两种旧实现均已复现误关。
 - 同步根 README、Rustdoc、C ABI 与实例手册、双语修订归档，由 Cargo 更新根锁文件；独立夹具的 registry 依赖保持。验证结果在完成后补充。本次仅本地提交及不可移动标签，不推送、不发布。
 - 验证完成：cargo fmt --all -- --check；根框架 cargo test --all-targets --locked 的默认/全特性组合全部通过（test-default: 54 passed, 0 ignored, 50 suites；test-all-features: 164 passed, 1 ignored, 56 suites）；同两组 cargo clippy --all-targets --locked -- -D warnings、cargo build -p miresidian --release --locked、cargo doc -p miresidian --no-deps --all-features --locked 均通过。版本门禁与 git diff --check 通过。未运行 Windows 实际加载或真实硬件验证；本补丁不改变 FFI 签名或设备协议。
+
+## 0.34.2 正式发布与在线验收（2026-11-18）
+
+用户在补丁提交后明确授权“推送和发布”。本节追加发布事实，前节“不推送、不发布”为修复阶段的授权边界记录。
+
+- 已原子推送产品提交 `1e0c7730a58eee46d53800f83e5c5c582dddf752` 与不可移动附注标签 `miresidian-v0.34.2`；远端 master、标签对象与 peeled commit 均与本地一致。
+- `cargo publish -p miresidian --dry-run --locked` 通过；正式执行 `cargo publish -p miresidian --all-features --locked`，完成 registry 依赖打包、全特性编译验证与上传。只发布根框架 0.34.2，既有依赖无重复发布；没有创建 GitHub Release。
+- [crates.io 精确版本](https://crates.io/crates/miresidian/0.34.2) 已存在且未撤回；官方 .crate SHA-256 为 `54a430ef1cabf8c05ca73e472fad7b123ebaee54bb860f1e3b8e7db204a31df4`，与 registry checksum 一致。包内 `.cargo_vcs_info.json` 指向上述产品提交、无 dirty 标记；README、原始 Cargo.toml、关闭实现及 C ABI/实例手册逐字节匹配发行树。267 个文件随包交付。
+- 下列精确页面均实测 HTTP 200，未跳转到其他版本：[README](https://docs.rs/crate/miresidian/0.34.2)、[NodeRuntime API](https://docs.rs/miresidian/0.34.2/miresidian/struct.NodeRuntime.html)、[可选 encoding 模块](https://docs.rs/miresidian/0.34.2/miresidian/encoding/index.html)、[docs.rs 修复源码](https://docs.rs/crate/miresidian/0.34.2/source/src/runtime/lifecycle/management.rs)、[GitHub 冻结源码](https://github.com/MyMires/miresidian/blob/1e0c7730a58eee46d53800f83e5c5c582dddf752/src/runtime/lifecycle/management.rs)。API 页面已核对 invoke_with/shutdown/shutdown_async，README 与源码已核对本次平台关闭修复。
+- 发布验收时 GitHub Actions [CI](https://github.com/MyMires/miresidian/actions/runs/44147819957) 与[独立工具套件](https://github.com/MyMires/miresidian/actions/runs/44147820008) 均为 in_progress；不将排队/运行状态记作通过。原产品快照的本地测试、Clippy、release 和 Rustdoc 结果沿用上节，不重复无关硬件验证。
+- 发行包候选措辞保留源码冻结时点，当前 registry/docs.rs 状态以上述实测记录为准。版本影响：无；本节仅补充正式发布验收事实，不改变产品代码、依赖、API、默认值或交付契约，不创建或移动版本标签。记录提交采用 [skip ci]，与产品版本提交分别保留。
