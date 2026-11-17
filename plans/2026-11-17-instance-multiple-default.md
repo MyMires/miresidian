@@ -236,3 +236,45 @@ skill 审查：仓库与安装副本完整五文件一致，不含 format/Format
 - 发布后查询精确版本及 yanked 状态，下载官方 .crate 验证 SHA-256/checksum、源码修订及非 dirty 状态、原始清单/README/关键 API；核对 GitHub 精确源码入口与 docs.rs 精确 README/API 页面。工具为 binary crate，核对包说明和源码页面，不要求不存在的库 API。
 - 用独立临时目录从 crates.io 精确安装 Pack/CLI，并核对 --version 与实际进程调用；该验证不使用本地路径替代新框架依赖。复核完整 Node skill 双副本与推送内容，观察 GitHub CI；记录未完成或外部排队状态，不把上传成功当作在线文档/CI 通过。
 - 本地测试结果可复用于未改变的冻结源码；发布需新增正式 Cargo 包验证、registry 安装和在线材料检查，不重跑无关硬件验证。将实际版本、源码/记录提交、标签、包 checksum、在线状态和 CI 结果归档于本文件，发布记录以纯文档提交收尾，不移动发行标签。
+
+## 2026-11-17 正式发布与在线验收结果
+
+已按本次授权完成六包正式发布；crates.io 精确版本均存在且未撤回。master 的产品源码提交为 001d79eea0ac495c02fcab7d25f30a4d8f34a010，macro/Pack/CLI 保持自身 23766652ca9e63cd1adf87d9a92543dc41dd76bb 标签快照。正常 cargo publish --locked 完成各包打包、编译验证与上传，根包增加 --all-features；没有绕过校验或改用本地独立节点依赖。
+
+| crate | 正式版本 | 不可移动标签 | 源码提交 | 官方包 SHA-256 |
+| --- | --- | --- | --- | --- |
+| [miresidian_macro](https://crates.io/crates/miresidian_macro/0.30.0) | 0.30.0 | miresidian_macro-v0.30.0 | 2376665 | 7ef01f8e223bacf458f534d02436f4e6b8bcd6130aa961ee2dda34389bbd23f9 |
+| [miresidian_encoding](https://crates.io/crates/miresidian_encoding/0.5.1) | 0.5.1 | miresidian_encoding-v0.5.1 | 001d79e | 39b7c680070fe323347cd9527ecfb2de34e2ed9f0717e413888d7ca2ef5f8d77 |
+| [miresidian_batch](https://crates.io/crates/miresidian_batch/0.3.4) | 0.3.4 | miresidian_batch-v0.3.4 | 001d79e | 3132ba76c3f4fd2827487328c4e1ba037df9b709793e3e4ddfcba1bc2abc63ea |
+| [miresidian](https://crates.io/crates/miresidian/0.34.1) | 0.34.1 | miresidian-v0.34.1 | 001d79e | a7fab6b6d59d0a8e194ef92fdd42201065fc81d703658ab77592c7f12ac370d9 |
+| [miresidian_pack](https://crates.io/crates/miresidian_pack/0.14.2) | 0.14.2 | miresidian_pack-v0.14.2 | 2376665 | 78a32e8173c72aa73be88ab9ad8b967e8a691433ba9554b28f543cec586f9c71 |
+| [miresidian_cli](https://crates.io/crates/miresidian_cli/0.3.10) | 0.3.10 | miresidian_cli-v0.3.10 | 2376665 | 9f5d8ad9f0be88438d02c3fdcb582abe4fd56ba8ae1da795197862fb88169954 |
+
+实际验收结果：
+
+- 逐包下载官方 .crate，SHA-256 与 registry checksum 一致；.cargo_vcs_info.json 的提交、非 dirty 状态和包路径与各自标签一致。原始 Cargo.toml、README 与包内所有可对应的源码文件逐字节匹配冻结树；根包 encoding feature 存在、旧 format feature 不存在，macro/encoding/batch 精确依赖正确。
+- 六个精确版本的 docs.rs README 均返回 200，且没有跳转到其他版本；关键 API 和源码入口如下。binary 工具核对 README 与源码，不宣称存在库 API。
+
+| 在线核对项 | 精确版本入口 |
+| --- | --- |
+| miresidian_macro README | [https://docs.rs/crate/miresidian_macro/0.30.0](https://docs.rs/crate/miresidian_macro/0.30.0) |
+| miresidian_encoding README | [https://docs.rs/crate/miresidian_encoding/0.5.1](https://docs.rs/crate/miresidian_encoding/0.5.1) |
+| miresidian_batch README | [https://docs.rs/crate/miresidian_batch/0.3.4](https://docs.rs/crate/miresidian_batch/0.3.4) |
+| miresidian README | [https://docs.rs/crate/miresidian/0.34.1](https://docs.rs/crate/miresidian/0.34.1) |
+| miresidian_pack README | [https://docs.rs/crate/miresidian_pack/0.14.2](https://docs.rs/crate/miresidian_pack/0.14.2) |
+| miresidian_cli README | [https://docs.rs/crate/miresidian_cli/0.3.10](https://docs.rs/crate/miresidian_cli/0.3.10) |
+| macro attribute | [https://docs.rs/miresidian_macro/0.30.0/miresidian_macro/attr.node.html](https://docs.rs/miresidian_macro/0.30.0/miresidian_macro/attr.node.html) |
+| encoding trait | [https://docs.rs/miresidian_encoding/0.5.1/miresidian_encoding/trait.EncodingInput.html](https://docs.rs/miresidian_encoding/0.5.1/miresidian_encoding/trait.EncodingInput.html) |
+| encoding decode | [https://docs.rs/miresidian_encoding/0.5.1/miresidian_encoding/fn.decode_encoded.html](https://docs.rs/miresidian_encoding/0.5.1/miresidian_encoding/fn.decode_encoded.html) |
+| root encoding | [https://docs.rs/miresidian/0.34.1/miresidian/encoding/index.html](https://docs.rs/miresidian/0.34.1/miresidian/encoding/index.html) |
+| batch decode | [https://docs.rs/miresidian_batch/0.3.4/miresidian_batch/fn.decode_batch.html](https://docs.rs/miresidian_batch/0.3.4/miresidian_batch/fn.decode_batch.html) |
+| Pack source | [https://docs.rs/crate/miresidian_pack/0.14.2/source/framework-crates.txt](https://docs.rs/crate/miresidian_pack/0.14.2/source/framework-crates.txt) |
+| CLI source | [https://docs.rs/crate/miresidian_cli/0.3.10/source/toolset.toml](https://docs.rs/crate/miresidian_cli/0.3.10/source/toolset.toml) |
+
+- 在隔离 /tmp 安装前缀从 crates.io 执行 cargo install miresidian_pack --version =0.14.2 --locked 和 cargo install miresidian_cli --version =0.3.10 --locked，均安装成功。cargo-miresidian-pack --version 为 miresidian_pack 0.14.2；cargo-miresidian 与 cargo-mires 两入口均为 miresidian_cli 0.3.10。加入该前缀 PATH 后调用 cargo-miresidian check --help，真实 CLI → Pack 子进程转发返回 0，并输出 Pack 用法。未修改用户全局安装。
+- GitHub 远端 master 与产品提交一致；六个发行标签的 annotated tag 对象及 peeled commit 与本地冻结标签一致。Node skill 的主文档、引用、UI 与维护规则完整五文件和已安装副本、产品提交冻结内容逐字节一致；远端相同提交哈希保证同一内容已推送。
+- 产品提交的两套 GitHub Actions 均 completed/success：[独立工具套件](https://github.com/MyMires/miresidian/actions/runs/43992243641)；[CI](https://github.com/MyMires/miresidian/actions/runs/43992243648)。
+- 同批推送了历史 miresidian-v0.34.0、miresidian_encoding-v0.5.0、miresidian_batch-v0.3.3 标签，仅保留已提交历史，不补发这三个被替代版本；已有 ABI/codec/instance/lease 版本没有重复发布。未创建额外 GitHub Release。
+- 发行包 README 中的候选说明保留其源码冻结时点；当前 registry、在线文档和安装的实测状态以本节为准。发行后不为改写候选措辞而重写标签或修改已发布包。
+
+本节与工具方案的结果记录为纯文档变更，版本影响：无；不改变产品源码、依赖、API、默认值或交付契约，不创建或移动版本标签。产品快照此前的测试及本节新增发行验证均保持适用；记录提交采用 [skip ci]，沿用上述产品提交的 CI 结果。记录提交仍执行工作区、暂存区与历史版本门禁；--require-tag 在产品发行 worktree 核对，记录 HEAD 不绑定新产品标签。记录提交哈希及最终远端一致性由 Git 历史和交付回复确认。
