@@ -146,6 +146,41 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    fn powershell_runtime_behavior() {
+        let shell = std::env::var("TESTFLOW_POWERSHELL").unwrap_or_else(|_| {
+            if cfg!(windows) {
+                "powershell.exe"
+            } else {
+                "pwsh"
+            }
+            .into()
+        });
+        let result = std::process::Command::new(&shell)
+            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+            .arg(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/runner-tests.ps1"))
+            .output();
+        match result {
+            Err(e)
+                if e.kind() == std::io::ErrorKind::NotFound
+                    && std::env::var_os("TESTFLOW_POWERSHELL").is_none() =>
+            {
+                eprintln!(
+                    "未找到 PowerShell；执行器行为测试未运行（可用 TESTFLOW_POWERSHELL 指定）。"
+                );
+            }
+            result => {
+                let result = result.expect("启动 PowerShell 验证");
+                assert!(
+                    result.status.success(),
+                    "{}\n{}",
+                    String::from_utf8_lossy(&result.stdout),
+                    String::from_utf8_lossy(&result.stderr)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn cargo_子命令名不会被当作流程路径() {
         assert_eq!(
             cargo_subcommand_arguments([
