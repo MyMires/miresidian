@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.34.4] - 2026-11-19
+
+- Replace duplicated CLI/toolset version numbers in the root README with links to tool-owned version and backend guidance.
+- Synchronize source version markers only; runtime implementation, macros and ABI/lease protocols are unchanged. This root documentation candidate is not published; only CLI 0.3.11 is released in this task.
+
 ## [0.34.3] - 2026-11-19
 
 - Correct TestFlow guidance: channel maps and inline expectations are implemented; final cleanup uses CloseAllDevices, while explicit CloseDevice forwards business close inputs.

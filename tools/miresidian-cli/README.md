@@ -1,9 +1,9 @@
 # Miresidian CLI
 
-0.3.10 的套件清单要求 Pack 0.14.2，将 encoding 新包纳入框架来源检查，并兼容旧 format/实例包来源约束；自动交付业务 Markdown、转发命令及 TestFlow 后端保持。
+0.3.11 将套件中的TestFlow同步至已发布的0.14.1，修复源码版本与套件清单不一致导致的归档构建失败。Pack仍为0.14.2，命令路由和进程转发保持。
 
-本页对应 CLI 源码版本 **0.3.10**，安装状态以精确版本发行记录为准。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
-本源码清单要求 Pack 至少 **0.14.2**、TestFlow 至少 **0.13.0**，各工具继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
+本页对应 CLI 源码版本 **0.3.11**，安装状态以精确版本发行记录为准。统一入口只启动原工具进程，不合并原工具项目，也不依赖它们的 Rust 库。
+本源码清单要求 Pack 至少 **0.14.2**、TestFlow 至少 **0.14.1**，各工具继续独立安装、使用及发布。框架运行时版本与 CLI、套件版本无关。
 
 new 创建新目录；init 在已有目录初始化，默认当前目录。两者生成包含项目开发规则的 AGENTS.md，init 拒绝覆盖模板文件和 Cargo.lock。
 
@@ -103,7 +103,7 @@ Python 仅用于仓库内部构建和测试，不是用户安装前提。可选�
     python3 tools/miresidian-cli/distribution/bundle.py --host linux-x64
     python3 tools/miresidian-cli/distribution/bundle.py --host windows-x64
 
-仅在对应 x64 宿主构建；输出名含套件版本 0.3.10，附 SHA-256。
+仅在对应 x64 宿主构建；输出名含套件版本 0.3.11，附 SHA-256。
 Cargo 安装是正式用户安装方式，归档文件用于分发和开发验证，不改 Cargo 安装记录。
 
 ## 后续工具接入
@@ -126,6 +126,6 @@ release.py 默认只执行 dry-run，显式 --publish 才上传。发布前检�
 手动将 publish 设置为 true 时，先按清单发布未发布的后端、再发布 CLI，然后创建对应标签的草稿 Release，附加两个宿主包。
 Cargo 发布后即可原生安装；草稿公开控制 GitHub 归档下载。标签不可移动，版本来自各 Cargo.toml 与套件清单。
 
-本次套件要求 TestFlow 0.13.0，以在调用前识别 ABI v10 的单参数 JSON 签名；Pack 0.14.2 按实际 ABI 生成模板调用说明。两者均先核对版本，避免将旧三参数函数指针用于 v10。
+本次套件固定TestFlow 0.14.1，包含通道映射、逐通道Config、内联预期和最终CloseAllDevices清理；CLI按同一清单检查后端最低版本。完整套件构建继续严格核对各Cargo.toml及实际二进制版本，不放宽或跳过校验。语法与当前ABI10验收边界见[TestFlow说明](../miresidian-testflow-windows/README.md)。Pack 0.14.2及现有命令路由保持。
 
 业务文档的源码格式、自动合并区域与支持边界统一见 [Pack 文档生成](../miresidian-pack/README.md#业务方法文档自动生成)。build/pack 的生成阶段无需 AI 额外处理；直接 Cargo build 不执行该流程。

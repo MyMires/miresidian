@@ -2,6 +2,7 @@
 use std::ffi::OsString;
 use toml::Value;
 
+// 同一清单同时约束后端最低版本与归档内容；后端升版时须同步。
 pub(super) const TOOLSET: &str = include_str!("../../toolset.toml");
 pub(super) const HELP: &str = "用法：cargo miresidian <命令>（cargo mires 为等价入口）\n  init [目录] [--name <名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  new <目录> [--name <名称>] [--miresidian-version <版本>|--mires-version <版本>]\n  check [--node <名称>]\n  build [--node <名称>] [--arch x64|x86|all]\n  pack [--node <名称>] [--arch x64|x86|all]\n  testflow --os windows <流程.testflow>\n  install --full|<工具> [版本选项] [Cargo 参数]\n  update --full|<工具> [Cargo 参数]\n  use <工具> <X.Y.Z> [Cargo 参数]\n  list [--root <目录>]\n  <命令> --help\n  --help|-h\n  --version|-V\nbuild/pack 默认全部节点、all 架构、release；new 默认最新正式版框架。";
 
