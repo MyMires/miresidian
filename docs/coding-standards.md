@@ -274,9 +274,9 @@ Linux 宿主使用发行版提供的 MinGW-w64 GCC 与 binutils；确认 `x86_64
 
 移至[后续演进计划](architecture.md#待办构建环境自动配置未实现)。
 
-### 待办：TestFlow 多通道测试（未实现，2026-11-01）
+### TestFlow 多通道测试
 
-移至[后续演进计划](architecture.md#待办testflow-多通道测试未实现2026-11-01)。
+实现状态和平台验收边界见[架构说明](architecture.md#testflow-多通道测试)，语法和生命周期规则见[工具README](../tools/miresidian-testflow-windows/README.md)。
 
 ### 待办：自定义结构体的平台契约自动生成（未实现，2026-11-03）
 

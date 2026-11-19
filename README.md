@@ -4,7 +4,7 @@
 
 Miresidian 是面向外部资源集成、通信与业务调用的 Rust **节点插件开发与运行时框架**。它将集成逻辑和业务能力构建为具有统一 C ABI 的节点 DLL，供 C、C#、Python、LabVIEW 等语言的宿主应用加载和调用；测试平台、自动化系统与上位机软件都是其典型接入方。
 
-Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.34.2**，C ABI 为 **v10**，租约协议为 **v2**。
+Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿主应用中的节点插件或扩展。框架负责统一其调用契约、生命周期、参数编解码、接入协议适配和并发执行，使节点开发者能够专注于资源状态、通信和业务逻辑。最低 Rust 版本为 **1.89**；当前框架源码版本为 **0.34.3**，C ABI 为 **v10**，租约协议为 **v2**。
 
 **[0.34.0 宏简写与 encoding 迁移](docs/releases/0.34.0.md)** · **[0.33.0 instance 名称迁移](docs/releases/0.33.0.md)** · **[0.30.0 枚举与单 JSON 入口](docs/releases/0.30.0.md)** · **[0.29.0 公开类型命名迁移](docs/releases/0.29.0.md)** · **[0.28.0 宏简写与兼容迁移](docs/releases/0.28.0.md)** · **[文档中心](docs/README.md)** · **[架构总览与 UML](docs/architecture.md)** · **[修订记录](CHANGELOG.md)** · **[运行时平台选择与 v9 迁移](docs/releases/0.27.0.md)**
 
@@ -21,6 +21,8 @@ Miresidian 本身不是插件宿主；独立节点项目产出的 DLL 才是宿�
 - 对单值业务逻辑需要顺序批量调用时，可启用 `batch` feature，并在普通 Input 参数上标记 batch，按原类型解析字符串、布尔、数值等记录；整数保留范围与混合展开，格式可逐条选择；实现位于 [batch feature crate](features/batch/README.md)。
 
 节点项目通常只直接依赖 `miresidian`。具体串口、TCP、USB、CAN 等通信实现和私有依赖归独立节点项目所有。框架库、过程宏、开发工具与节点 DLL 的关系见[架构总览](docs/architecture.md)。
+
+本次0.34.3仅修正TestFlow相关指导内容，运行时实现、宏和ABI契约保持。TestFlow 0.14系列支持通道映射、逐通道Config和内联断言，最终通过CloseAllDevices释放本地引用；使用方式及Windows验收边界见[工具说明](tools/miresidian-testflow-windows/README.md)。
 
 统一开发命令与整套下载见 [Miresidian CLI](tools/miresidian-cli/README.md)。CLI/套件源码版本为 0.3.10，用户安装与升级由 Cargo 管理。Pack 的 new/init 模板支持 ABI v7–v10，按实际已发布依赖生成对应调用说明；新版本发行与安装状态分别核对，见工具说明。
 
@@ -85,7 +87,7 @@ impl EchoNode {
 
 ## 当前源码的 feature 简写
 
-以下对应框架 **0.34.2 / macro 0.30.0 / encoding 0.5.1** 源码候选，尚未发布；不能将上面的旧已发布依赖示例与新语法混用。format 能力统一更名为 encoding，包括 Cargo feature、宏标签、公开模块及 crate；旧入口不保留别名。迁移见 [0.34.0](docs/releases/0.34.0.md)。
+以下对应框架 **0.34.3 / macro 0.30.0 / encoding 0.5.1** 源码候选，尚未发布；不能将上面的旧已发布依赖示例与新语法混用。format 能力统一更名为 encoding，包括 Cargo feature、宏标签、公开模块及 crate；旧入口不保留别名。迁移见 [0.34.0](docs/releases/0.34.0.md)。
 
 ```rust,ignore
 #[miresidian::node("设备", instance(multiple, selectable(sequential)), lease)]
@@ -115,7 +117,7 @@ impl EchoNode {
 
 本地工具链、完整验证命令以及代码、文档与测试要求统一见[开发与维护规范](docs/coding-standards.md)。
 
-本检出对应框架 0.34.2、macro 0.30.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
+本检出对应框架 0.34.3、macro 0.30.0、codec 0.18.0、ABI 0.17.1/v10。`#[derive(miresidian::NodeEnum)]` 为无字段业务枚举生成通用 codec 和结构化候选；参数缺少非空描述时，由本次调用的平台适配器生成候选格式并配套规范化输入，已有手写描述保持。默认值、集合、配置身份和租约规则见[节点手册](docs/宏驱动开发.md)；旧调用入口/平台 Config 的迁移见[0.30.0](docs/releases/0.30.0.md)。
 
 0.31.0 支持成员显示值的长写与简写，含义相同：
 

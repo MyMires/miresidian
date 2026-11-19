@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.34.3] - 2026-11-19
+
+- Correct TestFlow guidance: channel maps and inline expectations are implemented; final cleanup uses CloseAllDevices, while explicit CloseDevice forwards business close inputs.
+- Synchronize README and architecture links, retaining Windows native validation limits and using current ABI10 as the acceptance target.
+- Documentation-only root patch required by the version gate. Runtime implementation, macros, ABI/lease protocols, dependency components and independent nodes stay unchanged. Only the TestFlow tool is published in this task; the root package remains a source candidate.
+
 ## [0.34.2] - 2026-11-18
 
 - Recheck the bound platform under the lifecycle lock before CloseDevice/CloseAllDevices cleanup. A stale request from another platform now returns INVALID_ARGUMENT and preserves replacement instances.

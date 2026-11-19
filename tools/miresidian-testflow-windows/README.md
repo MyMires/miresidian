@@ -2,7 +2,7 @@
 
 [文档中心](../../docs/README.md) · [CLI](../miresidian-cli/README.md)
 
-本源码候选为 **0.14.0，尚未发布**。工具把节点项目的 `.testflow` 生成同名、自包含的 Windows BAT。只维护原流程文件；不需要预期旁文件、报告文件或外置 PowerShell 脚本。
+本说明对应 **0.14.1**；源码提交、registry发行与在线文档可用性分别核对。工具把节点项目的 `.testflow` 生成同名、自包含的 Windows BAT。只维护原流程文件；不需要预期旁文件、报告文件或外置 PowerShell 脚本。
 
 在声明 `cdylib` 的节点项目根目录运行：
 
@@ -91,6 +91,8 @@ TB 批次以英文逗号编码每通道 Input，因此零参数数组、含英�
 
 最终清理释放本宿主引用，不强制关闭其他宿主的租约。部分初始化成功后匹配预期错误时保留成功请求，允许后续检查/显式恢复，最后统一清理；不承诺跨配置事务回滚。需要业务关闭参数时显式 `CloseDevice(...)`，自动清理不保证设备完成业务复位。
 
+当前最新版ABI10是本次功能与发布验收基准，不要求历史ABI实际DLL测试；已有旧入口兼容分支不构成历史版本验收承诺。
+
 ABI 10 对象流程（含 Config 对象或通道预期）明确使用现有 `platform:1` TB 契约，连同元数据和生命周期；原字符串流程仍用 `platform:0` 默认平台。ABI7–9保留三参数入口，对象流程要求 DLL 默认采用 TB 契约。其他 ABI 在调用前拒绝。不修改框架、宏、ABI 或租约协议，不支持任意自定义平台元数据。
 
 工具可以调用与断言多通道和租约相关返回，但**单个流程不能单独证明跨宿主租约正确**。工具内部测试使用临时 registry 节点、独占文件锁、打开/关闭事件和计数，配合多个 DLL/进程验证共享和最后引用释放；不要求节点项目增加验证文件。无硬件夹具不代替真实设备验收。
@@ -103,4 +105,4 @@ cargo clippy -p miresidian_testflow_windows --all-targets --locked -- -D warning
 python tools/miresidian-testflow-windows/tests/native.py --powershell <PowerShell路径>
 ```
 
-`TESTFLOW_POWERSHELL` 可指定 cargo test 所用 PowerShell；默认在 Windows 查找 powershell.exe，其他系统查找 pwsh。缺少解释器会明确提示行为测试未运行。原生验证脚本只在临时目录生成独立夹具，依赖已发布的精确框架版本，无 path/git/patch 覆盖。Windows 运行新生成 BAT，其他系统直接运行同一内嵌模板。Linux/PowerShell7原生调用通过不替代 Windows x64/x86 的 PowerShell5.1、BAT、PInvoke 实测；具体证据与未完成项记录在[本次方案](../../plans/2026-11-19-testflow-multichannel.md)。
+`TESTFLOW_POWERSHELL` 可指定 cargo test 所用 PowerShell；默认在 Windows 查找 powershell.exe，其他系统查找 pwsh。缺少解释器会明确提示行为测试未运行。原生验证脚本只在临时目录生成独立夹具，依赖已发布的精确框架版本，无 path/git/patch 覆盖。Windows 运行新生成 BAT，其他系统直接运行同一内嵌模板。Linux/PowerShell7原生调用通过不替代 Windows x64/x86 的 PowerShell5.1、BAT、PInvoke 实测；具体证据与未完成项记录在[本次方案](../../plans/2026-11-19-testflow-multichannel.md)。Node skill按实际工具版本查阅本说明，不固定工具语法或随工具版本自动修订。

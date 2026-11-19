@@ -2,8 +2,11 @@
 //!
 //! 在节点项目根目录运行 `cargo miresidian-testflow-windows <流程.testflow>`。工具会确认
 //! 当前包声明了 `cdylib`，并在流程文件旁生成同名 `.bat`，供 Windows 上的 PowerShell
-//! 执行。BAT 以 `-EncodedCommand` 内嵌框架维护的流程执行器，不依赖节点项目中的 `.ps1`；它不构建 DLL，也不直接访问硬件。
+//! 执行。BAT 以 `-EncodedCommand` 内嵌本工具维护的流程执行器，不依赖节点项目中的 `.ps1`；它不构建 DLL，也不直接访问硬件。
 //!
+//! 执行器始终展示实际结果；`=>` 启用内联断言。流程结束或失败时调用
+//! `CloseAllDevices` 释放本地引用；需要业务关闭参数时显式调用 `CloseDevice(...)`。
+//! 本次验收以当前 ABI 10 为准，不要求历史 ABI 实际 DLL 测试。
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cargo_metadata::{MetadataCommand, TargetKind};
 mod flow;

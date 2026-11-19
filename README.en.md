@@ -4,7 +4,9 @@
 
 Miresidian is a Rust framework for building node plugins with a stable C ABI. Independent node projects produce DLLs for hosts written in C, C#, Python, LabVIEW, and other languages. The framework provides node metadata, parameter codecs, lifecycle management, platform adapters, and concurrent execution. Device protocols and physical communication belong to the node's communication provider.
 
-Current source: **0.34.2**. Rust MSRV: **1.89**. C ABI: **v10**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This macro shorthand and encoding naming migration source candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
+Current source: **0.34.3**. Rust MSRV: **1.89**. C ABI: **v10**. Configuration lease protocol: **v2**. Shared resource protocol: **v2**. This macro shorthand and encoding naming migration source candidate is unpublished. The example below deliberately uses published **0.26.0**, whose registry and exact-version documentation were previously rechecked on 2026-11-07. Independent nodes use published versions without local overrides; verify availability again when choosing another version.
+
+Source 0.34.3 corrects TestFlow guidance only; runtime implementation, macros and ABI contracts are unchanged. TestFlow 0.14 supports channel maps, per-channel Config and inline expectations, with final CloseAllDevices cleanup of local references. See the [tool guide](tools/miresidian-testflow-windows/README.md) for usage and Windows validation limits.
 
 ## Getting started
 
@@ -22,7 +24,7 @@ Declare a node with `#[miresidian::node("Name")]` and its methods with `#[miresi
 
 ## Feature shorthand in this source candidate
 
-Framework **0.34.2 / macro 0.30.0** renames the optional format capability to **encoding**, including the Cargo feature, macro group, public module, traits and the miresidian_encoding 0.5.1 package. Old format entries are rejected. These source candidates are not installation instructions; independent nodes retain their published dependencies. See the [0.34 migration](docs/releases/0.34.0.md).
+Framework **0.34.3 / macro 0.30.0** renames the optional format capability to **encoding**, including the Cargo feature, macro group, public module, traits and the miresidian_encoding 0.5.1 package. Old format entries are rejected. These source candidates are not installation instructions; independent nodes retain their published dependencies. See the [0.34 migration](docs/releases/0.34.0.md).
 
 ```rust,ignore
 #[miresidian::node("Device", instance(multiple, selectable(sequential)), lease)]

@@ -1,6 +1,6 @@
 # 架构总览
 
-本检出 0.34.0 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
+本检出 0.34.3 的运行时适配接口为 `Node`，参数编解码和值模型使用 `NodeInput` / `NodeOutput` 等通用节点名称。源码接口迁移见[0.29.0](releases/0.29.0.md)。
 
 [文档中心](README.md) · [项目首页](../README.md)
 
@@ -342,7 +342,7 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 ## 后续演进计划
 
-本节集中记录尚未实现的需求；当前已实现机制见前文。历史测量与维护复盘见[历史归档](history/maintenance.md)。
+本节记录后续演进需求；工具条目同时列出已实现能力与尚未完成的验收，避免将实现状态和平台验证混为一谈。历史测量与维护复盘见[历史归档](history/maintenance.md)。
 
 ### 国际化发布信息
 
@@ -350,7 +350,8 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 
 ### 节点流程测试工具
 
-- `miresidian_testflow_windows` 将 `.testflow` 生成自包含 Windows BAT；流程解析、DLL C ABI 调用、返回格式化和自动 CloseDevice 均由框架内嵌执行器负责。
+- `miresidian_testflow_windows` 将 `.testflow` 生成自包含 Windows BAT；解析、DLL调用、结果展示和断言由工具内嵌执行器维护，不进入框架运行时或宏。单通道、多通道、Config和预期语法统一见[工具说明](../tools/miresidian-testflow-windows/README.md)。
+- 每个流程独占本地DLL runtime，正常结束或失败时以空Config/Input调用`CloseAllDevices`，保留主失败和清理失败。显式`CloseDevice(...)`支持业务关闭参数；自动清理只释放本宿主引用，不强制关闭其他宿主的租约。
 - 当 `.testflow` 的跨平台语法、断言和报告格式稳定后，再抽取 `miresidian_testflow` 核心 crate；届时 Windows BAT 执行器只保留平台加载职责。
 - 工具应通过 C ABI 的 `GetFunctions` 与 `GetInitConfig` 自适应节点，而不包含串口业务规则。
 - 保留节点项目对流程文件、测试数据和硬件环境的所有权。
@@ -365,13 +366,14 @@ DLL 宿主必须在最终卸载前停止并发入口调用并完成清理。租�
 当前 install --full 仅安装全部 Rust 配套工具，不代表完整构建环境已配置。
 此项只记录后续需求，不纳入本次工具链发布。
 
-### 待办：TestFlow 多通道测试（未实现，2026-11-01）
+### TestFlow 多通道测试
 
-- [ ] 为 `.testflow` 增加多通道测试的调用方式和语法，明确各通道输入、通道选择及输出对应关系，并提供流程示例。
-- [ ] 对接节点声明的顺序、并行和广播执行策略，区分多通道调用与多个设备实例的测试。
-- [ ] 配套更新静态检查、BAT 内嵌执行器及使用说明，验证相关通道行为。
+- [x] TestFlow 0.14系列已实现通道映射、集合/范围、逐通道Config及内联预期；普通单通道调用保持。
+- [x] 相同完整Config发送一次真实TB批次，沿用DLL的Sequential/Parallel/Broadcast；不同Config逐通道独立调用，区分多通道与多实例路由。
+- [x] 静态检查、内嵌执行器和使用说明已更新；Linux原生动态库验证覆盖计数、槽位、批次互斥、多宿主租约、最后引用释放及故障恢复。
+- [ ] Windows x64/x86的BAT、PowerShell5.1、PInvoke及同架构辅助宿主原生验收。
 
-此项仅记录后续需求，具体语法待设计，暂不实现。
+验收仅以当前最新版ABI10为准，不要求历史ABI实际DLL测试。实现与实际证据见[原方案](../plans/2026-11-19-testflow-multichannel.md)；本地通过不代表Windows或真实设备已验收。
 
 ### 待办：自定义结构体的平台契约自动生成（未实现，2026-11-03）
 

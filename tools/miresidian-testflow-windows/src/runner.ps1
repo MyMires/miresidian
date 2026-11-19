@@ -1,9 +1,11 @@
 <#
 .SYNOPSIS
-  由框架生成的自包含 BAT 内嵌执行，调用 Miresidian Windows DLL。
+  由 TestFlow 生成的自包含 BAT 内嵌执行，调用 Miresidian Windows DLL。
 
 .NOTES
-  此文件是框架工具的内嵌执行模板，不会写入节点项目。
+  此文件是 TestFlow 工具的内嵌执行模板，不会写入节点项目。
+  显式 CloseDevice 支持关闭参数；最终 CloseAllDevices 只释放本地 runtime 引用。
+  本次验收以当前 ABI 10 为准，旧入口分支不代表历史 ABI 已验收。
 #>
 [CmdletBinding()]
 param(
@@ -30,7 +32,7 @@ $ErrorActionPreference = 'Stop'
 # BAT switches the console to UTF-8; use the same encoding for formatted output.
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-# 此模板由框架生成的 BAT 以内嵌方式执行，所有运行参数均来自 BAT 写入的环境变量。
+# 此模板由 TestFlow 生成的 BAT 以内嵌方式执行，所有运行参数均来自 BAT 写入的环境变量。
 $FromEnvironment = $true
 
 # BAT uses environment variables so cmd.exe cannot consume JSON's double quotes.
